@@ -1,5 +1,5 @@
 export const T = 16, SEASON_LEN = 10;
-export const GOAL = 3000, EGG_PRICE = 15, CHICKEN_COST = 250;
+export const GOAL = 8000, EGG_PRICE = 15, CHICKEN_COST = 250;
 export const PEN = { x0: 40, y0: 6, x1: 48, y1: 10 };                            // chicken pen on the farm
 export const PASTURE = { x0: 26, y0: 7, x1: 36, y1: 12 };                        // cow pasture
 export const MAX_CHICKENS = 6, MAX_COWS = 3, COW_COST = 500;
@@ -49,9 +49,9 @@ export const CROPS = {
   potato:   { days: 5, price: 40, seed: 12, seasons: [0] },
   carrot:   { days: 5, price: 35, seed: 10, seasons: [0, 1] },
   tomato:   { days: 6, price: 30, seed: 20, seasons: [1], regrow: 2 },           // keeps producing
-  corn:     { days: 8, price: 70, seed: 22, seasons: [1, 2], regrow: 3 },
+  corn:     { days: 8, price: 85, seed: 22, seasons: [1, 2], regrow: 3 },
   pumpkin:  { days: 7, price: 90, seed: 25, seasons: [2] },
-  eggplant: { days: 5, price: 60, seed: 15, seasons: [2], regrow: 2 },
+  eggplant: { days: 5, price: 45, seed: 15, seasons: [2], regrow: 3 },
   cabbage:  { days: 5, price: 50, seed: 15, seasons: [0, 3] },
   kale:     { days: 4, price: 45, seed: 12, seasons: [3] },
 };

@@ -18,3 +18,6 @@ Arrows / A D move · Space / W / Up jump (hold for higher) · R restart level
 
 ## Mobile
 Open `farm/index.html` over http(s) on a phone (landscape works best). A virtual joystick, A/E action buttons and shortcut buttons appear automatically on touch devices; menu lines and the hotbar can be tapped directly. Use "Add to Home Screen" to install it fullscreen; it also works offline after the first load.
+
+## Hosting
+`.github/workflows/pages.yml` publishes the `farm/` folder to GitHub Pages on every push. One-time setup: repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then served at `https://<user>.github.io/<repo>/`, installable as a home-screen app on phones.
