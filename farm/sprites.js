@@ -1,5 +1,6 @@
 // Procedural pixel art: every sprite is drawn once into an offscreen canvas at startup.
 import { SEASONS, hash, mk, R, disc, ellipse, flip, shade, outline, tint } from "./px.js";
+import { cropSprite, produceIcon, chickenFrames, cowFrames, dogFrames, catFrames } from "./art2.js";
 import { makeTileCache, drawTree, drawRock, drawPalm, drawCactus, drawHouse, makePerson } from "./art.js";
 export { SEASONS, hash };
 function art(g, rows, pal) { rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) R(g, pal[ch], x, y); })); }
@@ -385,16 +386,16 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) 
     },
     node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
     ghfloor: [0, 1, 2, 3].map(ghFloor), ghwall: ghWall(),
-    pet: { dog: [outline(dog(0)), outline(dog(1))], cat: [outline(cat(0)), outline(cat(1))] }, horse: { side: outline(horseSide()), front: outline(horseFront(false)), back: outline(horseFront(true)) },
-    chicken: outline(chicken()), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg(), dig: digSpot() },
-    mon: { slime: [outline(slime(0)), outline(slime(1))], bat: [outline(bat(0)), outline(bat(1))], skeleton: [outline(skeleton(0)), outline(skeleton(1))] }, cow: outline(cow()),
+    pet: { dog: dogFrames(), cat: catFrames() }, horse: { side: outline(horseSide()), front: outline(horseFront(false)), back: outline(horseFront(true)) },
+    chicken: chickenFrames(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg(), dig: digSpot() },
+    mon: { slime: [outline(slime(0)), outline(slime(1))], bat: [outline(bat(0)), outline(bat(1))], skeleton: [outline(skeleton(0)), outline(skeleton(1))] }, cow: cowFrames(),
     monB: { frost: {}, magma: {} },
     player: makePerson({}),
     npc: {},
   };
   for (const [id, look] of Object.entries(npcs)) S.npc[id] = makePerson(look);
   for (const [b, col] of [["frost", "#6ab4ff"], ["magma", "#ff6a30"]]) for (const k of Object.keys(S.mon)) S.monB[b][k] = S.mon[k].map(img => tint(img, col, 0.5));
-  for (const t of crops) { S.crop[t] = [0, 1, 2, 3, 4].map(st => crop(t, st)); S.icon[t] = S.crop[t][4]; }
+  for (const t of crops) { S.crop[t] = [0, 1, 2, 3, 4].map(st => cropSprite(t, st)); S.icon[t] = produceIcon(t); }
   for (const id of forage) S.icon[id] = forageIcon(id);
   for (const [id, col] of Object.entries(ores)) { S.node[id] = oreNode(id, col); S.icon[id] = S.node[id]; }
   for (const id of misc) if (id !== "tonic") S.icon[id] = miscIcon(id);

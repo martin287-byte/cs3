@@ -1071,7 +1071,7 @@ function drawWorld() {
     if (tile.kind === "ladder") ctx.drawImage(S.ladder, x * T, y * T);
     if (tile.kind === "mexit") ctx.drawImage(S.mexit, x * T, y * T);
     if (tile.sprinkler) ctx.drawImage(S.icon[tile.sprinkler === 2 ? "qsprinkler" : "sprinkler"], x * T, y * T);
-    if (tile.crop) { shadow(x * T + 8, y * T + 13, 5, 1.5, 0.2); ctx.drawImage(S.crop[tile.crop.type][cropStage(tile.crop)], x * T, y * T); }
+    if (tile.crop) { const ci = S.crop[tile.crop.type][cropStage(tile.crop)]; shadow(x * T + 8, y * T + 14, 5, 1.5, 0.2); ctx.drawImage(ci, x * T - ci.ox, (y + 1) * T - 24 - ci.oy); }
     if (tile.forage) ctx.drawImage(S.icon[tile.forage], x * T, y * T + Math.round(Math.sin(clock * 3 + x) * 0.6));
     if (tile.dig) ctx.drawImage(S.icon.dig, x * T, y * T + (Math.sin(clock * 4 + x) > 0.8 ? -1 : 0));
     if (tile.fegg) ctx.drawImage(S.icon.fegg, x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
@@ -1096,7 +1096,7 @@ function drawWorld() {
     const f = n.moving ? [1, 0, 2, 0][Math.floor(clock * 6) % 4] : 0;
     things.push({ img: S.npc[id][n.dir][f], x: n.x, y: n.y + 14 - 24, sort: n.y + 14, sh: [n.x + 8, n.y + 14, 5, 2] });
   }
-  if (state.map === "farm") for (const c of animals) things.push({ img: c.kind === "cow" ? S.cow : S.chicken, x: c.x, y: c.y, sort: c.y + (c.kind === "cow" ? 14 : 10), flip: c.vx < 0, sh: [c.x + (c.kind === "cow" ? 10 : 6), c.y + (c.kind === "cow" ? 13 : 9), c.kind === "cow" ? 8 : 5, 2] });
+  if (state.map === "farm") for (const c of animals) things.push({ img: c.kind === "cow" ? S.cow[Math.abs(c.vx) + Math.abs(c.vy) > 1 ? Math.floor(clock * 3 + c.x) % 2 : 0] : S.chicken[Math.floor(clock * 1.5 + c.x * 0.3) % 5 === 0 ? 1 : 0], x: c.x, y: c.y, sort: c.y + (c.kind === "cow" ? 14 : 10), flip: c.vx < 0, sh: [c.x + (c.kind === "cow" ? 10 : 6), c.y + (c.kind === "cow" ? 13 : 9), c.kind === "cow" ? 8 : 5, 2] });
   if (state.map === "mine") for (const mon of monsters) things.push({ img: (S.monB[biome]?.[mon.type] ?? S.mon[mon.type])[Math.floor(clock * 4) % 2], x: mon.x, y: mon.y, sort: mon.y + 14, hurt: mon.hurt > 0, sh: [mon.x + 7, mon.y + 12, 5, 2] });
   const dir = state.fy > 0 ? 0 : state.fy < 0 ? 1 : state.fx > 0 ? 2 : 3;
   const pf = moving ? [1, 0, 2, 0][Math.floor(walkT * 8) % 4] : 0;
@@ -1497,10 +1497,10 @@ function drawTitle() {
   for (let x = 0; x <= W; x += 20) ctx.lineTo(x, 162 + Math.sin(x / 55) * 14);
   ctx.lineTo(W, 190); ctx.fill();
   for (let y = 11; y < 17; y++) for (let x = 0; x < 30; x++) ctx.drawImage(S.tile("grass", 0, Math.floor(hash(x, y, 4) * 8), 0), x * T, y * T);
-  for (let x = 4; x < 12; x++) { ctx.drawImage(S.tile("soil", 0, 0, (x === 4 ? 8 : 0) | (x === 11 ? 2 : 0) | 1 | 4, { wet: true }), x * T, 12 * T); ctx.drawImage(S.crop[CROP_IDS[x % CROP_IDS.length]][4], x * T, 12 * T); }
+  for (let x = 4; x < 12; x++) { ctx.drawImage(S.tile("soil", 0, 0, (x === 4 ? 8 : 0) | (x === 11 ? 2 : 0) | 1 | 4, { wet: true }), x * T, 12 * T); const ci = S.crop[CROP_IDS[x % CROP_IDS.length]][4]; ctx.drawImage(ci, x * T - ci.ox, 13 * T - 24 - ci.oy); }
   shadow(20 * T + 24, 11 * T - 1, 26, 3); blit({ img: S.bldg.home, x: 18 * T - 4, y: 11 * T - 56 }); for (const tx of [25, 1, 14]) { shadow(tx * T + 8, 11 * T - 2, 8, 3); blit({ img: S.tree[0][tx % 2], x: tx * T - 4, y: 11 * T - 34 }); }
   const wx = ((clock * 20) % (W + 30)) - 20; shadow(wx + 8, 14 * T + 14, 5, 2); blit({ img: S.player[2][[1, 0, 2, 0][Math.floor(clock * 6) % 4]], x: wx, y: 14 * T - 10 });
-  shadow(15 * T + 6, 14 * T + 13, 5, 2); blit({ img: S.chicken, x: 15 * T, y: 14 * T + 4 });
+  shadow(15 * T + 6, 14 * T + 13, 5, 2); blit({ img: S.chicken[Math.floor(clock * 2) % 4 === 0 ? 1 : 0], x: 15 * T, y: 14 * T + 4 });
   ctx.font = "bold 30px monospace"; txt("TINY VALLEY", W / 2 + 2, 62, "#2b3b20", "center"); txt("TINY VALLEY", W / 2, 60, "#ffe9a8", "center");
   ctx.font = "10px monospace"; txt("a cozy farming adventure", W / 2, 78, "#2b3b20", "center");
   const opts = titleOptions(); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(W / 2 - 70, 92, 140, opts.length * 16 + 10);

@@ -1,6 +1,6 @@
 // Network-first service worker: always tries the network, falls back to the cache when offline.
-const CACHE = "tinyvalley-v2";
-const FILES = ["./", "index.html", "main.js", "data.js", "world.js", "audio.js", "sprites.js", "px.js", "art.js", "touch.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "tinyvalley-v3";
+const FILES = ["./", "index.html", "main.js", "data.js", "world.js", "audio.js", "sprites.js", "px.js", "art.js", "art2.js", "touch.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
