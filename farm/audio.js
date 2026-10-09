@@ -65,3 +65,4 @@ export function startMusic(name) {
   timer = setInterval(tick, 30000 / MOODS[name].bpm);                            // eighth notes
 }
 export function stopMusic() { if (timer) clearInterval(timer); timer = null; mood = null; }
+export function setPaused(p) { try { if (!ctx) return; if (p) ctx.suspend(); else if (!muted) ctx.resume(); } catch {} }

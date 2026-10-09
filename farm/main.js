@@ -1535,6 +1535,9 @@ canvas.addEventListener("pointerdown", e => {
   if (cy >= H - 34) { const i = Math.floor((cx - tb0) / 28); if (i >= 0 && i < TOOLS.length) dispatchKey(String(i + 1)); }
 });
 initTouch();
+// Phones kill backgrounded tabs: save and silence audio whenever the page is hidden.
+const onHide = () => { if (document.visibilityState === "hidden" || document.visibilityState === undefined) { if (scene === "game" && state) save(); audio.setPaused(true); } else audio.setPaused(false); };
+document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
 let lastUiOpen = null, lastTitle = null;
 function syncBodyClasses() {
   const uiOpen = scene === "game" && !!state?.ui, title = scene === "title";

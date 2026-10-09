@@ -25,41 +25,56 @@
     body.touch #controls { display: block; }
     body.touch #stage { width: 100vw; }
     #controls button { font: bold 14px monospace; color: #fff; background: rgba(40, 34, 70, .72); border: 2px solid rgba(255, 255, 255, .45); border-radius: 12px; touch-action: none; padding: 0; }
-    #controls button.down { background: rgba(255, 210, 63, .85); color: #000; }
-    #stick { position: absolute; width: 120px; height: 120px; border-radius: 50%; background: rgba(40, 34, 70, .45); border: 2px solid rgba(255, 255, 255, .35); touch-action: none; }
-    #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, .55); pointer-events: none; }
+    #controls button.down { background: rgba(255, 210, 63, .85); color: #000; transform: scale(.94); }
+    #zone { position: absolute; touch-action: none; }
+    #stick { position: fixed; width: 120px; height: 120px; border-radius: 50%; background: rgba(40, 34, 70, .4); border: 2px solid rgba(255, 255, 255, .3); pointer-events: none; opacity: .4; transition: opacity .15s; }
+    #stick.on { opacity: .95; transition: none; }
+    #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, .6); pointer-events: none; }
     #actions { position: absolute; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-    #actions .row { display: flex; gap: 8px; }
-    #actions .small button { width: 52px; height: 34px; font-size: 11px; }
+    #extras { display: grid; grid-template-columns: repeat(4, 56px); gap: 8px; }
+    #extras button { height: 42px; font-size: 12px; }
+    #actions .big { display: flex; gap: 8px; align-items: flex-end; }
     #actions .big button { width: 68px; height: 68px; border-radius: 50%; font-size: 24px; }
-    #actions .big .a { background: rgba(220, 70, 70, .75); }
-    #actions .big .b { background: rgba(60, 120, 220, .75); margin-top: 18px; }
+    #actions .big .a { background: rgba(220, 70, 70, .78); }
+    #actions .big .b { background: rgba(60, 120, 220, .78); margin-bottom: 20px; }
+    #actions .big #more { width: 44px; height: 44px; font-size: 20px; margin-bottom: 36px; }
     #keypad { position: absolute; display: none; gap: 6px; flex-wrap: wrap; justify-content: center; }
     #keypad button { width: 46px; height: 40px; font-size: 13px; }
     #keypad button.wide { width: 64px; }
-    #fs { position: absolute; width: 34px; height: 34px; font-size: 16px; }
+    #fs { position: absolute; width: 36px; height: 36px; font-size: 16px; }
     #rotate { display: none; }
-    body.ui-open #stick, body.ui-open #actions, body.scene-title #stick, body.scene-title #actions { display: none; }
+    body.ui-open #stick, body.ui-open #zone, body.ui-open #actions, body.scene-title #stick, body.scene-title #zone, body.scene-title #actions { display: none; }
     body.ui-open #keypad, body.scene-title #keypad { display: flex; }
 
     @media (orientation: landscape) {
-      body.touch #stage { width: min(100vw, calc(100vh * 16 / 9)); }
+      body.touch #stage { width: min(100vw, calc(100dvh * 16 / 9)); }
       body.touch #controls { position: fixed; inset: 0; pointer-events: none; }
       body.touch #controls > * { pointer-events: auto; }
-      body.touch { --hb: calc(min(100vh, 56.25vw) * 0.14); }                      /* keep controls above the in-game hotbar */
-      body.touch #stick { left: calc(14px + env(safe-area-inset-left)); bottom: calc(var(--hb) + 6px); opacity: .85; }
+      body.touch #stick { pointer-events: none; }
+      body.touch { --hb: calc(min(100dvh, 56.25vw) * 0.14); }                     /* keep controls above the in-game hotbar */
+      body.touch #zone { left: 0; top: 14%; width: 46%; bottom: var(--hb); }
+      body.touch #stick { left: calc(18px + env(safe-area-inset-left)); bottom: calc(var(--hb) + 10px); }
       body.touch #actions { right: calc(46px + env(safe-area-inset-right)); bottom: calc(var(--hb) + 4px); }
+      body.touch #extras { display: none; }
+      body.touch.more-open #extras { display: grid; }
+      body.touch #fs { right: 8px; top: 8px; opacity: .6; }
       body.touch #keypad { left: 50%; transform: translateX(-50%); bottom: calc(var(--hb) + 2px); width: min(560px, 80vw); }
-      body.touch #fs { right: 8px; top: 8px; }
     }
     @media (orientation: portrait) {
       body.touch { justify-content: flex-start; }
       body.touch #controls { position: relative; flex: 1; width: 100%; }
-      body.touch #stick { left: 18px; top: 74px; }
-      body.touch #actions { right: 14px; top: 8px; }
+      body.touch #zone { left: 0; top: 112px; bottom: 0; width: 60%; }
+      body.touch #stick { left: 22px; top: calc(env(safe-area-inset-top) + 56.25vw + 190px); width: 140px; height: 140px; }
+      body.touch #actions { display: contents; }
+      body.touch #extras { position: absolute; left: 12px; right: 12px; top: 10px; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      body.touch #extras button { height: 48px; font-size: 13px; }
+      body.touch #more { display: none; }
+      body.touch #actions .big { position: absolute; right: 16px; top: 190px; }
+      body.touch #actions .big button { width: 76px; height: 76px; }
       body.touch #keypad { left: 0; right: 0; top: 16px; padding: 0 8px; }
+      body.touch #keypad button { height: 46px; }
       body.touch #fs { right: 8px; bottom: 8px; }
-      body.touch #rotate { display: block; position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 11px; opacity: .55; }
+      body.touch #rotate { display: block; position: absolute; left: 12px; right: 56px; bottom: 6px; text-align: left; font-size: 11px; opacity: .55; }
     }
   </style>
 </head>
@@ -67,13 +82,14 @@
   <div id="stage"><canvas id="game" width="480" height="270"></canvas></div>
   <p id="help">WASD/arrows move · 1-6 tools (hoe, can, rod, pickaxe, sword, seeds; Q cycles seeds) · Space use / swing · E interact · I inventory &amp; skills · J quests · H horse · P sprinkler · N map · Esc pause · M music<br>Click or tap menu lines and the hotbar too · Mobile: open this page on your phone (landscape works best) · Goal: restore the community centre</p>
   <div id="controls">
+    <div id="zone"></div>
     <div id="stick"><div id="knob"></div></div>
     <div id="actions">
-      <div class="row small">
-        <button data-key="i">INV</button><button data-key="j">QUEST</button><button data-key="q">SEED</button>
-        <button data-key="n">MAP</button><button data-key="h">RIDE</button><button data-key="p">PLACE</button><button data-key="escape">MENU</button>
+      <div id="extras">
+        <button data-key="i">INV</button><button data-key="j">QUEST</button><button data-key="q">SEED</button><button data-key="escape">MENU</button>
+        <button data-key="n">MAP</button><button data-key="h">RIDE</button><button data-key="p">PLACE</button><button data-key="m">MUSIC</button>
       </div>
-      <div class="row big"><button data-key="e" class="b">E</button><button data-key=" " class="a">A</button></div>
+      <div class="big"><button id="more" aria-label="More buttons">&#9776;</button><button data-key="e" class="b">E</button><button data-key=" " class="a">A</button></div>
     </div>
     <div id="keypad">
       <button data-key="arrowleft">&#9664;</button><button data-key="arrowup">&#9650;</button><button data-key="arrowdown">&#9660;</button><button data-key="arrowright">&#9654;</button>

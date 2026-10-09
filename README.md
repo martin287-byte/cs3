@@ -17,7 +17,7 @@ Arrows / A D move · Space / W / Up jump (hold for higher) · R restart level
 - Physics constants are at the top of `src/main.js`.
 
 ## Mobile
-Open `farm/index.html` over http(s) on a phone (landscape works best). A virtual joystick, A/E action buttons and shortcut buttons appear automatically on touch devices; menu lines and the hotbar can be tapped directly. Use "Add to Home Screen" to install it fullscreen; it also works offline after the first load.
+Open `farm/index.html` over http(s) on a phone (landscape works best). Touch anywhere on the left side of the screen to get a floating joystick under your thumb; A/E are the action buttons and the ☰ button opens the shortcut grid (inventory, quests, seeds, menu, map, ride, place, music). In portrait the shortcuts are always shown. Menu lines and the hotbar can be tapped directly, buttons give a small vibration on Android, the screen stays awake while you play, and the game autosaves and pauses its music when you switch away. Use "Add to Home Screen" to install it fullscreen; it also works offline after the first load.
 
 ## Hosting
 `.github/workflows/pages.yml` publishes the `farm/` folder to GitHub Pages on every push. One-time setup: repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then served at `https://<user>.github.io/<repo>/`, installable as a home-screen app on phones.
