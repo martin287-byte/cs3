@@ -1,25 +1,8 @@
 // Procedural pixel art: every sprite is drawn once into an offscreen canvas at startup.
-export const SEASONS = [
-  { name: "Spring", grass: "#5fae4f", g2: "#74c460", g3: "#4a9340", leaf: "#4caf50", leaf2: "#7ed957", out: "#1f4d28" },
-  { name: "Summer", grass: "#4f9f3a", g2: "#63b84a", g3: "#3e8630", leaf: "#2e8b3a", leaf2: "#4cb054", out: "#1b4a24" },
-  { name: "Fall",   grass: "#9aa347", g2: "#b3b755", g3: "#7f8a38", leaf: "#d9822b", leaf2: "#f0a73a", out: "#8a4a15" },
-  { name: "Winter", grass: "#dfe9f2", g2: "#f3f8fc", g3: "#c3d3e3", leaf: "#3f6b52", leaf2: "#f3f8fc", out: "#2d4a3a" },
-];
-
-export function hash(a, b, c = 0) {
-  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(c, 2147483647);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
-}
-
-function mk(w, h, fn) {
-  const c = document.createElement("canvas"); c.width = w; c.height = h;
-  const g = c.getContext("2d"); g.imageSmoothingEnabled = false; fn(g); return c;
-}
-const R = (g, c, x, y, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-const disc = (g, c, cx, cy, r) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * 0.6) R(g, c, cx + x, cy + y); };
+import { SEASONS, hash, mk, R, disc, ellipse, flip, shade, outline, tint } from "./px.js";
+import { makeTileCache, drawTree, drawRock, drawPalm, drawCactus, drawHouse, makePerson } from "./art.js";
+export { SEASONS, hash };
 function art(g, rows, pal) { rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) R(g, pal[ch], x, y); })); }
-const flip = src => mk(src.width, src.height, g => { g.translate(src.width, 0); g.scale(-1, 1); g.drawImage(src, 0, 0); });
 
 // ---- tiles ----
 function grass(s, v) {
@@ -158,6 +141,8 @@ function forageIcon(id) {
     if (id === "urchin") { disc(g, "#3a2a5a", 8, 9, 4); for (let a = 0; a < 12; a++) R(g, "#5a4a8a", 8 + Math.round(Math.cos(a / 12 * 6.28) * 6), 9 + Math.round(Math.sin(a / 12 * 6.28) * 6)); R(g, "#7a6aaa", 7, 8, 2, 2); }
     if (id === "cactusfruit") { disc(g, "#d84a8a", 8, 9, 4); R(g, "#f08ab8", 6, 7, 2, 2); R(g, "#2e8b3a", 7, 2, 2, 3); for (const [x, y] of [[5, 9], [10, 8], [8, 12]]) R(g, "#fff", x, y); }
     if (id === "sandrose") { for (const [x, y, w] of [[3, 7, 10], [4, 5, 8], [5, 9, 7], [6, 3, 5], [4, 11, 8]]) R(g, "#e0b878", x, y, w, 2); R(g, "#f4d8a0", 6, 6, 4, 1); R(g, "#c49858", 5, 10, 6, 1); }
+    if (id === "coconut") { disc(g, "#5a3a1c", 8, 9, 5); disc(g, "#7a4e2a", 8, 8, 4); R(g, "#2a1a10", 6, 7, 1, 1); R(g, "#2a1a10", 9, 7, 1, 1); R(g, "#2a1a10", 7, 10, 2, 1); R(g, "#a8743e", 5, 6, 2, 1); }
+    if (id === "starfruit") { for (const [x, y, w, h] of [[7, 2, 2, 12], [3, 6, 10, 3], [5, 4, 6, 8]]) R(g, "#f4d03a", x, y, w, h); R(g, "#fff3a0", 7, 3, 1, 3); R(g, "#c8a010", 6, 11, 4, 1); R(g, "#c8a010", 4, 8, 1, 1); R(g, "#c8a010", 11, 8, 1, 1); }
     if (id === "snowyam") { disc(g, "#b9935a", 8, 9, 4); R(g, "#d8b97a", 6, 7, 3, 2); R(g, "#fff", 9, 10, 1, 1); R(g, "#fff", 6, 11, 1, 1); R(g, "#fff", 10, 7, 1, 1); }
   });
 }
@@ -313,6 +298,9 @@ function miscIcon(id) {
       for (const [x, y] of [[3, 3], [12, 3], [2, 7], [13, 7], [8, 2]]) R(g, "#7ac0ff", x, y, 1, 2);
       if (q) { R(g, "#7ac0ff", 4, 11); R(g, "#7ac0ff", 11, 11); }
     }
+    if (id === "pearl") { disc(g, "#d8c8e0", 8, 9, 4); disc(g, "#fdf6ff", 8, 8, 3); R(g, "#fff", 6, 6, 2, 1); R(g, "#f8d8f0", 9, 10, 2, 1); }
+    if (id === "coin") { disc(g, "#8a6a1a", 8, 8, 5); disc(g, "#e8c040", 8, 8, 4); disc(g, "#c8a028", 8, 8, 2); R(g, "#fff3a0", 5, 5, 2, 1); R(g, "#8a6a1a", 7, 7, 2, 2); }
+    if (id === "relic") { R(g, "#7a4a2a", 4, 5, 8, 8); R(g, "#a86a3a", 5, 6, 6, 6); R(g, "#7a4a2a", 6, 3, 4, 3); R(g, "#d8a060", 6, 7, 2, 1); R(g, "#5a3018", 8, 9, 2, 2); R(g, "#3a2410", 4, 13, 8, 1); }
     if (id === "bouquet") { R(g, "#3fae3f", 7, 8, 2, 7); for (const [x, y, c] of [[4, 3, "#e84a6a"], [8, 2, "#ffd93d"], [11, 4, "#b06ae0"], [6, 6, "#fff"], [10, 7, "#e84a6a"]]) { R(g, c, x, y, 3, 3); R(g, "#f08a24", x + 1, y + 1); } }
     if (id === "pendant") { R(g, "#ffd23f", 6, 2, 1, 5); R(g, "#ffd23f", 9, 2, 1, 5); disc(g, "#ffd23f", 8, 10, 4); disc(g, "#5ad0ff", 8, 10, 2); R(g, "#fff", 7, 9); }
   });
@@ -375,29 +363,37 @@ function horseFront(back) {
   });
 }
 
+const boat = () => mk(48, 32, g => {
+  ellipse(g, "#3a2410", 24, 20, 23, 10); ellipse(g, "#8a5a2e", 24, 19, 22, 9); ellipse(g, "#a8743e", 24, 17, 20, 6); ellipse(g, "#5e3a1c", 24, 16, 17, 4);
+  for (let x = 8; x < 42; x += 5) R(g, "#7a4e26", x, 12, 1, 8);
+  R(g, "#c8944e", 10, 20, 28, 1); R(g, "#3a2410", 8, 23, 32, 1); R(g, "#d8b070", 20, 14, 8, 2); R(g, "#6a4020", 38, 6, 2, 12); R(g, "#6a4020", 5, 10, 8, 2);
+  R(g, "#e8d8b0", 4, 9, 2, 4);
+});
+const digSpot = () => mk(16, 16, g => { R(g, "#6a4a28", 4, 7, 8, 3); R(g, "#8a6a40", 5, 6, 6, 1); R(g, "#3a2410", 6, 6, 1, 1); R(g, "#3a2410", 9, 6, 1, 1); R(g, "#3a2410", 7, 8, 2, 1); R(g, "#fff3a0", 3, 4); R(g, "#fff3a0", 12, 5); });
+
 export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) {
   const S = {
-    grass: SEASONS.map((_, s) => [0, 1, 2, 3].map(v => grass(s, v))),
-    soil: soil(false), soilWet: soil(true), water: [water(0), water(1)], pen: pen(), path: [0, 1, 2, 3].map(path),
-    tree: SEASONS.map((_, s) => tree(s)), rock: rock(),
+    tile: makeTileCache(),
+    tree: SEASONS.map((_, sn) => [0, 1, 2].map(v => drawTree(sn, v))), rock: [drawRock(0), drawRock(1)], palm: drawPalm(), cactus: drawCactus(),
     bldg: {
-      home: building("#a63d3d", "#8a2f2f", "#c98a5b", "#b27545", false),
-      shop: building("#2f5d9a", "#264b7d", "#d9c7a0", "#c4b08a", true),
-      h1: building("#3f8a4a", "#2f6b38", "#d8b98a", "#c4a478", false),
-      h2: building("#c9a227", "#a8851c", "#e3d4b0", "#cfc09a", false),
-      h3: building("#7a4fa0", "#5f3d82", "#c9a7a0", "#b5948c", false),
-      greenhouse: greenhouseB(), centre: centreB(false), centreOk: centreB(true), board: boardSprite(), bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
+      home: drawHouse({ wall: "#dba868", roof: "#b8453d", trim: "#f2dfb2", shutter: "#4a8a5a" }),
+      shop: drawHouse({ wall: "#ecdcb4", roof: "#3a6aa8", trim: "#fff4d8", shutter: "#c8483f", shop: true }),
+      h1: drawHouse({ wall: "#e2c298", roof: "#4a9a52", trim: "#f6ecd0", shutter: "#7a5ab0" }),
+      h2: drawHouse({ wall: "#eadab8", roof: "#d4a93a", trim: "#ffffff", shutter: "#3a6aa8" }),
+      h3: drawHouse({ wall: "#d6b2aa", roof: "#8a5ab8", trim: "#f6e8e0", shutter: "#4a8a5a" }),
+      boat: boat(), greenhouse: greenhouseB(), centre: centreB(false), centreOk: centreB(true), board: outline(boardSprite()), bin: outline(bin()), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
     },
-    cave: [0, 1, 2, 3].map(caveWall), cfloor: [0, 1, 2, 3].map(caveFloor), node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
-    sand: { beach: [0, 1, 2, 3].map(v => sand("beach", v)), desert: [0, 1, 2, 3].map(v => sand("desert", v)) }, ocean: [oceanTile(0), oceanTile(1)], palm: palm(), cactus: cactus(),
+    node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
     ghfloor: [0, 1, 2, 3].map(ghFloor), ghwall: ghWall(),
-    pet: { dog: [dog(0), dog(1)], cat: [cat(0), cat(1)] }, horse: { side: horseSide(), front: horseFront(false), back: horseFront(true) },
-    chicken: chicken(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg() },
-    mon: { slime: [slime(0), slime(1)], bat: [bat(0), bat(1)], skeleton: [skeleton(0), skeleton(1)] }, cow: cow(),
-    player: person({ o: "#2b1b17", h: "#5a3a22", s: "#f2c59b", e: "#222", r: "#d94f4f", b: "#3a5ba8", k: "#3b2a20" }),
+    pet: { dog: [outline(dog(0)), outline(dog(1))], cat: [outline(cat(0)), outline(cat(1))] }, horse: { side: outline(horseSide()), front: outline(horseFront(false)), back: outline(horseFront(true)) },
+    chicken: outline(chicken()), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg(), dig: digSpot() },
+    mon: { slime: [outline(slime(0)), outline(slime(1))], bat: [outline(bat(0)), outline(bat(1))], skeleton: [outline(skeleton(0)), outline(skeleton(1))] }, cow: outline(cow()),
+    monB: { frost: {}, magma: {} },
+    player: makePerson({}),
     npc: {},
   };
-  for (const [id, pal] of Object.entries(npcs)) S.npc[id] = person({ o: "#2b1b17", s: "#f2c59b", e: "#222", k: "#3b2a20", ...pal });
+  for (const [id, look] of Object.entries(npcs)) S.npc[id] = makePerson(look);
+  for (const [b, col] of [["frost", "#6ab4ff"], ["magma", "#ff6a30"]]) for (const k of Object.keys(S.mon)) S.monB[b][k] = S.mon[k].map(img => tint(img, col, 0.5));
   for (const t of crops) { S.crop[t] = [0, 1, 2, 3, 4].map(st => crop(t, st)); S.icon[t] = S.crop[t][4]; }
   for (const id of forage) S.icon[id] = forageIcon(id);
   for (const [id, col] of Object.entries(ores)) { S.node[id] = oreNode(id, col); S.icon[id] = S.node[id]; }

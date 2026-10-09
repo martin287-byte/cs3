@@ -46,7 +46,7 @@
       body.touch #stage { width: min(100vw, calc(100vh * 16 / 9)); }
       body.touch #controls { position: fixed; inset: 0; pointer-events: none; }
       body.touch #controls > * { pointer-events: auto; }
-      body.touch { --hb: calc(min(100vh, 56.25vw) * 0.095); }                      /* keep controls above the in-game hotbar */
+      body.touch { --hb: calc(min(100vh, 56.25vw) * 0.14); }                      /* keep controls above the in-game hotbar */
       body.touch #stick { left: calc(14px + env(safe-area-inset-left)); bottom: calc(var(--hb) + 6px); opacity: .85; }
       body.touch #actions { right: calc(14px + env(safe-area-inset-right)); bottom: calc(var(--hb) + 4px); }
       body.touch #keypad { left: 50%; transform: translateX(-50%); bottom: calc(var(--hb) + 2px); width: min(560px, 80vw); }

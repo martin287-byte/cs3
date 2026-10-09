@@ -31,6 +31,9 @@ export const MISC = {
   bouquet: { name: "Bouquet",         price: 100 },
   pendant: { name: "Wedding Pendant", price: 750 },
   tonic:   { name: "Energy Tonic",    price: 30 },
+  pearl:   { name: "Pearl",           price: 250 },
+  coin:    { name: "Ancient Coin",    price: 120 },
+  relic:   { name: "Old Relic",       price: 180 },
   sprinkler:  { name: "Sprinkler",         price: 100 },
   qsprinkler: { name: "Quality Sprinkler", price: 250 },
 };
@@ -67,6 +70,8 @@ export const FORAGE = {
   urchin:     { name: "Sea Urchin",  price: 80, seasons: [0, 1, 2, 3], area: "beach" },
   cactusfruit:{ name: "Cactus Fruit",price: 75, seasons: [0, 1, 2, 3], area: "desert" },
   sandrose:   { name: "Sand Rose",   price: 110,seasons: [0, 1, 2, 3], area: "desert" },
+  coconut:    { name: "Coconut",     price: 70, seasons: [0, 1, 2, 3], area: "island" },
+  starfruit:  { name: "Starfruit",   price: 120,seasons: [0, 1, 2, 3], area: "island" },
 };
 
 export const FISH = {
@@ -83,6 +88,8 @@ export const FISH = {
   octopus:  { name: "Octopus",  price: 120, where: ["ocean"],        seasons: [0, 3],       diff: 2, color: "#c0506a" },
   tuna:     { name: "Tuna",     price: 110, where: ["ocean"],        seasons: [1, 2],       diff: 3, color: "#3a5a9a" },
   pufferfish:{ name: "Pufferfish",price: 150,where: ["ocean"],       seasons: [1],          diff: 3, color: "#e0c050" },
+  lionfish: { name: "Lionfish", price: 140, where: ["deep"],         seasons: [0, 1, 2, 3], diff: 3, color: "#d85a3a" },
+  swordfish:{ name: "Swordfish",price: 220, where: ["deep"],         seasons: [1, 2],       diff: 3, color: "#5a7aa8" },
   sandfish: { name: "Sandfish", price: 90,  where: ["oasis"],        seasons: [0, 1, 2, 3], diff: 2, color: "#d8b070" },
 };
 
@@ -93,6 +100,8 @@ export const ORES = {
   iron:     { name: "Iron Ore",   price: 40,  hard: 1, color: "#b9b4c4" },
   gold:     { name: "Gold Ore",   price: 80,  hard: 2, color: "#ffd23f" },
   amethyst: { name: "Amethyst",   price: 150, hard: 2, color: "#b06ae0" },
+  aquamarine:{ name: "Aquamarine", price: 200, hard: 2, color: "#6ad8f0" },
+  ruby:     { name: "Ruby",        price: 320, hard: 2, color: "#e0405a" },
 };
 
 // Cooking. "@fish" / "@forage" accept any fish / forage item.
@@ -106,6 +115,8 @@ export const DISHES = {
   pancakes: { name: "Pancakes",    price: 80,  energy: 50, need: [["egg", 1], ["milk", 1]],                    color: "#e0b070" },
   sushi:    { name: "Sushi",       price: 140, energy: 50, need: [["@fish", 2]],                                color: "#f07a6a" },
   cactusjam:{ name: "Cactus Jam",   price: 150, energy: 55, need: [["cactusfruit", 2]],                          color: "#d84a8a" },
+  ratatouille:{ name: "Ratatouille", price: 180, energy: 70, need: [["eggplant", 1], ["tomato", 1], ["carrot", 1]],   color: "#a8402a" },
+  pudding:  { name: "Coconut Pudding", price: 170, energy: 65, need: [["coconut", 1], ["milk", 1], ["egg", 1]],     color: "#f4ecd0" },
   cornbread:{ name: "Cornbread",    price: 130, energy: 60, need: [["corn", 2], ["egg", 1]],                     color: "#f0c040" },
 };
 export const START_RECIPES = ["friedegg", "stew"];
@@ -128,8 +139,11 @@ export function edibleEnergy(id) {
 export const FESTIVALS = [
   { id: "egghunt",     name: "Egg Hunt",       season: 0, day: 8, goal: 10, prize: 200, desc: "Collect 10 festival eggs in Town" },
   { id: "flowerdance", name: "Flower Dance",   season: 0, day: 9, goal: 1,  prize: 0,   desc: "Talk to Rosa in Town to dance" },
+  { id: "luau",        name: "Beach Luau",     season: 1, day: 4, goal: 1,  prize: 200, host: "marlo", desc: "Give Marlo a cooked dish on the beach" },
   { id: "derby",       name: "Fishing Derby",  season: 1, day: 8, goal: 5,  prize: 300, desc: "Catch 5 fish today" },
   { id: "fair",        name: "Harvest Fair",   season: 2, day: 8, goal: 3,  prize: 250, desc: "Show Rosa 3 different crops (talk to her)" },
+  { id: "market",      name: "Farmers' Market",season: 2, day: 4, goal: 0,  prize: 0,   desc: "Everything you sell is worth 25% more today" },
+  { id: "icefish",     name: "Ice Fishing",    season: 3, day: 4, goal: 3,  prize: 350, desc: "Catch 3 fish today" },
   { id: "feast",       name: "Winter Feast",   season: 3, day: 8, goal: 1,  prize: 150, desc: "Give Rosa a cooked dish (talk to her)" },
   { id: "stardance",   name: "Starlight Dance",season: 3, day: 9, goal: 1,  prize: 0,   desc: "Talk to Rosa in Town to dance" },
 ];
@@ -138,7 +152,7 @@ export const SPOUSE_LINES = [
   "I'm so lucky to share this farm with you.", "Dinner tonight? I'll cook something nice.", "The valley feels like home because of you.",
 ];
 
-export const MERCHANT = { name: "Zed", pal: { h: "#222222", r: "#e0a030", b: "#6a3fa0" }, every: 5, x: 22, y: 14 };   // visits every 5th day
+export const MERCHANT = { name: "Zed", pal: { h: "#222222", r: "#e0a030", b: "#6a3fa0" }, look: { hair: "#222222", hairStyle: "cap", cap: "#6a3fa0", skin: "#e0b088", shirt: "#e0a030", pants: "#6a3fa0" }, every: 5, x: 22, y: 14 };   // visits every 5th day
 
 // Schedules: from hour h onward the villager stands at (x,y) tile in `map`; map:null = out of sight.
 // `gather` is where they stand during festivals (10:00-18:00). `recipes` unlock at the given heart level.
@@ -153,6 +167,7 @@ export const XP_TABLE = [0, 50, 120, 220, 350, 520, 740, 1000, 1350, 1800];     
 
 export const VILLAGERS = {
   rosa: {
+    look: { hair: "#7a3a9a", hairStyle: "long", skin: "#f4c9a0", shirt: "#f08fb4", pants: "#c2578a", shoes: "#5a2a3a" },
     name: "Rosa", job: "Baker", pal: { h: "#8e44ad", r: "#f08fb4", b: "#c2578a" }, gather: { x: 24, y: 13 },
     loves: ["pumpkin", "daffodil", "pie"], likes: ["carrot", "egg", "grape", "cabbage", "cornbread"], hates: ["mushroom", "catfish", "stone"],
     recipes: { 2: "soup", 3: "pancakes", 4: "pie" },
@@ -163,6 +178,7 @@ export const VILLAGERS = {
     season: ["Spring means daffodils. My favorite!", "Summer tomatoes make the sweetest sauce.", "Autumn pumpkins... perfection.", "Cabbage and kale survive winter."],
   },
   oliver: {
+    look: { hair: "#3b2a20", hairStyle: "cap", cap: "#2f6a4a", skin: "#e8b890", shirt: "#3a7a5a", pants: "#2f4f6f" },
     name: "Oliver", job: "Shopkeeper", pal: { h: "#3b2a20", r: "#3a7a5a", b: "#2f4f6f" }, gather: { x: 20, y: 13 },
     loves: ["tomato", "trout", "gold"], likes: ["turnip", "cabbage", "bass", "grape", "stew"], hates: ["egg", "berry"],
     recipes: {},
@@ -173,6 +189,7 @@ export const VILLAGERS = {
     season: ["Spring seeds sell fastest.", "Summer is tomato and corn season.", "Fall's pumpkins pay the best.", "Winter's quiet. I do my accounting."],
   },
   mina: {
+    look: { hair: "#e0b030", hairStyle: "bun", skin: "#f6d0a8", shirt: "#2d8aa8", pants: "#3a5ba8" },
     name: "Mina", job: "Angler", pal: { h: "#d4a017", r: "#2d7da8", b: "#3a5ba8" }, gather: { x: 26, y: 13 },
     loves: ["catfish", "bass", "fishstew", "salmon"], likes: ["perch", "bluegill", "carp", "berry", "trout", "pike"], hates: ["holly", "turnip"],
     recipes: { 2: "fishstew" },
@@ -183,6 +200,7 @@ export const VILLAGERS = {
     season: ["Spring bass and pike are biting.", "Summer catfish hide in the shade.", "Autumn salmon run upstream.", "Winter fish are slow, but so am I."],
   },
   ben: {
+    look: { hair: "#d0d0d0", hairStyle: "short", beard: "#dcdcdc", skin: "#e8bc94", shirt: "#8a6a3a", pants: "#5a4a3a" },
     name: "Ben", job: "Retired farmer", pal: { h: "#cfcfcf", r: "#8a6a3a", b: "#5a4a3a" }, gather: { x: 28, y: 13 },
     loves: ["blackberry", "snowyam", "amethyst"], likes: ["cabbage", "mushroom", "pumpkin", "leek", "salad", "copper", "iron"], hates: ["carp", "grape"],
     recipes: { 2: "salad", 5: "cornbread" },
@@ -193,6 +211,7 @@ export const VILLAGERS = {
     season: ["Leeks and daffodils pop up in spring.", "Berries and grapes in summer.", "Mushrooms and blackberries in fall.", "Holly and snow yams in winter. Dress warm."],
   },
   marlo: {
+    look: { hair: "#6a3a1a", hairStyle: "short", skin: "#c88a5a", shirt: "#e8e0c8", pants: "#2a6a8a" },
     name: "Marlo", job: "Beach fisher", pal: { h: "#6a3a1a", r: "#e8e0c8", b: "#2a6a8a" }, gather: { x: 30, y: 13 },
     loves: ["tuna", "sushi", "pufferfish"], likes: ["sardine", "octopus", "shell", "coral", "bass"], hates: ["bone", "slime"],
     recipes: { 2: "sushi" },
@@ -203,6 +222,7 @@ export const VILLAGERS = {
     season: ["Spring tides bring sardines.", "Summer means tuna and pufferfish.", "Autumn tuna are fat and slow.", "Winter octopus hide in the rocks."],
   },
   dune: {
+    look: { hair: "#2a2a2a", hairStyle: "long", skin: "#c07848", shirt: "#d8803a", pants: "#8a4a2a" },
     name: "Dune", job: "Desert nomad", pal: { h: "#2a2a2a", r: "#d8803a", b: "#8a4a2a" }, gather: { x: 32, y: 13 },
     loves: ["sandrose", "amethyst", "cactusjam"], likes: ["cactusfruit", "gold", "sandfish", "corn", "pancakes"], hates: ["holly", "salmon"],
     recipes: { 2: "cactusjam" },
@@ -212,6 +232,28 @@ export const VILLAGERS = {
     high: ["You're the first stranger I've trusted in years.", "Come, I'll show you the best dunes.", "The desert is kinder with good company."],
     season: ["Spring brings a rare cool breeze.", "Summer here is no joke. Stay hydrated.", "Autumn nights are bright with stars.", "Even desert winters bite at night."],
   },
+  iris: {
+    look: { hair: "#4a8a4a", hairStyle: "long", skin: "#f0c8a0", shirt: "#7ac07a", pants: "#5a8a5a", shoes: "#4a3a2a" },
+    name: "Iris", job: "Botanist", pal: { h: "#4a8a4a", r: "#7ac07a", b: "#5a8a5a" }, gather: { x: 34, y: 13 },
+    loves: ["daffodil", "kale", "ratatouille"], likes: ["corn", "grape", "leek", "eggplant", "salad", "starfruit"], hates: ["bone", "slime", "batwing"],
+    recipes: { 2: "ratatouille" },
+    sched: [{ h: 8, map: "forest", x: 34, y: 9 }, { h: 19, map: null }],
+    low: ["Oh! I didn't hear you over the birdsong.", "Plants talk if you listen long enough.", "The forest soil is rich. Better than your farm, probably."],
+    mid: ["Ever tried kale in winter? Underrated.", "A greenhouse lets you grow anything, any time.", "I keep a notebook of every flower in the valley."],
+    high: ["You've got a gardener's heart.", "Let me show you my secret mushroom patch some day.", "Everything blooms nicer when you're around."],
+    season: ["Spring is the busiest season for botanists.", "Summer sun makes everything grow wild.", "Autumn colors are my favorite palette.", "Winter sleep is just plants gathering strength."],
+  },
+  quill: {
+    look: { hair: "#2a3a6a", hairStyle: "short", skin: "#f2cfaa", shirt: "#e8d8f0", pants: "#4a4a6a", shoes: "#2a2a3a" },
+    name: "Quill", job: "Writer", pal: { h: "#2a3a6a", r: "#e8d8f0", b: "#4a4a6a" }, gather: { x: 36, y: 13 },
+    loves: ["pearl", "pudding", "coin"], likes: ["pie", "pancakes", "coconut", "relic", "tomato"], hates: ["slime", "bone"],
+    recipes: { 2: "pudding" },
+    sched: [{ h: 8, map: "town", x: 12, y: 13 }, { h: 14, map: "town", x: 26, y: 13 }, { h: 21, map: null }],
+    low: ["Shh, I'm in the middle of a sentence.", "I write about this valley. Don't worry, you're only a footnote.", "Writer's block is the real monster."],
+    mid: ["You might make it into chapter two.", "I hear there's an island past the beach. Material!", "Treasure hunters make the best characters."],
+    high: ["I've written you a whole chapter. It's too flattering to show you.", "Every story needs someone like you.", "Come back tomorrow. I'll read you the ending."],
+    season: ["Spring is for new beginnings. Cliché, but true.", "Summer afternoons are for notebooks and lemonade.", "Autumn is when the words flow best.", "Winter nights are for finishing manuscripts."],
+  },
 };
 
 // Community centre: deposit `take` different items from each bundle's list to complete it.
@@ -220,7 +262,7 @@ export const BUNDLES = [
   { id: "forage",  name: "Forager's Bundle", take: 4, reward: 300, items: ["leek", "daffodil", "berry", "grape", "mushroom", "blackberry", "holly", "snowyam"] },
   { id: "fish",    name: "Angler's Bundle",  take: 4, reward: 400, items: Object.keys(FISH) },
   { id: "mining",  name: "Miner's Bundle",   take: 4, reward: 400, items: ["copper", "iron", "gold", "amethyst"] },
-  { id: "coast",   name: "Coast Bundle",     take: 4, reward: 400, items: ["shell", "coral", "urchin", "cactusfruit", "sandrose"] },
+  { id: "coast",   name: "Coast Bundle",     take: 4, reward: 400, items: ["shell", "coral", "urchin", "cactusfruit", "sandrose", "coconut", "starfruit"] },
   { id: "kitchen", name: "Kitchen Bundle",   take: 4, reward: 500, items: Object.keys(DISHES) },
   { id: "loot",    name: "Monster Bundle",   take: 3, reward: 500, items: ["slime", "batwing", "bone"] },
 ];
@@ -240,4 +282,4 @@ export const PERKS = {
               10: [{ id: "brute", name: "Brute", desc: "Sword damage +1 more" }, { id: "acrobat", name: "Acrobat", desc: "Longer invulnerability after a hit" }] },
 };
 // Fast travel: where you arrive in each area.
-export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [21, 2], desert: [3, 15] };
+export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [21, 2], desert: [3, 15], island: [20, 19] };

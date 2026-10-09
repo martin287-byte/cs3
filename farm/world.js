@@ -79,7 +79,7 @@ function makeForest(rnd) {
   fill(m, 30, 24, 31, 31, 8);
   pond(m, 21, 18, 9, 5, "lake");
   building(m, "cave", 38, 4, 10, "mine");                                          // mine entrance
-  scatter(m, rnd, 170, (x, y) => !(x >= 36 && x <= 42 && y <= 9) && !(x >= 10 && x <= 32 && y >= 11 && y <= 25) && !(x >= 26 && x <= 35 && y >= 22) && !(x >= 8 && x <= 13 && y >= 16 && y <= 22));
+  scatter(m, rnd, 170, (x, y) => !(x >= 36 && x <= 42 && y <= 9) && !(x >= 10 && x <= 32 && y >= 11 && y <= 25) && !(x >= 26 && x <= 35 && y >= 22) && !(x >= 8 && x <= 13 && y >= 16 && y <= 22) && !(x >= 31 && x <= 37 && y >= 6 && y <= 11));
   m.warps.push({ x: 30, y: 31, w: 2, h: 1, to: "town", tx: 30, ty: 2 });
   return m;
 }
@@ -101,7 +101,9 @@ function makeBeach(rnd) {
     for (let y = shore; y < m.h; y++) put(m, x, y, 2, { water: "ocean" });
   }
   fill(m, 20, 1, 23, 8, 8);                                                         // boardwalk down from town
-  scatterDeco(m, rnd, 26, "palm", (x, y) => y < 17 && !(x >= 19 && x <= 24 && y <= 9) && !(x >= 20 && x <= 24 && y >= 14 && y <= 18));
+  building(m, "boat", 37, 15, 10, "boat");                                         // rowboat to the island
+  for (let y = 15; y <= 16; y++) for (let x = 37; x <= 39; x++) m.tiles[y][x].dest = "island";
+  scatterDeco(m, rnd, 26, "palm", (x, y) => y < 17 && !(x >= 19 && x <= 24 && y <= 9) && !(x >= 20 && x <= 24 && y >= 14 && y <= 18) && !(x >= 35 && x <= 41 && y >= 12));
   for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "palm";
   m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 25 });
   return m;
@@ -119,6 +121,17 @@ function makeDesert(rnd) {
   return m;
 }
 
+function makeIsland(rnd) {
+  const m = blank(40, 28, "Island");
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) put(m, x, y, 2, { water: "deep" });
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (((x - 20) / 15) ** 2 + ((y - 13) / 9.5) ** 2 + Math.sin(x * 1.3 + y) * 0.04 <= 1) put(m, x, y, 14);
+  fill(m, 19, 17, 21, 20, 8);                                                       // path to the boat
+  building(m, "boat", 19, 20, 10, "boat");
+  for (let y = 20; y <= 21; y++) for (let x = 19; x <= 21; x++) m.tiles[y][x].dest = "beach";
+  scatterDeco(m, rnd, 34, "palm", (x, y) => !(x >= 17 && x <= 23 && y >= 15));
+  return m;
+}
+
 function makeGreenhouse() {
   const m = blank(15, 11, "Greenhouse");
   fill(m, 0, 0, 14, 10, 15);
@@ -131,7 +144,7 @@ function makeGreenhouse() {
 
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
-  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), greenhouse: makeGreenhouse() };
+  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse() };
 }
 
 // One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.
@@ -155,7 +168,7 @@ export function makeMine(floor) {
   m.start = { x: sx, y: sy + 1 };
   put(m, sx, sy, 12, { kind: "mexit" });
   put(m, lx, ly, 12, { kind: "ladder" });
-  const weights = [["stone", 55], ["copper", floor < 10 ? 25 : 12], ["iron", floor >= 4 ? 18 : 0], ["gold", floor >= 9 ? 12 : 0], ["amethyst", floor >= 6 ? 5 : 0]];
+  const weights = [["stone", 55], ["copper", floor < 10 ? 25 : 12], ["iron", floor >= 4 ? 18 : 0], ["gold", floor >= 9 ? 12 : 0], ["amethyst", floor >= 6 ? 5 : 0], ["aquamarine", floor >= 10 ? 6 : 0], ["ruby", floor >= 20 ? 5 : 0]];
   const total = weights.reduce((a, [, w]) => a + w, 0), nodes = 16 + Math.floor(floor / 2) * 2;
   for (let i = 0, placed = 0; i < 600 && placed < nodes; i++) {
     const x = 1 + Math.floor(rnd() * (m.w - 2)), y = 1 + Math.floor(rnd() * (m.h - 2)), t = m.tiles[y][x];
