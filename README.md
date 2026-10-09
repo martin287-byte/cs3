@@ -2,6 +2,10 @@
 
 A small browser platformer prototype (canvas + vanilla JS ES modules, no build step).
 
+## Games
+- `index.html` — platformer prototype
+- `farm/index.html` — Stardew-style farming prototype
+
 ## Run
     python3 -m http.server 8000   # then open http://localhost:8000
 

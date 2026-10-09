@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiny Farm</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #14121f; color: #eee; font-family: monospace; }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    canvas { image-rendering: pixelated; width: min(96vw, 960px); aspect-ratio: 16 / 9; }
+    p { opacity: .7; font-size: 13px; text-align: center; margin: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="480" height="270"></canvas>
+  <p>WASD/arrows move · 1-4 pick item · Space use on the tile you face · E sleep (at house) / sell (at bin)<br>
+     1 Hoe · 2 Watering can · 3 Turnip seeds ($5) · 4 Pumpkin seeds ($25) · Space on a ripe crop harvests it</p>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
