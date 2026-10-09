@@ -196,6 +196,17 @@ const UI = {
   "Town": "Város", "Beach": "Part", "Desert": "Sivatag", "Island": "Sziget", "Mine {0}F": "Bánya {0}. szint",
   "Landscape gives a bigger view • Add to Home Screen to install": "Fekvő nézetben nagyobb a kép • Add hozzá a kezdőképernyőhöz a telepítéshez",
   "{0} seeds": "{0} mag", "en": "e", "forage": "vadon termő", "BUY": "VÉTEL", "SELL": "ELADÁS", "English": "English", "Magyar": "Magyar", "TAB": "TAB",
+  // story intro
+  "Gray towers. Gray mornings. Another year of numbers on a screen, and the sky never changed.": "Szürke tornyok. Szürke reggelek. Újabb év számok között egy képernyő előtt, és az égbolt sosem változott.",
+  "Then, one rainy evening, a thick envelope arrived. It smelled of woodsmoke and old soil.": "Aztán egy esős estén megérkezett egy vastag boríték. Fafüst és régi föld illata volt.",
+  "My dear grandchild,": "Drága unokám,",
+  "Tiny Valley's old farm is yours now. The soil is rich, the neighbours are kind — but the community centre, where the whole valley once gathered, has fallen into ruin.": "A Tiny Valley-i régi farm mostantól a tiéd. A föld termékeny, a szomszédok kedvesek — de a közösségi ház, ahol egykor az egész völgy összegyűlt, romokban hever.",
+  "Restore it, and the valley will bloom again. I believe in you.": "Állítsd helyre, és a völgy újra virágba borul. Hiszek benned.",
+  "— Grandpa Walt": "— Walt nagypapa",
+  "You packed one bag, left the grey city behind, and followed the road into the sunrise.": "Egyetlen táskát pakoltál, magad mögött hagytad a szürke várost, és követted az utat a napfelkeltébe.",
+  "The fields were wild and the fences crooked — but smoke curled from the chimney. This was home now.": "A mezők vadak voltak, a kerítések görbék — de a kéményből füst kunkorodott. Mostantól ez volt az otthonod.",
+  "Spring, Day 1": "Tavasz, 1. nap", "Restore the community centre.": "Állítsd helyre a közösségi házat.", "Welcome to Tiny Valley.": "Üdv Tiny Valley-ben.",
+  "Skip ▶": "Kihagyás ▶", "Esc: skip": "Esc: kihagyás",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

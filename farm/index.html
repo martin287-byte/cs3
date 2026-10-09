@@ -45,6 +45,7 @@
     #rotate { display: none; }
     body.ui-open #stick, body.ui-open #zone, body.ui-open #actions, body.scene-title #stick, body.scene-title #zone, body.scene-title #actions { display: none; }
     body.ui-open #keypad, body.scene-title #keypad { display: flex; }
+    body.scene-intro #stick, body.scene-intro #zone, body.scene-intro #actions, body.scene-intro #keypad { display: none; }
 
     @media (orientation: landscape) {
       body.touch #stage { width: min(100vw, calc(100dvh * 16 / 9)); }
@@ -71,7 +72,7 @@
       body.touch #extras button { height: 48px; font-size: 13px; }
       body.touch #more { display: none; }
       body.touch #actions .big { position: absolute; right: 16px; top: 190px; }
-      body.touch.ui-open #actions, body.touch.scene-title #actions { display: none; }          /* menus and the title use the keypad instead */
+      body.touch.ui-open #actions, body.touch.scene-title #actions, body.touch.scene-intro #actions { display: none; }          /* menus and the title use the keypad instead */
       body.touch #actions .big button { width: calc(76px * var(--cs, 1)); height: calc(76px * var(--cs, 1)); }
       body.touch #keypad { left: 0; right: 0; top: 16px; padding: 0 8px; }
       body.touch #keypad button { height: 46px; }

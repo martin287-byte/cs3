@@ -6,9 +6,11 @@ import {
 import { SEASONS, buildSprites, hash } from "./sprites.js";
 import { generateWorld, makeMine, PLOTS } from "./world.js";
 import * as audio from "./audio.js";
-import { initTouch, dispatchKey } from "./touch.js";
+import { initTouch, dispatchKey, stick } from "./touch.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
+import { makeIntro } from "./intro.js";
+import { setSun, sunShift, sunStretch, grassDeco, waterSparkle, drawSwaying, emit, ripple, clearFx, updateFx, drawFx, vignette, sunGlow, windowGlow, litWindows } from "./fx.js";
 import { settings, setSetting, onSetting, CTRL_SIZES } from "./settings.js";
 
 const canvas = document.getElementById("game");
@@ -31,7 +33,7 @@ const S = buildSprites({
   npcs: { ...Object.fromEntries(Object.entries(VILLAGERS).map(([k, v]) => [k, v.look ?? { hair: v.pal.h, shirt: v.pal.r, pants: v.pal.b }])), zed: MERCHANT.look ?? { hair: MERCHANT.pal.h, shirt: MERCHANT.pal.r, pants: MERCHANT.pal.b } },
 });
 
-let actAnim = null, petObj = null, scene = "title", titleSel = 0, maps, state, animals = [], monsters = [], slash = null, slashCool = 0, invuln = 0, npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
+let stepT = 0, actAnim = null, petObj = null, scene = "title", titleSel = 0, maps, state, animals = [], monsters = [], slash = null, slashCool = 0, invuln = 0, npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
 
 const seasonOf = day => Math.floor((day - 1) / SEASON_LEN) % 4;
 const dayOfSeason = day => ((day - 1) % SEASON_LEN) + 1;
@@ -139,10 +141,13 @@ function load() {
   } catch { return false; }
 }
 
-function startGame(cont) {
-  if (!(cont && load())) newGame();
-  scene = "game"; fishing = null; monsters = []; placePet();
+function startGame(cont, skipIntro) {
+  const fresh = !(cont && load());
+  if (fresh) newGame();
+  fishing = null; monsters = []; placePet();
   if (state.map === "mine") spawnMonsters();
+  if (fresh && !skipIntro) { scene = "intro"; audio.startMusic("title"); intro.begin(() => { scene = "game"; audio.startMusic(areaMood()); }); return; }   // story intro on a new game
+  scene = "game";
   audio.startMusic(areaMood());
 }
 
@@ -156,6 +161,7 @@ addEventListener("keydown", e => {
     else if (k === "o") openSettings();
     else if (k === "m") audio.toggleMute();
     else if (scene === "title") titleKey(k);
+    else if (scene === "intro") intro.key(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
     else if (/^[1-6]$/.test(k)) { const n = Number(k) - 1; if (n === SEED_SLOT && state.sel === SEED_SLOT) cycleSeed(); state.sel = n; }
@@ -243,12 +249,16 @@ function useTool() {
     const c = CROPS[tile.crop.type];
     const bonus = state.build.silo === "built" && Math.random() < 0.25;
     gainXp("farming", 3 + Math.round(c.price / 20));
+    emit("star", x * T + 8, y * T + 4);
     addItem(tile.crop.type, bonus ? 2 : 1); say(`Harvested ${tile.crop.type}!${bonus ? " (silo bonus!)" : ""}`); audio.beep(660, 0.12, "triangle");
     if (c.regrow) tile.crop.age = c.days - c.regrow; else delete tile.crop;
     return;
   }
   if (state.mounted) return say("Dismount first (press H).");
-  if (tool === "hoe" || tool === "can" || tool === "pick") actAnim = { t: 0.2, tool, fx: state.fx, fy: state.fy };
+  if (tool === "hoe" || tool === "can" || tool === "pick") {
+    actAnim = { t: 0.2, tool, fx: state.fx, fy: state.fy };
+    if (!(tool === "can" && state.water <= 0)) emit(tool === "hoe" ? "dirt" : tool === "can" ? "water" : "chip", x * T + 8, y * T + 9);
+  }
   if (tool === "rod") return castRod(tile, x, y);
   if (tool === "pick") return mine(tile);
   if (tool === "sword") return swing();
@@ -956,12 +966,13 @@ function sleep() {
 function goMap(to, tx, ty) {
   state.visited[to] = true;
   if (to === "town") tip("town", "The Town has a shop (seeds, upgrades, farm buildings), a quest board and villagers to befriend.");
-  state.map = to; state.px = tx * T + 2; state.py = ty * T; state.fade = 0.4; fishing = null;
+  clearFx(); state.map = to; state.px = tx * T + 2; state.py = ty * T; state.fade = 0.4; fishing = null;
   say(maps[to].name, 1.5); audio.beep(440, 0.08, "triangle"); audio.startMusic(areaMood());
 }
 
 function update(dt) {
   clock += dt;
+  if (scene === "intro" && !setUi) intro.update(dt);
   if (scene !== "game" || setUi) return;
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
   const snow = seasonOf(state.day) === 3, amb = !state.rain, sea = seasonOf(state.day);
@@ -972,7 +983,7 @@ function update(dt) {
     if (p.x < 0) p.x += W;
     if (p.x > W) p.x -= W;
   }
-  updateNpcs(dt); updateFishing(dt); updatePet(dt);
+  updateNpcs(dt); updateFishing(dt); updatePet(dt); updateFx(dt);
   if (state.tip && (state.tip.t -= dt) <= 0) state.tip = null;
   updateTutorial(dt);
   if (!state.ui && !fishing && state.pendingPerks.length) openPerk();
@@ -990,17 +1001,24 @@ function update(dt) {
   if (state.ui) { moving = false; return; }
   updateMonsters(dt);
 
-  const dx = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
-  const dy = (keys.has("s") || keys.has("arrowdown") ? 1 : 0) - (keys.has("w") || keys.has("arrowup") ? 1 : 0);
-  moving = !!(dx || dy);
+  let dx = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
+  let dy = (keys.has("s") || keys.has("arrowdown") ? 1 : 0) - (keys.has("w") || keys.has("arrowup") ? 1 : 0);
+  if (stick.x || stick.y) { dx = stick.x; dy = stick.y; }                            // analog: speed follows how far the stick is pushed
+  const len = Math.hypot(dx, dy), mag = Math.min(1, len);
+  if (len > 1) { dx /= len; dy /= len; }                                            // diagonals are no faster than straight lines
+  moving = len > 0.02;
   if (moving && fishing) {
     if (fishing.phase === "wait") { fishing = null; say("Reeled in."); } else moving = false;   // can't walk mid-reel
   }
   if (moving) {
-    walkT += dt;
-    if (dx && dy) { state.fx = 0; state.fy = dy; } else { state.fx = dx; state.fy = dy; }
+    walkT += dt * (0.5 + 0.5 * mag);
+    const ax = Math.abs(dx), ay = Math.abs(dy);                                     // face the dominant axis, with hysteresis so it doesn't flicker on diagonals
+    let horiz = state.fx !== 0;
+    if (horiz ? ay > ax * 1.25 : ax > ay * 1.25) horiz = !horiz;
+    if (horiz) { state.fx = dx ? Math.sign(dx) : state.fx; state.fy = 0; } else { state.fy = dy ? Math.sign(dy) : state.fy; state.fx = 0; }
     const sp = (state.mounted ? 125 : 70) * dt;
-    state.tut.dist += sp;
+    state.tut.dist += sp * mag;
+    if ((stepT -= dt * mag) <= 0 && !state.rain && state.map !== "mine" && state.map !== "greenhouse") { stepT = state.mounted ? 0.12 : 0.2; emit(seasonOf(state.day) === 3 ? "snow" : "dust", state.px + 6, state.py + 14); }
     for (const [mx, my] of [[dx * sp, 0], [0, dy * sp]]) {
       const nx = state.px + mx, ny = state.py + my;
       const corners = [[nx + 3, ny + 6], [nx + 9, ny + 6], [nx + 3, ny + 13], [nx + 9, ny + 13]];
@@ -1037,6 +1055,7 @@ const txt = (s, x, y, c = "#fff", align = "left") => { s = tr(s); ctx.fillStyle 
 const CLS = { 0: "g", 1: "s", 2: "w", 3: "g", 4: "g", 5: "g", 6: "g", 7: "p", 8: "r", 10: "g", 11: "W", 12: "f", 13: "f", 14: "d", 15: "G", 16: "X" };
 const logicalW = img => img.width - 2 * (img.ox || 0), logicalH = img => img.height - 2 * (img.oy || 0);
 function shadow(cx, cy, rx, ry, a = 0.26) {
+  cx += sunShift(rx); rx *= sunStretch();                                           // shadows lean away from the sun
   ctx.fillStyle = `rgba(24,30,14,${a})`;
   for (let dy = -Math.ceil(ry); dy <= Math.ceil(ry); dy++) { const k = 1 - (dy / ry) ** 2; if (k <= 0) continue; const half = Math.round(rx * Math.sqrt(k)); ctx.fillRect(Math.round(cx) - half, Math.round(cy) + dy, half * 2, 1); }
 }
@@ -1063,7 +1082,8 @@ function drawWorld() {
   const x0 = Math.max(0, Math.floor(camX / T)), x1 = Math.min(m.w - 1, Math.ceil((camX + W) / T));
   const y0 = Math.max(0, Math.floor(camY / T)), y1 = Math.min(m.h - 1, Math.ceil((camY + H) / T) + 1);
   const biome = inMine ? (state.mineFloor < 10 ? "stone" : state.mineFloor < 20 ? "frost" : "magma") : null, sandBiome = state.map === "desert" ? "desert" : "beach";
-  const things = [];
+  const things = [], decoMap = !inMine && (state.map === "farm" || state.map === "town" || state.map === "forest");
+  setSun(hourNow());
   const cls = (xx, yy) => { const t = m.tiles[yy]?.[xx]; return t ? CLS[t.t] : null; };
   const m4 = (x, y, pred) => (pred(cls(x, y - 1), 1) ? 1 : 0) | (pred(cls(x + 1, y), 2) ? 2 : 0) | (pred(cls(x, y + 1), 4) ? 4 : 0) | (pred(cls(x - 1, y), 8) ? 8 : 0);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -1082,6 +1102,8 @@ function drawWorld() {
       default: base = (state.map === "beach" || state.map === "desert" || state.map === "island") && tile.t === 10 ? S.tile("sand", 0, v4, 0, { biome: sandBiome }) : S.tile("grass", season, v8, m4(x, y, c => c === "w"));
     }
     ctx.drawImage(base, x * T, y * T);
+    if (tile.t === 2) waterSparkle(ctx, x, y, clock);
+    else if (tile.t === 0 && !tile.forage && decoMap) grassDeco(ctx, x, y, season, clock);
     if (tile.t === 13) ctx.drawImage(S.node[tile.ore], x * T, y * T);
     if (tile.kind === "ladder") ctx.drawImage(S.ladder, x * T, y * T);
     if (tile.kind === "mexit") ctx.drawImage(S.mexit, x * T, y * T);
@@ -1093,7 +1115,7 @@ function drawWorld() {
     if (tile.t === 3) {
       const img = tile.deco === "palm" ? S.palm : tile.deco === "cactus" ? S.cactus : tile.rock ? S.rock[Math.floor(hash(x, y, 2) * 2)] : S.tree[season][Math.floor(hash(x, y, 5) * 3)];
       const lw = logicalW(img), lh = logicalH(img), isTree = !tile.rock && !tile.deco;
-      things.push({ img, x: x * T + 8 - lw / 2, y: (y + 1) * T - lh, sort: (y + 1) * T, sh: [x * T + 8, (y + 1) * T - 2, tile.rock ? 6 : lw * 0.36, isTree ? 4 : 3] });
+      things.push({ img, x: x * T + 8 - lw / 2, y: (y + 1) * T - lh, sort: (y + 1) * T, sway: isTree ? 1 : tile.deco === "palm" ? 1.3 : 0, sh: [x * T + 8, (y + 1) * T - 2, tile.rock ? 6 : lw * 0.36, isTree ? 4 : 3] });
     }
   }
   if (state.map === "town" && festivalToday()) {                                    // festival pennants
@@ -1125,7 +1147,7 @@ function drawWorld() {
   for (const t of things) if (t.sh) shadow(t.sh[0], t.sh[1], t.sh[2], t.sh[3]);
   for (const t of things) {
     if (t.hurt) ctx.globalAlpha = 0.55;
-    blit(t);
+    if (t.sway) drawSwaying(ctx, t.img, t.x, t.y, clock, t.sway); else blit(t);
     ctx.globalAlpha = 1;
     if (t.smoke && !state.rain) for (let i = 0; i < 4; i++) {                       // chimney smoke
       const p = (clock * 0.35 + i * 0.25) % 1, sx = t.smoke[0] + Math.sin(p * 5 + i) * 2 + p * 5, sy = t.smoke[1] - p * 16;
@@ -1151,6 +1173,8 @@ function drawWorld() {
   const { x, y } = targetTile();                                                    // target marker (corner brackets)
   ctx.strokeStyle = `rgba(255,255,255,${0.65 + 0.3 * Math.sin(clock * 6)})`;
   for (const [px0, py0, dx, dy] of [[x * T, y * T, 1, 1], [x * T + T, y * T, -1, 1], [x * T, y * T + T, 1, -1], [x * T + T, y * T + T, -1, -1]]) { ctx.beginPath(); ctx.moveTo(px0 + dx * 4, py0 + dy * .5); ctx.lineTo(px0 + dx * .5, py0 + dy * .5); ctx.lineTo(px0 + dx * .5, py0 + dy * 4); ctx.stroke(); }
+  if (state.rain && seasonOf(state.day) !== 3 && !inMine && Math.random() < 0.5) ripple(camX + Math.random() * W, camY + Math.random() * H);
+  drawFx(ctx);
   ctx.restore();
 
   if (inMine) {                                                                     // lantern light
@@ -1160,6 +1184,19 @@ function drawWorld() {
   } else if (state.map !== "greenhouse") {
     const hr = hourNow(), [tr, tg, tb, ta] = timeTint(hr);
     if (ta > 0.005) { ctx.fillStyle = `rgba(${Math.round(tr)},${Math.round(tg)},${Math.round(tb)},${ta})`; ctx.fillRect(0, 0, W, H); }
+    sunGlow(ctx, W, H, state.rain ? 0 : hr);
+    if (hr > 17.5 || hr < 6.5) {                                                    // lit windows: warm light pools around houses
+      const st = hr < 6.5 ? 1 : Math.min(1, (hr - 17.5) / 2.5);
+      for (const o of m.objects) {
+        if (!["home", "shop", "h1", "h2", "h3", "centre"].includes(o.sprite)) continue;
+        const img = S.bldg[o.sprite === "centre" && state.restored ? "centreOk" : o.sprite], ow = o.w || 3, lw = logicalW(img), lh = logicalH(img);
+        const gx = o.x * T + ow * T / 2 - camX, gy = (o.y + o.h) * T - lh * 0.4 - camY;
+        if (gx > -60 && gx < W + 60 && gy > -60 && gy < H + 60) {
+          windowGlow(ctx, gx, gy, Math.max(40, lw * 0.9), st, clock);
+          if (["home", "shop", "h1", "h2", "h3"].includes(o.sprite)) litWindows(ctx, o.x * T + ow * T / 2 - lw / 2 - camX, (o.y + o.h) * T - lh - camY, st);
+        }
+      }
+    }
     if (hr > 19) {                                                                  // warm glow around the farmer at night
       const lx = state.px + 6 - camX, ly = state.py + 6 - camY, g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 70), a = Math.min(0.32, (hr - 19) / 4);
       g.addColorStop(0, `rgba(255,205,120,${a})`); g.addColorStop(1, "rgba(255,205,120,0)");
@@ -1179,6 +1216,7 @@ function drawWorld() {
       }
     }
   }
+  if (!inMine) vignette(ctx, W, H, Math.max(0, Math.min(1, (hourNow() - 18) / 3)));
   if (state.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${state.fade / 0.4})`; ctx.fillRect(0, 0, W, H); }
   drawHud(hourNow(), x, y);
 }
@@ -1589,6 +1627,7 @@ function hitUi(cx, cy) {
 canvas.addEventListener("pointerdown", e => {
   const r = canvas.getBoundingClientRect(), cx = (e.clientX - r.left) * W / r.width, cy = (e.clientY - r.top) * H / r.height;
   if (setUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
+  if (scene === "intro") return intro.tap(cx, cy);
   if (!isTouch() && gearHit(cx, cy, scene === "title")) return openSettings();
   if (scene === "title") {
     const opts = titleOptions(), i = Math.floor((cy - 98) / 16);
@@ -1613,24 +1652,27 @@ onSetting(k => { if (k === "lang") applyDom(); }); applyDom();
 // Phones kill backgrounded tabs: save and silence audio whenever the page is hidden.
 const onHide = () => { if (document.visibilityState === "hidden" || document.visibilityState === undefined) { if (scene === "game" && state) save(); audio.setPaused(true); } else audio.setPaused(false); };
 document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
-let lastUiOpen = null, lastTitle = null;
+let lastUiOpen = null, lastTitle = null, lastIntro = null;
 function syncBodyClasses() {
-  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title";
+  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title", inIntro = scene === "intro" && !setUi;
   if (uiOpen !== lastUiOpen) { document.body.classList.toggle("ui-open", uiOpen); lastUiOpen = uiOpen; }
   if (title !== lastTitle) { document.body.classList.toggle("scene-title", title); lastTitle = title; }
+  if (inIntro !== lastIntro) { document.body.classList.toggle("scene-intro", inIntro); lastIntro = inIntro; }
 }
+
+const intro = makeIntro({ ctx, W, H, S, txt, wrap, woodFrame, tr, beep: audio.beep, isTouch });
 
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
 (function frame(now) {
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
   ctx.font = "9px monospace";
-  if (scene === "title") drawTitle(); else { drawWorld(); drawGear(); }
+  if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else { drawWorld(); drawGear(); }
   if (setUi) drawSettings();
   syncBodyClasses();
   requestAnimationFrame(frame);
