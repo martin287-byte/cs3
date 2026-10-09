@@ -1,6 +1,6 @@
 // Procedural generation of the three maps: Farm, Town, Forest. Tile types:
 // 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
-// 11 cave wall, 12 cave floor, 13 ore node, 14 sand (beach / desert)
+// 11 cave wall, 12 cave floor, 13 ore node, 14 sand (beach / desert), 15 greenhouse floor, 16 greenhouse wall
 import { PEN, PASTURE } from "./data.js";
 
 function rng(seed) {
@@ -38,7 +38,8 @@ function building(m, sprite, x, y, t, kind) {
 }
 
 // Building plots: [id, x, y, w, h, sprite]. Tiles block movement from the start; the sprite changes when built.
-export const PLOTS = [["coop", 44, 3, 3, 2, "plot"], ["barn", 30, 4, 3, 2, "plot"], ["silo", 16, 4, 2, 2, "plotS"]];
+export const PLOTS = [["coop", 44, 3, 3, 2, "plot"], ["barn", 30, 4, 3, 2, "plot"], ["silo", 16, 4, 2, 2, "plotS"], ["greenhouse", 21, 4, 3, 2, "plot"]];
+export const GH_DOOR = { x: 22, y: 6 };                                              // where you stand outside the greenhouse
 
 function makeFarm(rnd) {
   const m = blank(64, 44, "Farm");
@@ -49,7 +50,7 @@ function makeFarm(rnd) {
   fill(m, PEN.x0, PEN.y0, PEN.x1, PEN.y1, 7); fill(m, PASTURE.x0, PASTURE.y0, PASTURE.x1, PASTURE.y1, 7);
   for (const [id, x, y, w, h, sprite] of PLOTS) { fill(m, x, y, x + w - 1, y + h - 1, 10, { kind: "plot", plot: id }); m.objects.push({ sprite, x, y, h, w, plot: id }); }
   pond(m, 46, 34, 5, 4, "pond");
-  scatter(m, rnd, 90, (x, y) => !(x >= 3 && x <= 19 && y >= 3 && y <= 10) && !(x >= 24 && x <= 50 && y >= 2 && y <= 14)
+  scatter(m, rnd, 90, (x, y) => !(x >= 3 && x <= 24 && y >= 3 && y <= 10) && !(x >= 24 && x <= 50 && y >= 2 && y <= 14)
     && !(y >= 18 && y <= 23) && !(x >= 38 && x <= 54 && y >= 28 && y <= 40));
   m.warps.push({ x: 63, y: 19, w: 1, h: 4, to: "town", tx: 2, ty: 13 });
   return m;
@@ -63,9 +64,10 @@ function makeTown(rnd) {
   building(m, "shop", 17, 5, 6, "shop");
   building(m, "h1", 6, 4, 10, "house"); building(m, "h2", 26, 4, 10, "house");
   building(m, "h3", 6, 18, 10, "house"); building(m, "h1", 26, 18, 10, "house");
+  building(m, "centre", 12, 18, 10, "centre");                                     // community centre
   pond(m, 38, 21, 4, 3, "pond");
   scatter(m, rnd, 45, (x, y) => !(y >= 11 && y <= 15) && !(x >= 19 && x <= 22 && y >= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
-    && !(x >= 4 && x <= 10 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
+    && !(x >= 4 && x <= 16 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
   m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 },
     { x: 20, y: 27, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 43, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
   return m;
@@ -117,9 +119,19 @@ function makeDesert(rnd) {
   return m;
 }
 
+function makeGreenhouse() {
+  const m = blank(15, 11, "Greenhouse");
+  fill(m, 0, 0, 14, 10, 15);
+  for (let x = 0; x < 15; x++) { put(m, x, 0, 16); if (x < 6 || x > 8) put(m, x, 10, 16); }
+  for (let y = 0; y < 11; y++) { put(m, 0, y, 16); put(m, 14, y, 16); }
+  for (const [x0, y0] of [[2, 2], [8, 2], [2, 6], [8, 6]]) fill(m, x0, y0, x0 + 4, y0 + 2, 1);
+  m.warps.push({ x: 6, y: 10, w: 3, h: 1, to: "farm", tx: GH_DOOR.x, ty: GH_DOOR.y });
+  return m;
+}
+
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
-  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd) };
+  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), greenhouse: makeGreenhouse() };
 }
 
 // One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.

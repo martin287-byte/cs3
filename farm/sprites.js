@@ -308,8 +308,70 @@ function miscIcon(id) {
     if (id === "slime") { disc(g, "#2f8a3a", 8, 9, 5); disc(g, "#5fd36a", 8, 8, 4); R(g, "#cfffd0", 6, 6, 2, 2); }
     if (id === "batwing") { R(g, "#3a2255", 2, 5, 12, 3); R(g, "#4a2f6a", 3, 8, 3, 3); R(g, "#4a2f6a", 8, 8, 3, 3); R(g, "#6a4a8a", 5, 4, 6, 2); }
     if (id === "bone") { R(g, "#e8e4d8", 4, 7, 8, 2); disc(g, "#e8e4d8", 4, 6, 2); disc(g, "#e8e4d8", 4, 10, 2); disc(g, "#e8e4d8", 12, 6, 2); disc(g, "#e8e4d8", 12, 10, 2); }
+    if (id === "sprinkler" || id === "qsprinkler") {
+      const q = id === "qsprinkler"; R(g, q ? "#d8b020" : "#8a96a8", 7, 8, 2, 6); R(g, q ? "#f0d050" : "#b8c4d4", 5, 6, 6, 3);
+      for (const [x, y] of [[3, 3], [12, 3], [2, 7], [13, 7], [8, 2]]) R(g, "#7ac0ff", x, y, 1, 2);
+      if (q) { R(g, "#7ac0ff", 4, 11); R(g, "#7ac0ff", 11, 11); }
+    }
     if (id === "bouquet") { R(g, "#3fae3f", 7, 8, 2, 7); for (const [x, y, c] of [[4, 3, "#e84a6a"], [8, 2, "#ffd93d"], [11, 4, "#b06ae0"], [6, 6, "#fff"], [10, 7, "#e84a6a"]]) { R(g, c, x, y, 3, 3); R(g, "#f08a24", x + 1, y + 1); } }
     if (id === "pendant") { R(g, "#ffd23f", 6, 2, 1, 5); R(g, "#ffd23f", 9, 2, 1, 5); disc(g, "#ffd23f", 8, 10, 4); disc(g, "#5ad0ff", 8, 10, 2); R(g, "#fff", 7, 9); }
+  });
+}
+
+// ---- greenhouse, community centre, pets, horse ----
+function greenhouseB() {
+  return mk(48, 40, g => {
+    R(g, "#3a4a50", 2, 12, 44, 28); R(g, "#bfe6ee", 3, 13, 42, 26);
+    for (let x = 3; x < 46; x += 7) R(g, "#6a8a94", x, 13, 1, 26);
+    for (let y = 13; y < 39; y += 8) R(g, "#6a8a94", 3, y, 42, 1);
+    for (let y = 0; y < 13; y++) { const half = Math.round(10 + y * 1.1); R(g, "#3a4a50", 24 - half, y, half * 2, 1); R(g, "#a8d8e4", 25 - half, y, half * 2 - 2, 1); }
+    for (let x = 6; x < 44; x += 8) R(g, "#6a8a94", x, 2, 1, 11);
+    R(g, "#6aa86a", 6, 28, 6, 10); R(g, "#6aa86a", 34, 28, 8, 10); R(g, "#4cb054", 8, 26, 3, 4); R(g, "#e84a6a", 37, 27, 3, 3);
+    R(g, "#3a4a50", 19, 22, 10, 18); R(g, "#8ab8c4", 20, 23, 8, 17); R(g, "#3a4a50", 23, 23, 2, 17);
+  });
+}
+const ghFloor = v => mk(16, 16, g => {
+  R(g, "#c9b48a", 0, 0, 16, 16);
+  for (let i = 0; i < 6; i++) R(g, i % 2 ? "#b8a278" : "#dac79c", Math.floor(hash(i, v, 51) * 14), Math.floor(hash(i, v, 52) * 15), 2, 1);
+  R(g, "#b8a278", 0, 15, 16, 1); R(g, "#b8a278", 15, 0, 1, 16);
+});
+const ghWall = () => mk(16, 16, g => {
+  R(g, "#6a8a94", 0, 0, 16, 16); R(g, "#bfe6ee", 1, 1, 14, 14); R(g, "#6a8a94", 7, 0, 2, 16); R(g, "#6a8a94", 0, 7, 16, 2); R(g, "#e8f8fc", 2, 2, 4, 1);
+});
+function centreB(ok) {
+  return mk(48, 40, g => {
+    R(g, "#3a2e26", 2, 12, 44, 28); R(g, ok ? "#e8d4a8" : "#8a8070", 3, 13, 42, 26);
+    for (let y = 16; y < 39; y += 4) R(g, ok ? "#d4bc88" : "#756b5e", 3, y, 42, 1);
+    for (let y = 0; y < 14; y++) { const half = Math.round(8 + y * 1.2); R(g, ok ? "#2f5d9a" : "#5a5248", 24 - half, y, half * 2, 1); if (y % 3 === 2) R(g, ok ? "#264b7d" : "#4a443c", 24 - half, y, half * 2, 1); }
+    R(g, "#222", 0, 14, 48, 1);
+    R(g, "#2a1a10", 18, 22, 12, 18); R(g, ok ? "#7a4b2a" : "#4a4a4a", 19, 23, 10, 17);
+    if (ok) { R(g, "#ffd23f", 26, 31, 2, 2); R(g, "#cccccc", 23, -1, 1, 8); R(g, "#e84a6a", 24, 0, 8, 5); for (const wx of [6, 34]) { R(g, "#2a1a10", wx, 20, 8, 8); R(g, "#9fd3f2", wx + 1, 21, 6, 6); } }
+    else { R(g, "#5a3a1e", 18, 22, 12, 3); R(g, "#5a3a1e", 18, 32, 12, 3); R(g, "#5a3a1e", 20, 22, 3, 14); for (const wx of [6, 34]) { R(g, "#2a1a10", wx, 20, 8, 8); R(g, "#5a3a1e", wx, 22, 8, 2); R(g, "#5a3a1e", wx, 26, 8, 2); } R(g, "#d8c880", 8, 30, 8, 5); }
+  });
+}
+const dog = f => mk(14, 11, g => {
+  R(g, "#b8844c", 3, 4, 8, 4); R(g, "#d8a46c", 4, 4, 5, 2); R(g, "#b8844c", 9, 2, 4, 4); R(g, "#6a4420", 12, 3, 1, 1); R(g, "#2a1a10", 11, 3, 1, 1); R(g, "#6a4420", 9, 2, 1, 3);
+  R(g, "#b8844c", 1, 3 + f, 3, 1); R(g, "#6a4420", 3, 8, 1, 3 - f); R(g, "#6a4420", 6, 8, 1, 2 + f); R(g, "#6a4420", 9, 8, 1, 3 - f);
+});
+const cat = f => mk(14, 11, g => {
+  R(g, "#e8a050", 3, 4, 8, 4); R(g, "#f4c080", 4, 4, 5, 2); R(g, "#e8a050", 9, 2, 4, 4); R(g, "#e8a050", 9, 1, 1, 1); R(g, "#e8a050", 12, 1, 1, 1);
+  R(g, "#2a1a10", 11, 3, 1, 1); R(g, "#e8a050", 0, 2 + f, 1, 4); R(g, "#e8a050", 1, 5, 2, 1);
+  R(g, "#c07830", 3, 8, 1, 3 - f); R(g, "#c07830", 6, 8, 1, 2 + f); R(g, "#c07830", 9, 8, 1, 3 - f);
+});
+function horseSide() {
+  return mk(26, 18, g => {
+    R(g, "#8a5a2e", 5, 5, 14, 7); R(g, "#a8743e", 6, 5, 10, 3); R(g, "#8a5a2e", 17, 1, 5, 6); R(g, "#8a5a2e", 20, 3, 5, 4); R(g, "#2a1a10", 22, 3, 1, 1);
+    R(g, "#3a2410", 16, 0, 2, 7); R(g, "#3a2410", 3, 5, 3, 5); R(g, "#3a2410", 2, 9, 2, 4);
+    for (const x of [6, 9, 15, 18]) { R(g, "#8a5a2e", x, 12, 2, 5); R(g, "#2a1a10", x, 16, 2, 2); }
+    R(g, "#c8a050", 9, 4, 6, 2); R(g, "#c82a2a", 10, 3, 4, 1);
+  });
+}
+function horseFront(back) {
+  return mk(14, 20, g => {
+    R(g, "#8a5a2e", 3, 3, 8, 9); R(g, "#a8743e", 4, 4, 6, 4); R(g, "#8a5a2e", 5, 0, 4, 5); R(g, "#3a2410", 5, 0, 4, back ? 3 : 1);
+    if (!back) { R(g, "#2a1a10", 5, 2, 1, 1); R(g, "#2a1a10", 8, 2, 1, 1); R(g, "#b8844c", 6, 4, 2, 2); }
+    R(g, "#8a5a2e", 4, 11, 2, 7); R(g, "#8a5a2e", 8, 11, 2, 7); R(g, "#2a1a10", 4, 17, 2, 2); R(g, "#2a1a10", 8, 17, 2, 2);
+    R(g, "#c8a050", 3, 5, 8, 2);
   });
 }
 
@@ -324,10 +386,12 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) 
       h1: building("#3f8a4a", "#2f6b38", "#d8b98a", "#c4a478", false),
       h2: building("#c9a227", "#a8851c", "#e3d4b0", "#cfc09a", false),
       h3: building("#7a4fa0", "#5f3d82", "#c9a7a0", "#b5948c", false),
-      board: boardSprite(), bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
+      greenhouse: greenhouseB(), centre: centreB(false), centreOk: centreB(true), board: boardSprite(), bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
     },
     cave: [0, 1, 2, 3].map(caveWall), cfloor: [0, 1, 2, 3].map(caveFloor), node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
     sand: { beach: [0, 1, 2, 3].map(v => sand("beach", v)), desert: [0, 1, 2, 3].map(v => sand("desert", v)) }, ocean: [oceanTile(0), oceanTile(1)], palm: palm(), cactus: cactus(),
+    ghfloor: [0, 1, 2, 3].map(ghFloor), ghwall: ghWall(),
+    pet: { dog: [dog(0), dog(1)], cat: [cat(0), cat(1)] }, horse: { side: horseSide(), front: horseFront(false), back: horseFront(true) },
     chicken: chicken(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg() },
     mon: { slime: [slime(0), slime(1)], bat: [bat(0), bat(1)], skeleton: [skeleton(0), skeleton(1)] }, cow: cow(),
     player: person({ o: "#2b1b17", h: "#5a3a22", s: "#f2c59b", e: "#222", r: "#d94f4f", b: "#3a5ba8", k: "#3b2a20" }),

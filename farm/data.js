@@ -8,7 +8,14 @@ export const BUILDINGS = {
   coop: { name: "Coop", cost: 300, mats: { stone: 20 } },
   barn: { name: "Barn", cost: 600, mats: { stone: 40, copper: 5 } },
   silo: { name: "Silo", cost: 250, mats: { stone: 15 } },
+  greenhouse: { name: "Greenhouse", cost: 1500, mats: { stone: 50, copper: 15, iron: 10 } },   // grows crops all year, auto-watered
 };
+export const SPRINKLER_SHOP = [
+  { id: "sprinkler", cost: 200, mats: { iron: 2 } },       // waters the 4 tiles around it each night
+  { id: "qsprinkler", cost: 450, mats: { gold: 2 } },      // waters all 8 tiles around it
+];
+export const HORSE_COST = 1500, PET_COST = 250;
+export const PETS = { dog: { name: "Rex" }, cat: { name: "Mochi" } };
 export const SWORD_UPGRADES = [{ cost: 200, mats: { copper: 6 } }, { cost: 450, mats: { iron: 6 } }];
 export const SWORD_DAMAGE = [1, 2, 3];
 export const MONSTERS = {
@@ -24,6 +31,8 @@ export const MISC = {
   bouquet: { name: "Bouquet",         price: 100 },
   pendant: { name: "Wedding Pendant", price: 750 },
   tonic:   { name: "Energy Tonic",    price: 30 },
+  sprinkler:  { name: "Sprinkler",         price: 100 },
+  qsprinkler: { name: "Quality Sprinkler", price: 250 },
 };
 export const HEART_REWARDS = [{ hearts: 3, money: 75 }, { hearts: 6, money: 200 }, { hearts: 9, money: 400 }];
 
@@ -204,3 +213,15 @@ export const VILLAGERS = {
     season: ["Spring brings a rare cool breeze.", "Summer here is no joke. Stay hydrated.", "Autumn nights are bright with stars.", "Even desert winters bite at night."],
   },
 };
+
+// Community centre: deposit `take` different items from each bundle's list to complete it.
+export const BUNDLES = [
+  { id: "crops",   name: "Crop Bundle",      take: 4, reward: 300, items: Object.keys(CROPS) },
+  { id: "forage",  name: "Forager's Bundle", take: 4, reward: 300, items: ["leek", "daffodil", "berry", "grape", "mushroom", "blackberry", "holly", "snowyam"] },
+  { id: "fish",    name: "Angler's Bundle",  take: 4, reward: 400, items: Object.keys(FISH) },
+  { id: "mining",  name: "Miner's Bundle",   take: 4, reward: 400, items: ["copper", "iron", "gold", "amethyst"] },
+  { id: "coast",   name: "Coast Bundle",     take: 4, reward: 400, items: ["shell", "coral", "urchin", "cactusfruit", "sandrose"] },
+  { id: "kitchen", name: "Kitchen Bundle",   take: 4, reward: 500, items: Object.keys(DISHES) },
+  { id: "loot",    name: "Monster Bundle",   take: 3, reward: 500, items: ["slime", "batwing", "bone"] },
+];
+export const RESTORE_PRIZE = 3000;
