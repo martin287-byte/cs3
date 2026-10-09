@@ -225,3 +225,19 @@ export const BUNDLES = [
   { id: "loot",    name: "Monster Bundle",   take: 3, reward: 500, items: ["slime", "batwing", "bone"] },
 ];
 export const RESTORE_PRIZE = 3000;
+
+// Skill perks: at level 5 and 10 of each skill you pick one of two perks.
+export const PERKS = {
+  farming:  { 5: [{ id: "tiller", name: "Tiller", desc: "Crops sell for 10% more" }, { id: "rancher", name: "Rancher", desc: "Eggs and milk sell for 30% more" }],
+              10: [{ id: "agri", name: "Agriculturist", desc: "Watered crops have a 25% chance to grow an extra day" }, { id: "artisan", name: "Artisan", desc: "Cooked dishes sell for 40% more" }] },
+  fishing:  { 5: [{ id: "fisher", name: "Fisher", desc: "Fish sell for 25% more" }, { id: "trapper", name: "Trapper", desc: "Fish bite twice as fast" }],
+              10: [{ id: "angler", name: "Angler", desc: "A much wider catch zone" }, { id: "pirate", name: "Pirate", desc: "20% chance of a $60 treasure with each catch" }] },
+  mining:   { 5: [{ id: "miner", name: "Miner", desc: "+20% chance of extra ore" }, { id: "geologist", name: "Geologist", desc: "8% chance a node also yields an amethyst" }],
+              10: [{ id: "prospector", name: "Prospector", desc: "Mining costs 1 less energy" }, { id: "blacksmith", name: "Blacksmith", desc: "Ore sells for 40% more" }] },
+  foraging: { 5: [{ id: "gatherer", name: "Gatherer", desc: "+20% chance to double a forage find" }, { id: "botanist", name: "Botanist", desc: "Forage sells for 25% more" }],
+              10: [{ id: "tracker", name: "Tracker", desc: "50% more forage appears each day" }, { id: "naturalist", name: "Naturalist", desc: "Raw crops and forage restore 3x energy" }] },
+  combat:   { 5: [{ id: "fighter", name: "Fighter", desc: "Sword damage +1" }, { id: "defender", name: "Defender", desc: "+25 max HP" }],
+              10: [{ id: "brute", name: "Brute", desc: "Sword damage +1 more" }, { id: "acrobat", name: "Acrobat", desc: "Longer invulnerability after a hit" }] },
+};
+// Fast travel: where you arrive in each area.
+export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [21, 2], desert: [3, 15] };
