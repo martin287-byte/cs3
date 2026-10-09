@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiny Platformer</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #14121f; color: #eee; font-family: monospace; }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    canvas { image-rendering: pixelated; width: min(96vw, 960px); aspect-ratio: 16 / 9; background: #1d1b2e; }
+    p { opacity: .7; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="480" height="270"></canvas>
+  <p>Arrows / A D to move · Space / W / Up to jump · R to restart level</p>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
