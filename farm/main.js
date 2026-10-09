@@ -7,6 +7,9 @@ import { SEASONS, buildSprites, hash } from "./sprites.js";
 import { generateWorld, makeMine, PLOTS } from "./world.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey } from "./touch.js";
+import { tr, tf, lang, untranslated } from "./i18n.js";
+import { HELP_HU } from "./hu.js";
+import { settings, setSetting, onSetting, CTRL_SIZES } from "./settings.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -149,7 +152,9 @@ addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "tab"].includes(k)) e.preventDefault();
   if (!keys.has(k)) {
-    if (k === "m") audio.toggleMute();
+    if (setUi) settingsKey(k);
+    else if (k === "o") openSettings();
+    else if (k === "m") audio.toggleMute();
     else if (scene === "title") titleKey(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
@@ -170,7 +175,7 @@ addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 
 function cycleSeed() { state.seedSel = (state.seedSel + 1) % CROP_IDS.length; }
 
-const titleOptions = () => [...(hasSave() ? ["Continue"] : []), "New Game", audio.isMuted() ? "Music: Off" : "Music: On"];
+const titleOptions = () => [...(hasSave() ? ["Continue"] : []), "New Game", "Settings"];
 function titleKey(k) {
   const opts = titleOptions();
   if (k === "arrowup" || k === "w") titleSel = (titleSel + opts.length - 1) % opts.length;
@@ -180,16 +185,16 @@ function titleKey(k) {
     const o = opts[titleSel];
     if (o === "Continue") return startGame(true);
     if (o === "New Game") return startGame(false);
-    audio.toggleMute();
+    return openSettings();
   }
   audio.startMusic("title");
 }
 
-const say = (m, t = 2.5) => { state.msg = m; state.msgT = t; };
+const say = (m, t = 2.5) => { state.msg = tr(m); state.msgT = t; };
 const later = (m, delay, t = 4) => setTimeout(() => { if (state) say(m, t); }, delay);
 const addItem = (id, n = 1) => { state.inv[id] = (state.inv[id] || 0) + n; };
 const invItems = () => Object.entries(state.inv).filter(([, n]) => n > 0).sort((a, b) => itemInfo(a[0]).name.localeCompare(itemInfo(b[0]).name));
-const matsText = mats => Object.entries(mats || {}).map(([id, n]) => `${n} ${itemInfo(id).name}`).join(", ");
+const matsText = mats => Object.entries(mats || {}).map(([id, n]) => `${n} ${tr(itemInfo(id).name)}`).join(", ");
 const hasMats = mats => Object.entries(mats || {}).every(([id, n]) => (state.inv[id] || 0) >= n);
 
 // ---------------------------------------------------------------- geometry & npcs
@@ -478,15 +483,23 @@ function restoreCentre() {
 // ---------------------------------------------------------------- tutorial, tips, map
 const isTouch = () => document.body.classList.contains("touch");
 const TUT_STEPS = () => {
-  const t = isTouch(), press = t ? "Tap" : "Press";
-  return [
-    t ? "Drag the left joystick to walk. The white square shows the tile you are facing." : "Walk with WASD or the arrow keys. The white square shows the tile you are facing.",
-    `${press} 1 to take the hoe, face some grass and ${t ? "tap A" : "press Space"} to till the soil.`,
-    `${press} 6 for seeds (Q switches the seed type), then use them on the tilled soil.`,
-    `${press} 2 for the watering can and water your seeds. Refill it at any pond.`,
-    `Walk to your farmhouse door and ${t ? "tap E" : "press E"}, then choose Sleep. Watered crops grow overnight!`,
-    `${t ? "Tap A" : "Press Space"} on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).`,
-    `Explore east to reach the Town. ${t ? "Tap MAP" : "Press N"} any time for the world map and fast travel.`,
+  const t = isTouch();
+  return t ? [
+    "Drag the left joystick to walk. The white square shows the tile you are facing.",
+    "Tap 1 to take the hoe, face some grass and tap A to till the soil.",
+    "Tap 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
+    "Tap 2 for the watering can and water your seeds. Refill it at any pond.",
+    "Walk to your farmhouse door and tap E, then choose Sleep. Watered crops grow overnight!",
+    "Tap A on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
+    "Explore east to reach the Town. Tap MAP any time for the world map and fast travel.",
+  ] : [
+    "Walk with WASD or the arrow keys. The white square shows the tile you are facing.",
+    "Press 1 to take the hoe, face some grass and press Space to till the soil.",
+    "Press 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
+    "Press 2 for the watering can and water your seeds. Refill it at any pond.",
+    "Walk to your farmhouse door and press E, then choose Sleep. Watered crops grow overnight!",
+    "Press Space on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
+    "Explore east to reach the Town. Press N any time for the world map and fast travel.",
   ];
 };
 const farmHas = pred => { for (const row of maps.farm.tiles) for (const t of row) if (pred(t)) return true; return false; };
@@ -821,7 +834,8 @@ function uiKey(k) {
     else if (k === "2") { save(); state.ui = null; say("Game saved."); }
     else if (k === "3") audio.toggleMute();
     else if (k === "4") { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; }
-    else if (k === "5") { state.ui = null; scene = "title"; titleSel = 0; audio.startMusic("title"); }
+    else if (k === "5") { state.ui = null; openSettings(); }
+    else if (k === "6") { state.ui = null; scene = "title"; titleSel = 0; audio.startMusic("title"); }
   } else if (ui.type === "talk") talkKey(k, num);
 }
 
@@ -914,17 +928,17 @@ function sleep() {
     state.build[id] = "built";
     const o = maps.farm.objects.find(x => x.plot === id); if (o) o.sprite = id;
     for (const row of maps.farm.tiles) for (const t of row) if (t.plot === id) t.kind = "built";
-    extra += ` Your ${BUILDINGS[id].name} is finished!`;
+    extra += ` ${tf("Your {0} is finished!", tr(BUILDINGS[id].name))}`;
   }
   if (state.engaged && state.day >= state.engaged.day) {
     const v = VILLAGERS[state.engaged.id]; state.spouse = state.engaged.id; state.dating = null; state.engaged = null; state.friend[state.spouse].pts = 1000;
-    extra += ` You married ${v.name}! They now live on the farm.`; audio.beep(1200, 0.5, "triangle");
+    extra += ` ${tf("You married {0}! They now live on the farm.", v.name)}`; audio.beep(1200, 0.5, "triangle");
   }
   const s = seasonOf(state.day);
   if (s !== old) {
     let withered = 0;
     for (const [name, m] of Object.entries(maps)) if (name !== "greenhouse") for (const row of m.tiles) for (const tile of row) if (tile.crop && !CROPS[tile.crop.type].seasons.includes(s)) { delete tile.crop; withered++; }
-    extra = ` ${SEASONS[s].name} begins!${withered ? ` ${withered} crop(s) withered.` : ""}`;
+    extra = ` ${tf("{0} begins!", tr(SEASONS[s].name))}${withered ? ` ${tf("{0} crop(s) withered.", withered)}` : ""}`;
   }
   audio.startMusic(mood());
   state.rain = Math.random() < (s === 3 ? 0.3 : 0.2);
@@ -932,10 +946,10 @@ function sleep() {
   if (state.day >= 3) tip("map", "Press N for the world map. You can fast travel to places you have visited.");
   if (state.rain) for (const row of maps.farm.tiles) for (const tile of row) if (tile.t === 1) tile.wet = true;
   state.water = maxWater(); spawnForage(); startFestival();
-  if (state.fest) { const f = FESTIVALS.find(x => x.id === state.fest.id); extra += ` Today: ${f.name}! ${f.desc}.`; }
-  if (merchantHere()) extra += " Zed the merchant is in Town today.";
+  if (state.fest) { const f = FESTIVALS.find(x => x.id === state.fest.id); extra += ` ${tf("Today: {0}! {1}.", tr(f.name), tr(f.desc))}`; }
+  if (merchantHere()) extra += ` ${tf("Zed the merchant is in Town today.")}`;
   save();
-  say(`Day ${state.day}${state.rain ? (s === 3 ? " — snowing" : " — raining") : ""}.${state.chickens ? ` ${state.chickens} egg(s)` : ""}${state.cows ? ` ${state.cows} milk` : ""}${state.chickens || state.cows ? " collected." : ""}${extra}`, extra ? 7 : 3);
+  say(`${tf("Day {0}", state.day)}${state.rain ? ` — ${tf(s === 3 ? "snowing" : "raining")}` : ""}.${state.chickens ? ` ${tf("{0} egg(s)", state.chickens)}` : ""}${state.cows ? ` ${tf("{0} milk", state.cows)}` : ""}${state.chickens || state.cows ? ` ${tf("collected.")}` : ""}${extra}`, extra ? 7 : 3);
 }
 
 // ---------------------------------------------------------------- update
@@ -948,7 +962,7 @@ function goMap(to, tx, ty) {
 
 function update(dt) {
   clock += dt;
-  if (scene !== "game") return;
+  if (scene !== "game" || setUi) return;
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
   const snow = seasonOf(state.day) === 3, amb = !state.rain, sea = seasonOf(state.day);
   for (const p of particles) {                                                      // rain / snow / drifting petals and leaves
@@ -1008,6 +1022,7 @@ function update(dt) {
 
 // ---------------------------------------------------------------- drawing
 function wrap(text, maxW) {
+  text = tr(text);
   const lines = []; let line = "";
   for (const w of text.split(" ")) {
     if (ctx.measureText(line + w).width > maxW && line) { lines.push(line.trimEnd()); line = ""; }
@@ -1017,7 +1032,7 @@ function wrap(text, maxW) {
   return lines;
 }
 let rec = null, uiLines = [];                                                      // text drawn by menus, kept for tap hit-testing
-const txt = (s, x, y, c = "#fff", align = "left") => { ctx.fillStyle = c; ctx.textAlign = align; ctx.fillText(s, x, y); ctx.textAlign = "left"; if (rec) rec.push({ s, x, y, align }); };
+const txt = (s, x, y, c = "#fff", align = "left") => { s = tr(s); ctx.fillStyle = c; ctx.textAlign = align; ctx.fillText(s, x, y); ctx.textAlign = "left"; if (rec) rec.push({ s, x, y, align }); };
 
 const CLS = { 0: "g", 1: "s", 2: "w", 3: "g", 4: "g", 5: "g", 6: "g", 7: "p", 8: "r", 10: "g", 11: "W", 12: "f", 13: "f", 14: "d", 15: "G", 16: "X" };
 const logicalW = img => img.width - 2 * (img.ox || 0), logicalH = img => img.height - 2 * (img.oy || 0);
@@ -1194,7 +1209,7 @@ function drawHud(hr, tx, ty) {
   woodFrame(cx0, 4, 96, 54);
   weatherIcon(state.rain ? (s === 3 ? "snow" : "rain") : hr >= 19 || hr < 6 ? "moon" : "sun", cx0 + 8, 10);
   txt(`${SEASONS[s].name.slice(0, 3)} ${dayOfSeason(state.day)}`, cx0 + 30, 18, "#ffe9b0"); txt(`Y${yearOf(state.day)}`, cx0 + 88, 18, "#c9a56a", "right");
-  ctx.font = "bold 11px monospace"; txt(`${h12}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "pm" : "am"}`, cx0 + 48, 33, "#fff", "center"); ctx.font = "9px monospace";
+  ctx.font = "bold 11px monospace"; txt(lang() === "hu" ? `${hh}:${String(mm).padStart(2, "0")}` : `${h12}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "pm" : "am"}`, cx0 + 48, 33, "#fff", "center"); ctx.font = "9px monospace";
   ctx.fillStyle = "#ffd23f"; ctx.fillRect(cx0 + 10, 39, 8, 8); ctx.fillStyle = "#c8960a"; ctx.fillRect(cx0 + 12, 41, 4, 4); ctx.fillStyle = "#fff3a8"; ctx.fillRect(cx0 + 11, 40, 2, 2);
   txt(`${state.money}`, cx0 + 24, 47, "#fff");
   if (state.quests.length) txt(`J: ${state.quests.length} quest${state.quests.length > 1 ? "s" : ""}`, W - 6, 69, "#ffe9b0", "right");
@@ -1312,14 +1327,14 @@ function drawUiInner(ui) {
   else if (ui.type === "board") {
     panel(30, 18, 420, 226, "TOWN BOARD  (1-4 accept, A/B/C turn in, E close)");
     state.board.forEach((q, i) => {
-      txt(`${i + 1}. ${questText(q)}  — $${q.reward}  (due day ${q.deadline}, for ${VILLAGERS[q.giver].name})`.slice(0, 74), 38, 38 + i * 13, "#fff");
+      txt(tr(`${i + 1}. ${questText(q)}  — $${q.reward}  (due day ${q.deadline}, for ${VILLAGERS[q.giver].name})`).slice(0, 76), 38, 48 + i * 13, "#fff");
     });
-    if (!state.board.length) txt("The board is empty. Check back tomorrow.", 38, 38, "#777");
-    txt(`Your quests (${state.quests.length}/3):`, 38, 100, "#ffd23f");
+    if (!state.board.length) txt("The board is empty. Check back tomorrow.", 38, 48, "#777");
+    txt(`Your quests (${state.quests.length}/3):`, 38, 112, "#ffd23f");
     const deliverIdx = {};
     state.quests.forEach((q, i) => {
       const L = q.type === "deliver" ? String.fromCharCode(65 + state.quests.filter(x => x.type === "deliver").indexOf(q)) : "-";
-      txt(`${L}. ${questText(q)} (${questProgress(q)}/${q.n}) $${q.reward}  due day ${q.deadline}`.slice(0, 74), 38, 114 + i * 13, q.type === "deliver" && questProgress(q) >= q.n ? "#8f8" : "#cfe8ff");
+      txt(tr(`${L}. ${questText(q)} (${questProgress(q)}/${q.n}) $${q.reward}  due day ${q.deadline}`).slice(0, 76), 38, 126 + i * 13, q.type === "deliver" && questProgress(q) >= q.n ? "#8f8" : "#cfe8ff");
     });
     txt("Deliver quests: bring the items here and press A/B/C. Others complete automatically.", 38, 232, "#9aa");
   } else if (ui.type === "journal") {
@@ -1338,13 +1353,13 @@ function drawUiInner(ui) {
     state.recipes.slice(0, 9).forEach((id, i) => {
       const d = DISHES[id], ok = !!resolveNeed(d.need);
       ctx.drawImage(S.icon[id], 48, 40 + (i + 1) * 16 - 11, 12, 12);
-      txt(`${i + 1}. ${d.name}: ${needText(d.need)}  ($${d.price}, +${d.energy} en)`, 64, 40 + (i + 1) * 16, ok ? "#fff" : "#777");
+      txt(`${i + 1}. ${tr(d.name)}: ${tr(needText(d.need))}  ($${d.price}, +${d.energy} ${tr("en")})`, 64, 40 + (i + 1) * 16, ok ? "#fff" : "#777");
     });
     txt("Eat food from the inventory (I, then a number). Befriend villagers to learn more recipes.", 48, 222, "#9aa");
   } else if (ui.type === "inv") drawInventory(ui);
   else if (ui.type === "pause") {
-    panel(140, 66, 200, 124, "PAUSED");
-    ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Quit to title"].forEach((s, i) => txt(s, 160, 94 + i * 16));
+    panel(110, 62, 260, 140, "PAUSED");
+    ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Settings", "6. Quit to title"].forEach((s, i) => txt(s, 130, 90 + i * 16));
   } else if (ui.type === "talk") {
     const v = VILLAGERS[ui.id], hh = hearts(ui.id), fe = festHostFor(ui.id);
     panel(50, 112, 380, 126, `${v.name} — ${v.job}`);
@@ -1457,7 +1472,7 @@ function drawInventory(ui) {
     if (!items.length) txt("(empty)", 250, ry, "#777");
     items.slice(0, 11).forEach(([id, n], i) => {
       ctx.drawImage(S.icon[id], 250, ry - 10, 12, 12);
-      txt(`${i < 9 ? i + 1 + "." : "  "} ${n}x ${itemInfo(id).name}`.slice(0, 26), 266, ry, edibleEnergy(id) ? "#fff" : "#aab"); ry += 12;
+      txt(tr(`${i < 9 ? i + 1 + "." : "  "} ${n}x ${itemInfo(id).name}`).slice(0, 26), 266, ry, edibleEnergy(id) ? "#fff" : "#aab"); ry += 12;
     });
     if (items.length > 11) { txt(`…and ${items.length - 11} more`, 250, ry, "#777"); ry += 12; }
     if (items.length) txt(`Worth $${total}`, 250, ry + 2, "#8f8");
@@ -1470,19 +1485,19 @@ function drawInventory(ui) {
     }
     txt(`Max HP ${maxHp()}`, 40, y, "#ff7a9c");
     const chosen = Object.entries(state.perks).map(([k, id]) => { const sk = k.replace(/\d+$/, ''), tier = k.slice(sk.length); return PERKS[sk][tier].find(p => p.id === id).name; });
-    txt(`Perks: ${chosen.length ? chosen.join(", ") : "none yet (levels 5 and 10)"}`.slice(0, 70), 40, y + 12, "#ffd23f");
+    txt(tr(`Perks: ${chosen.length ? chosen.join(", ") : "none yet (levels 5 and 10)"}`).slice(0, 70), 40, y + 12, "#ffd23f");
   } else {
     Object.entries(VILLAGERS).forEach(([id, v], i) => {
       const cx = 40 + (i % 2) * 205, cy = y + Math.floor(i / 2) * 31;
       ctx.drawImage(S.npc[id][0][0], cx - 1, cy - 12);
-      txt(`${v.name} (${v.job})`.slice(0, 24), cx + 22, cy - 2); txt(`${"*".repeat(hearts(id))}${".".repeat(10 - hearts(id))} ${hearts(id)}/10`, cx + 22, cy + 8, "#ff7a9c");
-      txt(`Loves: ${v.loves.slice(0, 2).map(i => itemInfo(i).name).join(", ")}`.slice(0, 30), cx + 22, cy + 17, "#8f8");
+      txt(tr(`${v.name} (${v.job})`).slice(0, 24), cx + 22, cy - 2); txt(`${"*".repeat(hearts(id))}${".".repeat(10 - hearts(id))} ${hearts(id)}/10`, cx + 22, cy + 8, "#ff7a9c");
+      txt(tr(`Loves: ${v.loves.slice(0, 2).map(i => itemInfo(i).name).join(", ")}`).slice(0, 30), cx + 22, cy + 17, "#8f8");
     });
     y += 4 * 31 - 4;
     y += 2;
     const rel = state.spouse ? `Married to ${VILLAGERS[state.spouse].name}` : state.engaged ? `Engaged to ${VILLAGERS[state.engaged.id].name} — wedding on day ${state.engaged.day}` : state.dating ? `Dating ${VILLAGERS[state.dating].name}` : "Single (8 hearts + bouquet to date, 10 + pendant to marry)";
     txt(rel, 40, y, "#ff7a9c");
-    txt(`Recipes: ${state.recipes.map(r => DISHES[r].name).join(", ")}`.slice(0, 74), 40, y + 12, "#ffd23f");
+    txt(tr(`Recipes: ${state.recipes.map(r => DISHES[r].name).join(", ")}`).slice(0, 74), 40, y + 12, "#ffd23f");
     txt(`Chickens ${state.chickens}/${MAX_CHICKENS}  Cows ${state.cows}/${MAX_COWS}  Goal $${state.money}/${GOAL}  Zed every ${MERCHANT.every}th day`, 40, y + 24, "#cfe8ff");
   }
 }
@@ -1505,7 +1520,55 @@ function drawTitle() {
   ctx.font = "10px monospace"; txt("a cozy farming adventure", W / 2, 78, "#2b3b20", "center");
   const opts = titleOptions(); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(W / 2 - 70, 92, 140, opts.length * 16 + 10);
   opts.forEach((o, i) => txt(`${i === titleSel ? "> " : "  "}${o}`, W / 2, 108 + i * 16, i === titleSel ? "#ffd23f" : "#fff", "center"));
-  ctx.font = "9px monospace"; txt("W/S select · Enter start · M toggles music", W / 2, H - 8, "#fff", "center");
+  ctx.font = "9px monospace"; txt("W/S select · Enter start · M toggles music · O settings", W / 2, H - 8, "#fff", "center");
+  drawGear();
+}
+
+// ---------------------------------------------------------------- settings overlay (works on the title screen too)
+let setUi = null;
+const SIZE_NAMES = ["Small", "Medium", "Large"];
+function openSettings() { setUi = { sel: 0 }; audio.beep(520, 0.06, "triangle"); }
+function settingsRows() {
+  const c = settings(), rows = [
+    { id: "lang", label: `Language: ${c.lang === "hu" ? "Magyar" : "English"}`, go: () => setSetting("lang", c.lang === "hu" ? "en" : "hu") },
+    { id: "music", label: `Music: ${audio.isMuted() ? "off" : "on"}`, go: () => audio.toggleMute() },
+    { id: "sfx", label: `Sound effects: ${c.sfx ? "on" : "off"}`, go: () => setSetting("sfx", !c.sfx) },
+  ];
+  if (scene === "game" && state) rows.push({ id: "tut", label: `Tutorial hints: ${state.tut.on ? "on" : "off"}`, go: () => { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; } });
+  rows.push({ id: "ctrl", label: `Touch controls: ${SIZE_NAMES[CTRL_SIZES.indexOf(c.ctrl)] ?? "Medium"}`, go: () => setSetting("ctrl", CTRL_SIZES[(Math.max(0, CTRL_SIZES.indexOf(c.ctrl)) + 1) % CTRL_SIZES.length]) });
+  rows.push({ id: "haptics", label: `Vibration: ${c.haptics ? "on" : "off"}`, go: () => setSetting("haptics", !c.haptics) });
+  return rows;
+}
+function settingsKey(k) {
+  const rows = settingsRows();
+  if (k === "escape" || k === "e" || k === "o") { setUi = null; return; }
+  if (k === "arrowup" || k === "w") setUi.sel = (setUi.sel + rows.length - 1) % rows.length;
+  else if (k === "arrowdown" || k === "s") setUi.sel = (setUi.sel + 1) % rows.length;
+  else if (k === "enter" || k === " " || k === "arrowleft" || k === "arrowright") rows[setUi.sel]?.go();
+  else if (/^[1-9]$/.test(k) && rows[Number(k) - 1]) { setUi.sel = Number(k) - 1; rows[setUi.sel].go(); }
+  else return;
+  audio.beep(600, 0.05, "triangle");
+}
+function drawSettings() {
+  rec = [];
+  ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(0, 0, W, H);
+  const rows = settingsRows(), h = 52 + rows.length * 18, y0 = Math.round((H - h) / 2);
+  woodFrame(100, y0, 280, h); ctx.font = "bold 11px monospace";
+  txt("SETTINGS", W / 2, y0 + 18, "#ffe9b0", "center"); ctx.font = "9px monospace";
+  rows.forEach((r, i) => txt(`${i + 1}. ${r.label}`, 118, y0 + 38 + i * 18, i === setUi.sel ? "#ffd23f" : "#fff"));
+  txt("E / O: close", W / 2, y0 + h - 8, "#c9a56a", "center");
+  uiLines = rec; rec = null;
+}
+// Gear button for mouse users (touch devices have an HTML one); top-right on the title, bottom-right in game.
+const gearBox = title => ({ x: W - 20, y: title ? 4 : H - 20, w: 16, h: 16 });
+const gearHit = (cx, cy, title) => { const g = gearBox(title); return cx >= g.x - 2 && cx <= g.x + g.w + 2 && cy >= g.y - 2 && cy <= g.y + g.h + 2; };
+function drawGear() {
+  if (isTouch() || setUi) return;
+  const g = gearBox(scene === "title"), cx = g.x + 8, cy = g.y + 8;
+  woodFrame(g.x, g.y, g.w, g.h);
+  ctx.fillStyle = "#ffe9b0";
+  for (let a = 0; a < 8; a++) { const r = a * Math.PI / 4; ctx.fillRect(Math.round(cx + Math.cos(r) * 4.5) - 1, Math.round(cy + Math.sin(r) * 4.5) - 1, 2, 2); }
+  ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = "#3a2410"; ctx.fillRect(cx - 1, cy - 1, 2, 2);
 }
 
 // ---------------------------------------------------------------- pointer / touch input
@@ -1525,6 +1588,8 @@ function hitUi(cx, cy) {
 }
 canvas.addEventListener("pointerdown", e => {
   const r = canvas.getBoundingClientRect(), cx = (e.clientX - r.left) * W / r.width, cy = (e.clientY - r.top) * H / r.height;
+  if (setUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
+  if (!isTouch() && gearHit(cx, cy, scene === "title")) return openSettings();
   if (scene === "title") {
     const opts = titleOptions(), i = Math.floor((cy - 98) / 16);
     if (i >= 0 && i < opts.length && cx > W / 2 - 70 && cx < W / 2 + 70) { titleSel = i; dispatchKey("enter"); }
@@ -1535,12 +1600,22 @@ canvas.addEventListener("pointerdown", e => {
   if (cy >= H - 34) { const i = Math.floor((cx - tb0) / 28); if (i >= 0 && i < TOOLS.length) dispatchKey(String(i + 1)); }
 });
 initTouch();
+// Static page labels follow the language setting.
+const domText = [...document.querySelectorAll("#controls button[data-key], #rotate")].filter(el => el.id !== "more" && el.id !== "gear");
+for (const el of domText) if (/[A-Za-z]{2,}/.test(el.textContent)) el.dataset.en = el.textContent;
+const helpEl = document.getElementById("help"); if (helpEl) helpEl.dataset.en = helpEl.innerHTML;
+function applyDom() {
+  document.documentElement.lang = lang();
+  for (const el of domText) if (el.dataset.en) el.textContent = tr(el.dataset.en);
+  if (helpEl) helpEl.innerHTML = lang() === "hu" ? HELP_HU : helpEl.dataset.en;
+}
+onSetting(k => { if (k === "lang") applyDom(); }); applyDom();
 // Phones kill backgrounded tabs: save and silence audio whenever the page is hidden.
 const onHide = () => { if (document.visibilityState === "hidden" || document.visibilityState === undefined) { if (scene === "game" && state) save(); audio.setPaused(true); } else audio.setPaused(false); };
 document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
 let lastUiOpen = null, lastTitle = null;
 function syncBodyClasses() {
-  const uiOpen = scene === "game" && !!state?.ui, title = scene === "title";
+  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title";
   if (uiOpen !== lastUiOpen) { document.body.classList.toggle("ui-open", uiOpen); lastUiOpen = uiOpen; }
   if (title !== lastTitle) { document.body.classList.toggle("scene-title", title); lastTitle = title; }
 }
@@ -1548,14 +1623,15 @@ function syncBodyClasses() {
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
 (function frame(now) {
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
   ctx.font = "9px monospace";
-  if (scene === "title") drawTitle(); else drawWorld();
+  if (scene === "title") drawTitle(); else { drawWorld(); drawGear(); }
+  if (setUi) drawSettings();
   syncBodyClasses();
   requestAnimationFrame(frame);
 })(last);

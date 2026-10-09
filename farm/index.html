@@ -14,9 +14,9 @@
   <style>
     html, body { margin: 0; height: 100%; background: #14121f; color: #eee; font-family: monospace; overflow: hidden; overscroll-behavior: none; }
     body { display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
-    #stage { position: relative; width: min(96vw, 960px); }
+    #stage { position: relative; width: min(96vw, 960px, calc((100vh - 76px) * 16 / 9)); }   /* leave room for the help line under the canvas */
     canvas { display: block; width: 100%; aspect-ratio: 16 / 9; image-rendering: pixelated; touch-action: none; }
-    #help { font-size: 13px; text-align: center; margin: 8px; opacity: .7; }
+    #help { font-size: 13px; text-align: center; margin: 8px; opacity: .7; max-width: 96vw; }
     #controls { display: none; }
 
     /* ---------- touch layout ---------- */
@@ -27,21 +27,21 @@
     #controls button { font: bold 14px monospace; color: #fff; background: rgba(40, 34, 70, .72); border: 2px solid rgba(255, 255, 255, .45); border-radius: 12px; touch-action: none; padding: 0; }
     #controls button.down { background: rgba(255, 210, 63, .85); color: #000; transform: scale(.94); }
     #zone { position: absolute; touch-action: none; }
-    #stick { position: fixed; width: 120px; height: 120px; border-radius: 50%; background: rgba(40, 34, 70, .4); border: 2px solid rgba(255, 255, 255, .3); pointer-events: none; opacity: .4; transition: opacity .15s; }
+    #stick { position: fixed; width: calc(120px * var(--cs, 1)); height: calc(120px * var(--cs, 1)); border-radius: 50%; background: rgba(40, 34, 70, .4); border: 2px solid rgba(255, 255, 255, .3); pointer-events: none; opacity: .4; transition: opacity .15s; }
     #stick.on { opacity: .95; transition: none; }
-    #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, .6); pointer-events: none; }
+    #knob { position: absolute; left: 50%; top: 50%; width: calc(56px * var(--cs, 1)); height: calc(56px * var(--cs, 1)); margin: calc(-28px * var(--cs, 1)) 0 0 calc(-28px * var(--cs, 1)); border-radius: 50%; background: rgba(255, 255, 255, .6); pointer-events: none; }
     #actions { position: absolute; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-    #extras { display: grid; grid-template-columns: repeat(4, 56px); gap: 8px; }
+    #extras { display: grid; grid-template-columns: repeat(4, calc(56px * var(--cs, 1))); gap: 8px; }
     #extras button { height: 42px; font-size: 12px; }
     #actions .big { display: flex; gap: 8px; align-items: flex-end; }
-    #actions .big button { width: 68px; height: 68px; border-radius: 50%; font-size: 24px; }
+    #actions .big button { width: calc(68px * var(--cs, 1)); height: calc(68px * var(--cs, 1)); border-radius: 50%; font-size: 24px; }
     #actions .big .a { background: rgba(220, 70, 70, .78); }
     #actions .big .b { background: rgba(60, 120, 220, .78); margin-bottom: 20px; }
     #actions .big #more { width: 44px; height: 44px; font-size: 20px; margin-bottom: 36px; }
     #keypad { position: absolute; display: none; gap: 6px; flex-wrap: wrap; justify-content: center; }
     #keypad button { width: 46px; height: 40px; font-size: 13px; }
     #keypad button.wide { width: 64px; }
-    #fs { position: absolute; width: 36px; height: 36px; font-size: 16px; }
+    #fs, #gear { position: absolute; width: 36px; height: 36px; font-size: 17px; }
     #rotate { display: none; }
     body.ui-open #stick, body.ui-open #zone, body.ui-open #actions, body.scene-title #stick, body.scene-title #zone, body.scene-title #actions { display: none; }
     body.ui-open #keypad, body.scene-title #keypad { display: flex; }
@@ -58,6 +58,7 @@
       body.touch #extras { display: none; }
       body.touch.more-open #extras { display: grid; }
       body.touch #fs { right: 8px; top: 8px; opacity: .6; }
+      body.touch #gear { right: 8px; top: 52px; opacity: .6; }
       body.touch #keypad { left: 50%; transform: translateX(-50%); bottom: calc(var(--hb) + 2px); width: min(560px, 80vw); }
     }
     @media (orientation: portrait) {
@@ -70,11 +71,13 @@
       body.touch #extras button { height: 48px; font-size: 13px; }
       body.touch #more { display: none; }
       body.touch #actions .big { position: absolute; right: 16px; top: 190px; }
-      body.touch #actions .big button { width: 76px; height: 76px; }
+      body.touch.ui-open #actions, body.touch.scene-title #actions { display: none; }          /* menus and the title use the keypad instead */
+      body.touch #actions .big button { width: calc(76px * var(--cs, 1)); height: calc(76px * var(--cs, 1)); }
       body.touch #keypad { left: 0; right: 0; top: 16px; padding: 0 8px; }
       body.touch #keypad button { height: 46px; }
       body.touch #fs { right: 8px; bottom: 8px; }
-      body.touch #rotate { display: block; position: absolute; left: 12px; right: 56px; bottom: 6px; text-align: left; font-size: 11px; opacity: .55; }
+      body.touch #gear { right: 52px; bottom: 8px; }
+      body.touch #rotate { display: block; position: absolute; left: 12px; right: 100px; bottom: 6px; text-align: left; font-size: 11px; opacity: .55; }
     }
   </style>
 </head>
@@ -97,6 +100,7 @@
       <button data-key="enter">OK</button><button data-key="e" class="wide">BACK</button>
     </div>
     <button id="fs" aria-label="Fullscreen">&#9974;</button>
+    <button id="gear" aria-label="Settings">&#9881;</button>
     <div id="rotate">Landscape gives a bigger view &#8226; Add to Home Screen to install</div>
   </div>
   <script type="module" src="main.js"></script>

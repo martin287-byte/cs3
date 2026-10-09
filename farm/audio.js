@@ -1,4 +1,5 @@
 // Sound effects and a small procedural background-music generator (WebAudio, no assets).
+import { settings } from "./settings.js";
 let ctx, master, muted = false, timer = null, step = 0, mood = null, seed = 1;
 try { muted = localStorage.getItem("tinyvalley-muted") === "1"; } catch {}
 
@@ -28,6 +29,7 @@ function tone(freq, dur, type, vol, delay = 0) {
 }
 
 export function beep(f = 440, d = 0.08, type = "square", vol = 0.04) {
+  if (!settings().sfx) return;
   try { tone(f, d, type, vol); } catch {}
 }
 
