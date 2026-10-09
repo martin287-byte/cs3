@@ -1,6 +1,7 @@
 // Procedural generation of the three maps: Farm, Town, Forest. Tile types:
-// 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building
-import { PEN } from "./data.js";
+// 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
+// 11 cave wall, 12 cave floor, 13 ore node
+import { PEN, ORES } from "./data.js";
 
 function rng(seed) {
   return () => {
@@ -69,7 +70,8 @@ function makeForest(rnd) {
   border(m, [{ x0: 30, y0: 31, x1: 31, y1: 31 }]);
   fill(m, 30, 24, 31, 31, 8);
   pond(m, 21, 18, 9, 5, "lake");
-  scatter(m, rnd, 170, (x, y) => !(x >= 10 && x <= 32 && y >= 11 && y <= 25) && !(x >= 26 && x <= 35 && y >= 22) && !(x >= 8 && x <= 13 && y >= 16 && y <= 22));
+  building(m, "cave", 38, 4, 10, "mine");                                          // mine entrance
+  scatter(m, rnd, 170, (x, y) => !(x >= 36 && x <= 42 && y <= 9) && !(x >= 10 && x <= 32 && y >= 11 && y <= 25) && !(x >= 26 && x <= 35 && y >= 22) && !(x >= 8 && x <= 13 && y >= 16 && y <= 22));
   m.warps.push({ x: 30, y: 31, w: 2, h: 1, to: "town", tx: 30, ty: 2 });
   return m;
 }
@@ -77,4 +79,37 @@ function makeForest(rnd) {
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
   return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd) };
+}
+
+// One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.
+export function makeMine(floor) {
+  const rnd = rng(floor * 7919 + Math.floor(Math.random() * 1e6));
+  const m = blank(34, 24, `Mine ${floor}F`);
+  fill(m, 0, 0, m.w - 1, m.h - 1, 11);
+  const rooms = [];
+  let cx = 4, cy = 4 + Math.floor(rnd() * 14);
+  for (let i = 0; i < 5; i++) {
+    const rx = 2.5 + rnd() * 2.5, ry = 2 + rnd() * 2;
+    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++)
+      if (x > 0 && y > 0 && x < m.w - 1 && y < m.h - 1 && ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) put(m, x, y, 12);
+    rooms.push([Math.round(cx), Math.round(cy)]);
+    const nx = Math.min(m.w - 5, cx + 5 + Math.floor(rnd() * 3)), ny = 3 + Math.floor(rnd() * (m.h - 6));
+    for (let x = Math.round(cx); x <= nx; x++) fill(m, x, Math.round(cy), x, Math.round(cy) + 1, 12);   // horizontal corridor
+    for (let y = Math.min(Math.round(cy), ny); y <= Math.max(Math.round(cy), ny); y++) fill(m, nx, y, nx + 1, y, 12);   // vertical corridor
+    cx = nx; cy = ny;
+  }
+  const [sx, sy] = rooms[0], [lx, ly] = rooms[rooms.length - 1];
+  m.start = { x: sx, y: sy + 1 };
+  put(m, sx, sy, 12, { kind: "mexit" });
+  put(m, lx, ly, 12, { kind: "ladder" });
+  const weights = [["stone", 55], ["copper", floor < 10 ? 25 : 12], ["iron", floor >= 4 ? 18 : 0], ["gold", floor >= 9 ? 12 : 0], ["amethyst", floor >= 6 ? 5 : 0]];
+  const total = weights.reduce((a, [, w]) => a + w, 0), nodes = 16 + Math.floor(floor / 2) * 2;
+  for (let i = 0, placed = 0; i < 600 && placed < nodes; i++) {
+    const x = 1 + Math.floor(rnd() * (m.w - 2)), y = 1 + Math.floor(rnd() * (m.h - 2)), t = m.tiles[y][x];
+    if (t.t !== 12 || t.kind || (Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) || (Math.abs(x - lx) < 2 && Math.abs(y - ly) < 2)) continue;
+    let r = rnd() * total, ore = "stone";
+    for (const [id, w] of weights) if ((r -= w) <= 0) { ore = id; break; }
+    put(m, x, y, 13, { ore }); placed++;
+  }
+  return m;
 }
