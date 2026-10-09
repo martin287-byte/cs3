@@ -38,6 +38,9 @@ const MOODS = {
   summer: { root: 293.66, scale: "major", prog: [0, -5, -3, -7], bpm: 108, lead: "sine" },
   fall:   { root: 220.0,  scale: "minor", prog: [0, -4, -2, -5], bpm: 80, lead: "triangle" },
   winter: { root: 233.08, scale: "minor", prog: [0, -2, -4, -7], bpm: 66, lead: "sine" },
+  mine:   { root: 196.0,  scale: "minor", prog: [0, -2, -5, -4], bpm: 58, lead: "sine" },
+  beach:  { root: 329.63, scale: "major", prog: [0, -5, -3, -7], bpm: 92, lead: "sine" },
+  desert: { root: 246.94, scale: "minor", prog: [0, -2, -5, -4], bpm: 70, lead: "triangle" },
 };
 const hz = (root, semis) => root * 2 ** (semis / 12);
 const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;

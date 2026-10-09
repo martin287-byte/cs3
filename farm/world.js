@@ -1,6 +1,6 @@
 // Procedural generation of the three maps: Farm, Town, Forest. Tile types:
 // 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
-// 11 cave wall, 12 cave floor, 13 ore node
+// 11 cave wall, 12 cave floor, 13 ore node, 14 sand (beach / desert)
 import { PEN, PASTURE } from "./data.js";
 
 function rng(seed) {
@@ -57,15 +57,17 @@ function makeFarm(rnd) {
 
 function makeTown(rnd) {
   const m = blank(44, 28, "Town");
-  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }]);
-  fill(m, 0, 13, 43, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8);
+  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 27, x1: 23, y1: 27 }, { x0: 43, y0: 12, x1: 43, y1: 15 }]);
+  fill(m, 0, 13, 43, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8); fill(m, 20, 15, 21, 27, 8);
+  put(m, 22, 12, 10, { kind: "board" }); m.objects.push({ sprite: "board", x: 22, y: 12, h: 1, w: 1 });          // quest bulletin board
   building(m, "shop", 17, 5, 6, "shop");
   building(m, "h1", 6, 4, 10, "house"); building(m, "h2", 26, 4, 10, "house");
   building(m, "h3", 6, 18, 10, "house"); building(m, "h1", 26, 18, 10, "house");
   pond(m, 38, 21, 4, 3, "pond");
-  scatter(m, rnd, 45, (x, y) => !(y >= 12 && y <= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
+  scatter(m, rnd, 45, (x, y) => !(y >= 11 && y <= 15) && !(x >= 19 && x <= 22 && y >= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
     && !(x >= 4 && x <= 10 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
-  m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 });
+  m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 },
+    { x: 20, y: 27, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 43, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
   return m;
 }
 
@@ -80,9 +82,44 @@ function makeForest(rnd) {
   return m;
 }
 
+function scatterDeco(m, rnd, count, deco, ok) {
+  let placed = 0;
+  for (let i = 0; i < count * 8 && placed < count; i++) {
+    const x = 1 + Math.floor(rnd() * (m.w - 2)), y = 1 + Math.floor(rnd() * (m.h - 2));
+    if (m.tiles[y][x].t === 14 && ok(x, y)) { put(m, x, y, 3, { deco }); placed++; }
+  }
+}
+
+function makeBeach(rnd) {
+  const m = blank(46, 30, "Beach");
+  fill(m, 0, 0, m.w - 1, m.h - 1, 14);
+  border(m, [{ x0: 20, y0: 0, x1: 23, y1: 0 }]);
+  for (let x = 0; x < m.w; x++) {                                                   // ocean with a wavy shoreline
+    const shore = 19 + Math.round(Math.sin(x / 3.2) * 1.4 + Math.sin(x / 1.7) * 0.6);
+    for (let y = shore; y < m.h; y++) put(m, x, y, 2, { water: "ocean" });
+  }
+  fill(m, 20, 1, 23, 8, 8);                                                         // boardwalk down from town
+  scatterDeco(m, rnd, 26, "palm", (x, y) => y < 17 && !(x >= 19 && x <= 24 && y <= 9) && !(x >= 20 && x <= 24 && y >= 14 && y <= 18));
+  for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "palm";
+  m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 25 });
+  return m;
+}
+
+function makeDesert(rnd) {
+  const m = blank(50, 32, "Desert");
+  fill(m, 0, 0, m.w - 1, m.h - 1, 14);
+  border(m, [{ x0: 0, y0: 14, x1: 0, y1: 17 }]);
+  pond(m, 34, 20, 5, 3, "oasis");
+  scatterDeco(m, rnd, 55, "cactus", (x, y) => !(x <= 5 && y >= 12 && y <= 19) && !(((x - 34) / 7) ** 2 + ((y - 20) / 5) ** 2 < 1) && !(x >= 22 && x <= 30 && y >= 9 && y <= 13));
+  fill(m, 1, 15, 14, 16, 8);                                                        // trail from town
+  for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "cactus";
+  m.warps.push({ x: 0, y: 14, w: 1, h: 4, to: "town", tx: 41, ty: 13 });
+  return m;
+}
+
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
-  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd) };
+  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd) };
 }
 
 // One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.

@@ -153,6 +153,11 @@ function forageIcon(id) {
     if (id === "mushroom") { R(g, "#f4e4c4", 6, 9, 4, 5); disc(g, "#c0392b", 8, 8, 5); R(g, "#f4e4c4", 4, 8, 8, 5 - 5); R(g, "#fff", 5, 6, 2, 2); R(g, "#fff", 9, 5, 2, 2); R(g, "#f4e4c4", 6, 9, 4, 5); }
     if (id === "blackberry") { for (const [x, y] of [[5, 6], [8, 5], [10, 8], [6, 9], [9, 11], [7, 12]]) { R(g, "#3b1f5e", x - 1, y - 1, 4, 4); R(g, "#7a5aa8", x - 1, y - 1); } R(g, GD, 7, 1, 3, 3); }
     if (id === "holly") { for (const [x, y] of [[4, 6], [9, 5], [6, 10], [10, 10]]) { R(g, "#1f6b3a", x, y, 4, 3); R(g, "#2e8b4a", x, y, 2, 1); } for (const [x, y] of [[7, 8], [8, 9], [9, 8]]) R(g, "#e03030", x, y, 2, 2); }
+    if (id === "shell") { disc(g, "#f4c8c0", 8, 9, 5); R(g, "#e8a8a0", 4, 9, 9, 1); for (const x of [5, 7, 9, 11]) R(g, "#e8a8a0", x, 5, 1, 5); R(g, "#fff", 6, 6); }
+    if (id === "coral") { R(g, "#e8506a", 7, 6, 2, 8); R(g, "#e8506a", 4, 4, 2, 6); R(g, "#e8506a", 11, 3, 2, 7); R(g, "#e8506a", 4, 9, 4, 2); R(g, "#e8506a", 9, 8, 4, 2); R(g, "#ff8aa0", 4, 4); R(g, "#ff8aa0", 11, 3); R(g, "#ff8aa0", 7, 6); }
+    if (id === "urchin") { disc(g, "#3a2a5a", 8, 9, 4); for (let a = 0; a < 12; a++) R(g, "#5a4a8a", 8 + Math.round(Math.cos(a / 12 * 6.28) * 6), 9 + Math.round(Math.sin(a / 12 * 6.28) * 6)); R(g, "#7a6aaa", 7, 8, 2, 2); }
+    if (id === "cactusfruit") { disc(g, "#d84a8a", 8, 9, 4); R(g, "#f08ab8", 6, 7, 2, 2); R(g, "#2e8b3a", 7, 2, 2, 3); for (const [x, y] of [[5, 9], [10, 8], [8, 12]]) R(g, "#fff", x, y); }
+    if (id === "sandrose") { for (const [x, y, w] of [[3, 7, 10], [4, 5, 8], [5, 9, 7], [6, 3, 5], [4, 11, 8]]) R(g, "#e0b878", x, y, w, 2); R(g, "#f4d8a0", 6, 6, 4, 1); R(g, "#c49858", 5, 10, 6, 1); }
     if (id === "snowyam") { disc(g, "#b9935a", 8, 9, 4); R(g, "#d8b97a", 6, 7, 3, 2); R(g, "#fff", 9, 10, 1, 1); R(g, "#fff", 6, 11, 1, 1); R(g, "#fff", 10, 7, 1, 1); }
   });
 }
@@ -193,6 +198,34 @@ const caveBuilding = () => mk(48, 40, g => {
   disc(g, "#a09eaa", 14, 14, 5); disc(g, "#a09eaa", 34, 16, 4);
   R(g, "#2a2432", 16, 20, 16, 20); disc(g, "#2a2432", 24, 21, 8); R(g, "#0c0a10", 18, 24, 12, 16); disc(g, "#0c0a10", 24, 24, 6);
   R(g, "#8b5a2b", 14, 20, 2, 20); R(g, "#8b5a2b", 32, 20, 2, 20); R(g, "#8b5a2b", 14, 19, 20, 2);
+});
+
+// ---- beach & desert, board ----
+function sand(biome, v) {
+  const c = biome === "beach" ? ["#ecdca0", "#f6eab8", "#d9c88a"] : ["#d9a85a", "#e6ba70", "#c4903f"];
+  return mk(16, 16, g => {
+    R(g, c[0], 0, 0, 16, 16);
+    for (let i = 0; i < 9; i++) R(g, i % 2 ? c[1] : c[2], Math.floor(hash(i, v, 41) * 15), Math.floor(hash(i, v, 42) * 15), 2, 1);
+    if (v === 1) { R(g, c[2], 4, 9, 3, 1); R(g, c[2], 5, 10, 3, 1); }
+  });
+}
+const oceanTile = f => mk(16, 16, g => {
+  R(g, "#2f6fc0", 0, 0, 16, 16); R(g, "#2860ae", 0, 10, 16, 6);
+  for (let i = 0; i < 4; i++) R(g, "#a8d4ff", (i * 6 + f * 4) % 13, 2 + i * 4, 4, 1);
+});
+const palm = () => mk(16, 24, g => {
+  for (let i = 0; i < 12; i++) R(g, i % 3 === 0 ? "#6a4a28" : "#8a6a3e", 7 + Math.round(Math.sin(i / 4) * 1.2), 23 - i, 3, 1);
+  for (const [dx, dy] of [[-6, 2], [-5, -1], [5, 2], [4, -1], [0, -3], [-2, 3], [3, 3]]) { R(g, "#2e8b3a", 8 + dx - 2, 8 + dy, 5, 2); R(g, "#4cb054", 8 + dx - 1, 8 + dy, 3, 1); }
+  R(g, "#6a4a28", 7, 9, 2, 2); R(g, "#6a4a28", 10, 9, 2, 2);
+});
+const cactus = () => mk(16, 20, g => {
+  R(g, "#1f6a30", 6, 3, 5, 17); R(g, "#2e8b3a", 7, 3, 3, 17); R(g, "#1f6a30", 1, 8, 5, 3); R(g, "#1f6a30", 1, 5, 3, 4); R(g, "#1f6a30", 11, 6, 4, 3); R(g, "#1f6a30", 13, 3, 3, 4);
+  R(g, "#2e8b3a", 2, 5, 1, 4); R(g, "#2e8b3a", 14, 3, 1, 4); R(g, "#f4e04a", 8, 2, 2, 1); R(g, "#e84a8a", 8, 1, 2, 1);
+});
+const boardSprite = () => mk(16, 24, g => {
+  R(g, "#4a2e18", 2, 4, 12, 14); R(g, "#a07848", 3, 5, 10, 12); R(g, "#5a3a1e", 3, 5, 10, 1);
+  R(g, "#4a2e18", 3, 18, 2, 6); R(g, "#4a2e18", 11, 18, 2, 6);
+  R(g, "#f4f0d8", 4, 7, 4, 4); R(g, "#e8d890", 9, 6, 3, 5); R(g, "#f4f0d8", 5, 12, 5, 4); R(g, "#d84a4a", 5, 7); R(g, "#d84a4a", 10, 6);
 });
 
 // ---- more items ----
@@ -291,9 +324,10 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) 
       h1: building("#3f8a4a", "#2f6b38", "#d8b98a", "#c4a478", false),
       h2: building("#c9a227", "#a8851c", "#e3d4b0", "#cfc09a", false),
       h3: building("#7a4fa0", "#5f3d82", "#c9a7a0", "#b5948c", false),
-      bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
+      board: boardSprite(), bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
     },
     cave: [0, 1, 2, 3].map(caveWall), cfloor: [0, 1, 2, 3].map(caveFloor), node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
+    sand: { beach: [0, 1, 2, 3].map(v => sand("beach", v)), desert: [0, 1, 2, 3].map(v => sand("desert", v)) }, ocean: [oceanTile(0), oceanTile(1)], palm: palm(), cactus: cactus(),
     chicken: chicken(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg() },
     mon: { slime: [slime(0), slime(1)], bat: [bat(0), bat(1)], skeleton: [skeleton(0), skeleton(1)] }, cow: cow(),
     player: person({ o: "#2b1b17", h: "#5a3a22", s: "#f2c59b", e: "#222", r: "#d94f4f", b: "#3a5ba8", k: "#3b2a20" }),

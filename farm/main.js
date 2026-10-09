@@ -1,7 +1,7 @@
 import {
   T, SEASON_LEN, GOAL, CHICKEN_COST, MAX_CHICKENS, MAX_COWS, COW_COST, HOE_UPGRADES, CAN_UPGRADES, PICK_UPGRADES, SWORD_UPGRADES, SWORD_DAMAGE,
   PEN, PASTURE, BUILDINGS, MONSTERS, MISC, HEART_REWARDS, CROPS, FORAGE, FISH, ORES, DISHES, START_RECIPES, VILLAGERS, MERCHANT,
-  FESTIVALS, SPOUSE_LINES, itemInfo, edibleEnergy,
+  FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
 import { generateWorld, makeMine, PLOTS } from "./world.js";
@@ -11,12 +11,12 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
-const SAVE_KEY = "tinyvalley-save-v6";
+const SAVE_KEY = "tinyvalley-save-v7";
 const TOOLS = ["hoe", "can", "rod", "pick", "sword", "seeds"];
 const SEED_SLOT = TOOLS.indexOf("seeds");
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13];
-const FORAGE_COUNT = { farm: 8, town: 4, forest: 22 };
+const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12 };
 const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts"];
 
 const S = buildSprites({
@@ -43,6 +43,22 @@ const hourNow = () => state.minutes / 60;
 const mood = () => ["spring", "summer", "fall", "winter"][seasonOf(state.day)];
 const festivalToday = () => FESTIVALS.find(f => f.season === seasonOf(state.day) && f.day === dayOfSeason(state.day)) ?? null;
 const partner = () => state.spouse ?? "rosa";
+const areaMood = () => (["mine", "beach", "desert"].includes(state.map) ? state.map : mood());
+
+// ---- skills ----
+const skillLevel = id => XP_TABLE.filter(x => state.xp[id] >= x).length;                  // 1..10
+const maxHp = () => 100 + 5 * (skillLevel("combat") - 1);
+function gainXp(id, n) {
+  const before = skillLevel(id);
+  state.xp[id] += n;
+  const after = skillLevel(id);
+  if (after > before) { later(`${SKILLS[id].name} reached level ${after}!`, 700, 3.5); audio.beep(900, 0.2, "triangle"); }
+}
+function sellMult(id) {
+  const sk = CROPS[id] ? "farming" : FORAGE[id] ? "foraging" : FISH[id] ? "fishing" : null;
+  return sk ? 1 + 0.03 * (skillLevel(sk) - 1) : 1;
+}
+const sellPrice = id => Math.round(itemInfo(id).price * sellMult(id));
 const merchantHere = () => state.day % MERCHANT.every === 0;
 const curSeed = () => CROP_IDS[state.seedSel];
 
@@ -53,6 +69,7 @@ function defaultState() {
     inv: {}, seeds: Object.fromEntries(CROP_IDS.map(k => [k, k === "turnip" ? 5 : 0])),
     water: 20, canLevel: 0, hoeLevel: 0, pickLevel: 0, swordLevel: 0, hp: 100, chickens: 0, cows: 0, build: {}, recipes: [...START_RECIPES],
     dating: null, engaged: null, spouse: null,
+    xp: { farming: 0, fishing: 0, mining: 0, foraging: 0, combat: 0 }, quests: [], board: [], questSeq: 0,
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
@@ -62,7 +79,7 @@ function defaultState() {
 function newGame() {
   maps = generateWorld();
   state = defaultState();
-  spawnForage(); makeAnimals();
+  refreshBoard(); spawnForage(); makeAnimals();
 }
 
 function makeAnimals() {
@@ -73,12 +90,14 @@ function makeAnimals() {
 }
 
 function spawnForage() {
-  const season = seasonOf(state.day), ids = Object.keys(FORAGE).filter(k => FORAGE[k].seasons.includes(season));
+  const season = seasonOf(state.day);
   for (const [name, m] of Object.entries(maps)) {
+    const area = name === "beach" || name === "desert" ? name : null;
+    const ids = Object.keys(FORAGE).filter(k => (area ? FORAGE[k].area === area : !FORAGE[k].area && FORAGE[k].seasons.includes(season)));
     for (const row of m.tiles) for (const t of row) delete t.forage;
-    for (let i = 0, placed = 0; i < 400 && placed < (FORAGE_COUNT[name] || 0); i++) {
+    for (let i = 0, placed = 0; i < 500 && placed < (FORAGE_COUNT[name] || 0); i++) {
       const x = 1 + Math.floor(Math.random() * (m.w - 2)), y = 1 + Math.floor(Math.random() * (m.h - 2)), t = m.tiles[y][x];
-      if (t.t === 0 && !t.crop && !t.forage) { t.forage = ids[Math.floor(Math.random() * ids.length)]; placed++; }
+      if ((t.t === 0 || t.t === 14) && !t.crop && !t.forage) { t.forage = ids[Math.floor(Math.random() * ids.length)]; placed++; }
     }
   }
 }
@@ -90,7 +109,7 @@ function load() {
     if (!s?.maps || !s?.state) return false;
     const d = defaultState();
     maps = s.maps;
-    state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
+    state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
     makeAnimals(); return true;
   } catch { return false; }
 }
@@ -99,7 +118,7 @@ function startGame(cont) {
   if (!(cont && load())) newGame();
   scene = "game"; fishing = null; monsters = [];
   if (state.map === "mine") spawnMonsters();
-  audio.startMusic(state.map === "mine" ? "mine" : mood());
+  audio.startMusic(areaMood());
 }
 
 // ---------------------------------------------------------------- input
@@ -117,6 +136,7 @@ addEventListener("keydown", e => {
     else if (k === " ") useTool();
     else if (k === "e") interact();
     else if (k === "i") state.ui = { type: "inv", tab: 0 };
+    else if (k === "j") state.ui = { type: "journal" };
     else if (k === "escape") state.ui = { type: "pause" };
   }
   keys.add(k);
@@ -191,6 +211,7 @@ function useTool() {
   if (tile.crop && tile.crop.age >= CROPS[tile.crop.type].days) {          // harvest with any tool
     const c = CROPS[tile.crop.type];
     const bonus = state.build.silo === "built" && Math.random() < 0.25;
+    gainXp("farming", 3 + Math.round(c.price / 20));
     addItem(tile.crop.type, bonus ? 2 : 1); say(`Harvested ${tile.crop.type}!${bonus ? " (silo bonus!)" : ""}`); audio.beep(660, 0.12, "triangle");
     if (c.regrow) tile.crop.age = c.days - c.regrow; else delete tile.crop;
     return;
@@ -227,9 +248,11 @@ function mine(tile) {
   if (tile.t === 13) {
     const id = tile.ore, ore = ORES[id];
     if (ore.hard > state.pickLevel) return say(`Too hard! Your pickaxe needs an upgrade (${ore.name}).`);
-    if (state.energy < 3) return say("Too tired to mine!");
-    state.energy -= 3; tile.t = 12; delete tile.ore;
-    addItem(id, 1 + (Math.random() < 0.25 ? 1 : 0)); say(`Mined ${ore.name}!`); audio.beep(240, 0.08, "square");
+    const cost = Math.max(1, 3 - Math.floor(skillLevel("mining") / 4));
+    if (state.energy < cost) return say("Too tired to mine!");
+    state.energy -= cost; tile.t = 12; delete tile.ore;
+    const got = 1 + (Math.random() < 0.25 + 0.03 * (skillLevel("mining") - 1) ? 1 : 0);
+    addItem(id, got); gainXp("mining", { stone: 2, copper: 4, iron: 7, gold: 12, amethyst: 16 }[id]); questEvent("mine", id, got); say(`Mined ${ore.name}!`); audio.beep(240, 0.08, "square");
   } else if (tile.t === 3 && tile.rock) {                                   // clear surface rocks
     if (state.energy < 2) return say("Too tired to mine!");
     state.energy -= 2; tile.t = 0; delete tile.rock; addItem("stone"); say("Broke a rock."); audio.beep(220, 0.08, "square");
@@ -269,6 +292,7 @@ function swing() {
     if (mon.hp <= 0) {
       monsters.splice(monsters.indexOf(mon), 1);
       const def = MONSTERS[mon.type];
+      gainXp("combat", { slime: 6, bat: 8, skeleton: 18 }[mon.type]); questEvent("slay", mon.type);
       if (Math.random() < 0.8) { addItem(def.drop); say(`Defeated ${def.name}! Got ${itemInfo(def.drop).name}`); } else say(`Defeated ${def.name}!`);
       audio.beep(300, 0.12, "triangle");
     } else audio.beep(220, 0.06, "square");
@@ -289,7 +313,7 @@ function updateMonsters(dt) {
     }
     if (!monBlocked(mon.x + vx * dt, mon.y)) mon.x += vx * dt;
     if (!monBlocked(mon.x, mon.y + vy * dt)) mon.y += vy * dt;
-    if (dist < 11 && invuln <= 0) hurtPlayer(def.dmg + Math.floor(state.mineFloor / 5));
+    if (dist < 11 && invuln <= 0) hurtPlayer(Math.max(1, def.dmg + Math.floor(state.mineFloor / 5) - Math.floor(skillLevel("combat") / 3)));
   }
 }
 function hurtPlayer(n) {
@@ -304,7 +328,7 @@ function castRod(tile, x, y) {
   if (!tile.water) return say("Nothing lives here.");
   if (state.energy < 2) return say("Too tired to fish!");
   state.energy -= 2;
-  fishing = { phase: "wait", t: 1.5 + Math.random() * 3, x, y, water: tile.water };
+  fishing = { phase: "wait", t: Math.max(0.8, 1.5 + Math.random() * 3 - 0.1 * (skillLevel("fishing") - 1)), x, y, water: tile.water };
   audio.beep(300, 0.12, "sine"); say("Cast! Wait for the bite...");
 }
 function pickFish(water) {
@@ -320,12 +344,12 @@ function fishKey(k) {
   if (k === "escape" || fishing.phase === "wait") { fishing = null; return say("Reeled in."); }
   if (fishing.phase === "bite") {
     const id = pickFish(fishing.water), f = FISH[id];
-    fishing = { ...fishing, phase: "reel", fish: id, cursor: 0, dir: 1, speed: 1.1 + f.diff * 0.55, zone: 0.15 + Math.random() * 0.5, width: 0.34 - f.diff * 0.06 };
+    fishing = { ...fishing, phase: "reel", fish: id, cursor: 0, dir: 1, speed: 1.1 + f.diff * 0.55, zone: 0.15 + Math.random() * 0.5, width: 0.34 - f.diff * 0.06 + 0.012 * (skillLevel("fishing") - 1) };
     audio.beep(700, 0.08, "square");
   } else if (fishing.phase === "reel") {
     const { cursor, zone, width, fish } = fishing;
     if (cursor >= zone && cursor <= zone + width) {
-      addItem(fish); state.caught++; say(`Caught a ${FISH[fish].name}! ($${FISH[fish].price})`, 3);
+      addItem(fish); state.caught++; gainXp("fishing", 8 + FISH[fish].diff * 6); questEvent("fish"); say(`Caught a ${FISH[fish].name}! ($${FISH[fish].price})`, 3);
       audio.beep(880, 0.15, "triangle"); audio.beep(1100, 0.2, "triangle");
       festProgress("derby");
     } else { say("It got away..."); audio.beep(150, 0.2, "sawtooth"); }
@@ -340,6 +364,51 @@ function updateFishing(dt) {
     fishing.cursor += fishing.dir * fishing.speed * dt;
     if (fishing.cursor >= 1) { fishing.cursor = 1; fishing.dir = -1; } else if (fishing.cursor <= 0) { fishing.cursor = 0; fishing.dir = 1; }
   }
+}
+
+// ---------------------------------------------------------------- quests
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+function genQuest() {
+  const season = seasonOf(state.day), giver = pick(Object.keys(VILLAGERS)), r = Math.random();
+  let q;
+  if (r < 0.4) {
+    const pool = [...CROP_IDS.filter(k => CROPS[k].seasons.includes(season)), ...Object.keys(FORAGE).filter(k => !FORAGE[k].area && FORAGE[k].seasons.includes(season)),
+      "egg", "milk", ...Object.keys(FISH).filter(k => FISH[k].seasons.includes(season) && FISH[k].where.some(w => w === "pond" || w === "lake")), ...state.recipes];
+    const item = pick(pool), n = 2 + Math.floor(Math.random() * 3);
+    q = { type: "deliver", item, n, reward: Math.round(itemInfo(item).price * n * 1.7 + 20) };
+  } else if (r < 0.65) {
+    const types = Object.keys(MONSTERS).filter(k => MONSTERS[k].minFloor <= Math.max(3, state.mineBest)), item = pick(types), n = 3 + Math.floor(Math.random() * 4);
+    q = { type: "slay", item, n, reward: Math.round(MONSTERS[item].hp * 10 * n + 40) };
+  } else if (r < 0.85) {
+    const ores = ["stone", "copper", ...(state.pickLevel >= 1 ? ["iron"] : [])], item = pick(ores), n = 5 + Math.floor(Math.random() * 4);
+    q = { type: "mine", item, n, reward: Math.round(ORES[item].price * n * 1.6 + 30) };
+  } else {
+    const n = 3 + Math.floor(Math.random() * 3);
+    q = { type: "fish", item: null, n, reward: 45 * n };
+  }
+  return { ...q, id: ++state.questSeq, giver, deadline: state.day + 5 + Math.floor(Math.random() * 4), progress: 0 };
+}
+const questText = q => q.type === "deliver" ? `Bring ${q.n} ${itemInfo(q.item).name}` : q.type === "slay" ? `Defeat ${q.n} ${MONSTERS[q.item].name}s in the mine`
+  : q.type === "mine" ? `Mine ${q.n} ${ORES[q.item].name}` : `Catch ${q.n} fish`;
+const questProgress = q => (q.type === "deliver" ? Math.min(q.n, state.inv[q.item] || 0) : q.progress);
+function refreshBoard() { state.board = Array.from({ length: 4 }, genQuest); }
+function completeQuest(q) {
+  state.quests = state.quests.filter(x => x.id !== q.id);
+  state.money += q.reward; addFriend(q.giver, 30);
+  say(`Quest complete: ${questText(q)}! +$${q.reward} (${VILLAGERS[q.giver].name} is grateful)`, 4.5); audio.beep(1000, 0.2, "triangle"); audio.beep(1300, 0.3, "triangle");
+  checkWin();
+}
+function questEvent(type, id, n = 1) {
+  for (const q of [...state.quests]) if (q.type === type && (type === "fish" || q.item === id)) {
+    q.progress += n;
+    if (q.progress >= q.n) completeQuest(q); else say(`Quest: ${questText(q)} (${q.progress}/${q.n})`, 2);
+  }
+}
+function turnIn(i) {
+  const q = state.quests.filter(x => x.type === "deliver")[i];
+  if (!q) return;
+  if ((state.inv[q.item] || 0) < q.n) return say(`You need ${q.n} ${itemInfo(q.item).name}.`);
+  state.inv[q.item] -= q.n; completeQuest(q);
 }
 
 // ---------------------------------------------------------------- festivals
@@ -428,8 +497,8 @@ function cook(id) {
 function eat(id) {
   const e = edibleEnergy(id);
   if (!e || !state.inv[id]) return;
-  if (state.energy >= 100 && state.hp >= 100) return say("You're not hungry.");
-  state.inv[id]--; state.energy = Math.min(100, state.energy + e); state.hp = Math.min(100, state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
+  if (state.energy >= 100 && state.hp >= maxHp()) return say("You're not hungry.");
+  state.inv[id]--; state.energy = Math.min(100, state.energy + e); state.hp = Math.min(maxHp(), state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
 }
 
 // ---------------------------------------------------------------- interaction & menus
@@ -441,6 +510,7 @@ function interact() {
   else if (id) { state.ui = { type: "talk", id, mode: "menu", text: "", n: 0 }; audio.beep(520, 0.05); }
   else if (tile.kind === "bin") state.ui = { type: "bin" };
   else if (tile.kind === "home") state.ui = { type: "home" };
+  else if (tile.kind === "board") { state.ui = { type: "board" }; audio.beep(480, 0.05); }
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
   else if (tile.kind === "built") say(tile.plot === "coop" ? `Coop: ${state.chickens}/${MAX_CHICKENS} chickens.` : tile.plot === "barn" ? `Barn: ${state.cows}/${MAX_COWS} cows.` : "Silo: 25% chance of a bonus crop at harvest.", 3);
   else if (tile.kind === "mine") enterMine(state.mineBest);
@@ -458,7 +528,7 @@ function interact() {
 }
 
 function sellStack(id, mult = 1) {
-  const v = Math.round((state.inv[id] || 0) * itemInfo(id).price * mult);
+  const v = Math.round((state.inv[id] || 0) * sellPrice(id) * mult);
   state.money += v; state.inv[id] = 0; return v;
 }
 function checkWin() {
@@ -535,6 +605,14 @@ function uiKey(k) {
       const items = invItems();
       if (items[num]) { const v = sellStack(items[num][0], 1.5); say(`Zed pays $${v}`); audio.beep(880, 0.1, "triangle"); }
     }
+  } else if (ui.type === "board") {
+    if (close) return void (state.ui = null);
+    if (num >= 0 && num <= 3 && state.board[num]) {
+      if (state.quests.length >= 3) return say("You can only carry 3 quests. Finish one first.");
+      state.quests.push({ ...state.board[num] }); state.board.splice(num, 1); say("Quest accepted!"); audio.beep(700, 0.1, "triangle");
+    } else if (["a", "b", "c"].includes(k)) turnIn(k.charCodeAt(0) - 97);
+  } else if (ui.type === "journal") {
+    if (close || k === "j") state.ui = null;
   } else if (ui.type === "dance") {
     if (ui.done) { state.ui = null; checkWin(); }
     else if (DANCE_KEYS[k] && ui.wait <= 0) danceJudge(DANCE_KEYS[k]);
@@ -547,7 +625,8 @@ function uiKey(k) {
     if (id) cook(id);
   } else if (ui.type === "inv") {
     if (["i", "escape"].includes(k) || (k === "e")) state.ui = null;
-    else if (["tab", "arrowleft", "arrowright"].includes(k)) ui.tab = (ui.tab + 1) % 2;
+    else if (["tab", "arrowright"].includes(k)) ui.tab = (ui.tab + 1) % 3;
+    else if (k === "arrowleft") ui.tab = (ui.tab + 2) % 3;
     else if (ui.tab === 0 && num >= 0 && invItems()[num]) eat(invItems()[num][0]);
   } else if (ui.type === "pause") {
     if (k === "escape" || k === "1") state.ui = null;
@@ -627,7 +706,10 @@ function sleep() {
   state.day++; state.minutes = 6 * 60; state.energy = 100;
   state.map = "farm"; state.px = 7 * T; state.py = 7 * T; state.fx = 0; state.fy = 1; fishing = null; state.ui = null;
   for (const id in state.friend) { state.friend[id].talked = false; state.friend[id].gifted = false; }
-  state.hp = 100; invuln = 0; monsters = [];
+  state.hp = maxHp(); invuln = 0; monsters = [];
+  const expired = state.quests.filter(q => q.deadline < state.day);
+  if (expired.length) { state.quests = state.quests.filter(q => q.deadline >= state.day); extra += ` ${expired.length} quest(s) expired.`; }
+  refreshBoard();
   addItem("egg", state.chickens); addItem("milk", state.cows);
   for (const [id] of PLOTS) if (state.build[id] === "pending") {                      // buildings finish overnight
     state.build[id] = "built";
@@ -658,7 +740,7 @@ function sleep() {
 // ---------------------------------------------------------------- update
 function goMap(to, tx, ty) {
   state.map = to; state.px = tx * T + 2; state.py = ty * T; state.fade = 0.4; fishing = null;
-  say(maps[to].name, 1.5); audio.beep(440, 0.08, "triangle");
+  say(maps[to].name, 1.5); audio.beep(440, 0.08, "triangle"); audio.startMusic(areaMood());
 }
 
 function update(dt) {
@@ -703,7 +785,8 @@ function update(dt) {
   }
   const fx = Math.floor((state.px + 6) / T), fy = Math.floor((state.py + 10) / T), here = tileAt(fx, fy);
   if (here?.forage) {                                                              // walk over forage to pick it up
-    addItem(here.forage); say(`Found ${FORAGE[here.forage].name}!`); audio.beep(760, 0.1, "triangle"); delete here.forage;
+    const dbl = Math.random() < 0.04 * (skillLevel("foraging") - 1);
+    addItem(here.forage, dbl ? 2 : 1); gainXp("foraging", 4); say(`Found ${FORAGE[here.forage].name}!${dbl ? " (x2!)" : ""}`); audio.beep(760, 0.1, "triangle"); delete here.forage;
   }
   if (here?.fegg) { delete here.fegg; audio.beep(900, 0.08, "triangle"); festProgress("egghunt"); }
   for (const w of cur().warps) if (fx >= w.x && fx < w.x + w.w && fy >= w.y && fy < w.y + w.h) { goMap(w.to, w.tx, w.ty); break; }
@@ -737,7 +820,8 @@ function drawWorld() {
     const tile = m.tiles[y][x], v = Math.min(3, Math.floor(hash(x, y) * 4));
     let base;
     if (tile.t === 1) base = tile.wet ? S.soilWet : S.soil;
-    else if (tile.t === 2) base = S.water[frame];
+    else if (tile.t === 2) base = tile.water === "ocean" ? S.ocean[frame] : S.water[frame];
+    else if (tile.t === 14) base = S.sand[state.map === "beach" ? "beach" : "desert"][v];
     else if (tile.t === 7) base = S.pen;
     else if (tile.t === 8) base = S.path[v];
     else if (tile.t === 11) base = S.cave[v];
@@ -750,7 +834,10 @@ function drawWorld() {
     if (tile.crop) ctx.drawImage(S.crop[tile.crop.type][cropStage(tile.crop)], x * T, y * T);
     if (tile.forage) ctx.drawImage(S.icon[tile.forage], x * T, y * T + Math.round(Math.sin(clock * 3 + x) * 0.6));
     if (tile.fegg) ctx.drawImage(S.icon.fegg, x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
-    if (tile.t === 3) things.push({ img: tile.rock ? S.rock : S.tree[season], x: x * T, y: tile.rock ? y * T : y * T - 8, sort: (y + 1) * T });
+    if (tile.t === 3) {
+      const img = tile.deco === "palm" ? S.palm : tile.deco === "cactus" ? S.cactus : tile.rock ? S.rock : S.tree[season];
+      things.push({ img, x: x * T, y: (y + 1) * T - img.height, sort: (y + 1) * T });
+    }
   }
   if (state.map === "town" && festivalToday()) {                                    // festival pennants
     const cols = ["#e84a6a", "#ffd23f", "#3a9ae8", "#3ddc97"];
@@ -816,7 +903,8 @@ function drawHud(hr, tx, ty) {
   ctx.font = "9px monospace";
   const h = Math.floor(hr) % 24, mm = Math.floor(state.minutes % 60 / 10) * 10;
   txt(`${cur().name} | ${SEASONS[s].name} ${dayOfSeason(state.day)} Y${yearOf(state.day)} ${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}${state.rain ? (s === 3 ? " snow" : " rain") : ""} | $${state.money}/${GOAL} | En ${Math.ceil(state.energy)} | Water ${state.water}/${maxWater()}`, 4, 10);
-  ctx.fillStyle = "#400"; ctx.fillRect(W - 66, 3, 62, 7); ctx.fillStyle = state.hp > 30 ? "#e03a3a" : "#ff8a3a"; ctx.fillRect(W - 66, 3, Math.max(0, state.hp) * 0.62, 7); txt("HP", W - 80, 10, "#f99");
+  ctx.fillStyle = "#400"; ctx.fillRect(W - 66, 3, 62, 7); ctx.fillStyle = state.hp > 30 ? "#e03a3a" : "#ff8a3a"; ctx.fillRect(W - 66, 3, Math.max(0, state.hp) / maxHp() * 62, 7); txt("HP", W - 80, 10, "#f99");
+  if (state.quests.length) txt(`J: ${state.quests.length} quest${state.quests.length > 1 ? "s" : ""}`, W - 4, 23, "#cfe8ff", "right");
   if (invuln > 0.6) { ctx.fillStyle = "rgba(220,30,30,.25)"; ctx.fillRect(0, 0, W, H); }
   if (state.fest) {
     const f = FESTIVALS.find(x => x.id === state.fest.id);
@@ -877,14 +965,34 @@ function drawUi() {
     panel(60, 30, 360, 200, "SELL  (number sells a stack, A sells all, E to close)");
     const items = invItems();
     if (!items.length) txt("Nothing to sell — harvest, forage, fish or mine!", 68, 56, "#777");
-    items.slice(0, 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 68, 41 + (i + 1) * 14 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name}  = $${n * itemInfo(id).price}`, 84, 40 + (i + 1) * 14); });
+    items.slice(0, 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 68, 41 + (i + 1) * 14 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name}  = $${n * sellPrice(id)}`, 84, 40 + (i + 1) * 14); });
   } else if (ui.type === "merchant") {
     panel(60, 30, 360, 200, `ZED THE MERCHANT  $${state.money}  (${ui.mode.toUpperCase()} — Tab to switch, E to close)`);
     if (ui.mode === "buy") merchantBuy().forEach((it, i) => txt(`${i + 1}. ${it.label}${it.cost === Infinity ? "" : "  $" + it.cost}`, 68, 40 + (i + 1) * 14, it.cost === Infinity ? "#777" : state.money >= it.cost ? "#fff" : "#f87171"));
     else {
       txt("Zed pays 1.5x for everything:", 68, 52, "#8f8");
-      invItems().slice(0, 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 68, 55 + (i + 1) * 14 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name} = $${Math.round(n * itemInfo(id).price * 1.5)}`, 84, 54 + (i + 1) * 14); });
+      invItems().slice(0, 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 68, 55 + (i + 1) * 14 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name} = $${Math.round(n * sellPrice(id) * 1.5)}`, 84, 54 + (i + 1) * 14); });
     }
+  } else if (ui.type === "board") {
+    panel(30, 18, 420, 226, "TOWN BOARD  (1-4 accept, A/B/C turn in, E close)");
+    state.board.forEach((q, i) => {
+      txt(`${i + 1}. ${questText(q)}  — $${q.reward}  (due day ${q.deadline}, for ${VILLAGERS[q.giver].name})`.slice(0, 74), 38, 38 + i * 13, "#fff");
+    });
+    if (!state.board.length) txt("The board is empty. Check back tomorrow.", 38, 38, "#777");
+    txt(`Your quests (${state.quests.length}/3):`, 38, 100, "#ffd23f");
+    const deliverIdx = {};
+    state.quests.forEach((q, i) => {
+      const L = q.type === "deliver" ? String.fromCharCode(65 + state.quests.filter(x => x.type === "deliver").indexOf(q)) : "-";
+      txt(`${L}. ${questText(q)} (${questProgress(q)}/${q.n}) $${q.reward}  due day ${q.deadline}`.slice(0, 74), 38, 114 + i * 13, q.type === "deliver" && questProgress(q) >= q.n ? "#8f8" : "#cfe8ff");
+    });
+    txt("Deliver quests: bring the items here and press A/B/C. Others complete automatically.", 38, 232, "#9aa");
+  } else if (ui.type === "journal") {
+    panel(40, 40, 400, 170, "QUEST JOURNAL  (J / E to close)");
+    if (!state.quests.length) txt("No active quests. Visit the board in Town (next to the plaza).", 50, 66, "#777");
+    state.quests.forEach((q, i) => {
+      txt(`${questText(q)}  (${questProgress(q)}/${q.n})`, 50, 64 + i * 28, "#fff");
+      txt(`Reward $${q.reward} — for ${VILLAGERS[q.giver].name} — due day ${q.deadline}${q.type === "deliver" ? " — turn in at the board" : ""}`, 50, 76 + i * 28, "#9aa");
+    });
   } else if (ui.type === "dance") drawDance(ui);
   else if (ui.type === "home") {
     panel(150, 80, 180, 70, "FARMHOUSE");
@@ -936,7 +1044,7 @@ function drawDance(ui) {
 }
 
 function drawInventory(ui) {
-  panel(30, 14, 420, 230, `${ui.tab === 0 ? "[ITEMS]  friends" : " items  [FRIENDS]"}   (Tab: switch, I/E: close)`);
+  panel(30, 14, 420, 230, `${["[ITEMS]  friends  skills", " items  [FRIENDS]  skills", " items  friends  [SKILLS]"][ui.tab]}   (Tab: switch, I/E: close)`);
   let y = 40;
   if (ui.tab === 0) {
     const row = (t, c = "#fff") => { txt(t, 40, y, c); y += 12; };
@@ -950,7 +1058,7 @@ function drawInventory(ui) {
     });
     let ry = 40;
     const items = invItems(); let total = 0;
-    for (const [id, n] of items) total += n * itemInfo(id).price;
+    for (const [id, n] of items) total += n * sellPrice(id);
     txt("Bag (number = eat)", 250, ry, "#ffd23f"); ry += 12;
     if (!items.length) txt("(empty)", 250, ry, "#777");
     items.slice(0, 11).forEach(([id, n], i) => {
@@ -959,12 +1067,20 @@ function drawInventory(ui) {
     });
     if (items.length > 11) { txt(`…and ${items.length - 11} more`, 250, ry, "#777"); ry += 12; }
     if (items.length) txt(`Worth $${total}`, 250, ry + 2, "#8f8");
+  } else if (ui.tab === 2) {
+    for (const [id, sk] of Object.entries(SKILLS)) {
+      const lv = skillLevel(id), xp = state.xp[id], lo = XP_TABLE[lv - 1], hi = XP_TABLE[lv] ?? lo + 1, frac = lv >= 10 ? 1 : (xp - lo) / (hi - lo);
+      txt(`${sk.name}  Lv ${lv}${lv >= 10 ? " (max)" : `  (${xp}/${hi} xp)`}`, 40, y, "#fff");
+      ctx.fillStyle = "#334"; ctx.fillRect(40, y + 3, 160, 6); ctx.fillStyle = "#3ddc97"; ctx.fillRect(40, y + 3, 160 * frac, 6);
+      txt(sk.perk, 40, y + 20, "#9aa"); y += 36;
+    }
+    txt(`Max HP ${maxHp()}`, 40, y, "#ff7a9c");
   } else {
     for (const [id, v] of Object.entries(VILLAGERS)) {
       ctx.drawImage(S.npc[id][0][0], 40, y - 12);
       txt(`${v.name} (${v.job})`, 60, y - 2); txt(`${"*".repeat(hearts(id))}${".".repeat(10 - hearts(id))}  ${hearts(id)}/10`, 60, y + 8, "#ff7a9c");
       txt(`Loves: ${v.loves.slice(0, 3).map(i => itemInfo(i).name).join(", ")}`, 215, y - 2, "#8f8"); txt(`Likes: ${v.likes.slice(0, 3).map(i => itemInfo(i).name).join(", ")}`, 215, y + 8, "#cfe8ff");
-      y += 28;
+      y += 24;
     }
     y += 2;
     const rel = state.spouse ? `Married to ${VILLAGERS[state.spouse].name}` : state.engaged ? `Engaged to ${VILLAGERS[state.engaged.id].name} — wedding on day ${state.engaged.day}` : state.dating ? `Dating ${VILLAGERS[state.dating].name}` : "Single (8 hearts + bouquet to date, 10 + pendant to marry)";
@@ -998,7 +1114,7 @@ function drawTitle() {
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, startDance, danceJudge, giveSpecial,
+  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, startDance, danceJudge, giveSpecial, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();

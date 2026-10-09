@@ -53,6 +53,11 @@ export const FORAGE = {
   blackberry: { name: "Blackberry",  price: 25, seasons: [2] },
   holly:      { name: "Holly",       price: 45, seasons: [3] },
   snowyam:    { name: "Snow Yam",    price: 50, seasons: [3] },
+  shell:      { name: "Seashell",    price: 25, seasons: [0, 1, 2, 3], area: "beach" },
+  coral:      { name: "Coral",       price: 60, seasons: [0, 1, 2, 3], area: "beach" },
+  urchin:     { name: "Sea Urchin",  price: 80, seasons: [0, 1, 2, 3], area: "beach" },
+  cactusfruit:{ name: "Cactus Fruit",price: 75, seasons: [0, 1, 2, 3], area: "desert" },
+  sandrose:   { name: "Sand Rose",   price: 110,seasons: [0, 1, 2, 3], area: "desert" },
 };
 
 export const FISH = {
@@ -65,6 +70,11 @@ export const FISH = {
   trout:    { name: "Trout",    price: 80,  where: ["lake"],         seasons: [0, 2, 3],    diff: 3, color: "#d4849a" },
   salmon:   { name: "Salmon",   price: 90,  where: ["lake"],         seasons: [2],          diff: 3, color: "#f07a6a" },
   catfish:  { name: "Catfish",  price: 100, where: ["lake"],         seasons: [1, 2],       diff: 3, color: "#7a7a8a" },
+  sardine:  { name: "Sardine",  price: 40,  where: ["ocean"],        seasons: [0, 1, 2, 3], diff: 1, color: "#9ab8d8" },
+  octopus:  { name: "Octopus",  price: 120, where: ["ocean"],        seasons: [0, 3],       diff: 2, color: "#c0506a" },
+  tuna:     { name: "Tuna",     price: 110, where: ["ocean"],        seasons: [1, 2],       diff: 3, color: "#3a5a9a" },
+  pufferfish:{ name: "Pufferfish",price: 150,where: ["ocean"],       seasons: [1],          diff: 3, color: "#e0c050" },
+  sandfish: { name: "Sandfish", price: 90,  where: ["oasis"],        seasons: [0, 1, 2, 3], diff: 2, color: "#d8b070" },
 };
 
 // Mining: node hardness must be <= pickaxe level (0..2)
@@ -85,6 +95,8 @@ export const DISHES = {
   fishstew: { name: "Fish Stew",    price: 110, energy: 55, need: [["@fish", 1], ["potato", 1]],                 color: "#6aa8f0" },
   salad:    { name: "Forest Salad", price: 90,  energy: 45, need: [["@forage", 3]],                              color: "#5fae4f" },
   pancakes: { name: "Pancakes",    price: 80,  energy: 50, need: [["egg", 1], ["milk", 1]],                    color: "#e0b070" },
+  sushi:    { name: "Sushi",       price: 140, energy: 50, need: [["@fish", 2]],                                color: "#f07a6a" },
+  cactusjam:{ name: "Cactus Jam",   price: 150, energy: 55, need: [["cactusfruit", 2]],                          color: "#d84a8a" },
   cornbread:{ name: "Cornbread",    price: 130, energy: 60, need: [["corn", 2], ["egg", 1]],                     color: "#f0c040" },
 };
 export const START_RECIPES = ["friedegg", "stew"];
@@ -121,6 +133,15 @@ export const MERCHANT = { name: "Zed", pal: { h: "#222222", r: "#e0a030", b: "#6
 
 // Schedules: from hour h onward the villager stands at (x,y) tile in `map`; map:null = out of sight.
 // `gather` is where they stand during festivals (10:00-18:00). `recipes` unlock at the given heart level.
+export const SKILLS = {
+  farming:  { name: "Farming",  perk: "+3% crop sale price per level" },
+  fishing:  { name: "Fishing",  perk: "wider catch zone, +3% fish price per level" },
+  mining:   { name: "Mining",   perk: "extra ore chance; cheaper swings at Lv4 / Lv8" },
+  foraging: { name: "Foraging", perk: "double-find chance, +3% forage price per level" },
+  combat:   { name: "Combat",   perk: "+5 max HP per level, tougher at Lv3 / Lv6 / Lv9" },
+};
+export const XP_TABLE = [0, 50, 120, 220, 350, 520, 740, 1000, 1350, 1800];     // XP needed for levels 1..10
+
 export const VILLAGERS = {
   rosa: {
     name: "Rosa", job: "Baker", pal: { h: "#8e44ad", r: "#f08fb4", b: "#c2578a" }, gather: { x: 24, y: 13 },
@@ -161,5 +182,25 @@ export const VILLAGERS = {
     mid: ["Not bad for a beginner, I'll admit.", "There's a mine in the forest. Bring a pickaxe.", "Mushrooms in fall, holly in winter. Remember that."],
     high: ["You remind me of myself, forty years ago.", "This old farm is in good hands with you.", "Take my advice: never skip watering."],
     season: ["Leeks and daffodils pop up in spring.", "Berries and grapes in summer.", "Mushrooms and blackberries in fall.", "Holly and snow yams in winter. Dress warm."],
+  },
+  marlo: {
+    name: "Marlo", job: "Beach fisher", pal: { h: "#6a3a1a", r: "#e8e0c8", b: "#2a6a8a" }, gather: { x: 30, y: 13 },
+    loves: ["tuna", "sushi", "pufferfish"], likes: ["sardine", "octopus", "shell", "coral", "bass"], hates: ["bone", "slime"],
+    recipes: { 2: "sushi" },
+    sched: [{ h: 6, map: "beach", x: 22, y: 16 }, { h: 20, map: null }],
+    low: ["The ocean's big, friend. Big fish out there.", "Ocean fish bite differently. Be quick!", "Care for a chat? The tide's patient."],
+    mid: ["Tuna in summer, octopus in winter.", "Collect shells and coral along the shore.", "Pufferfish are tricky — but pay great."],
+    high: ["You fish like you were born on the water.", "Stay for sunset. It's the best part.", "I'd sail anywhere with you."],
+    season: ["Spring tides bring sardines.", "Summer means tuna and pufferfish.", "Autumn tuna are fat and slow.", "Winter octopus hide in the rocks."],
+  },
+  dune: {
+    name: "Dune", job: "Desert nomad", pal: { h: "#2a2a2a", r: "#d8803a", b: "#8a4a2a" }, gather: { x: 32, y: 13 },
+    loves: ["sandrose", "amethyst", "cactusjam"], likes: ["cactusfruit", "gold", "sandfish", "corn", "pancakes"], hates: ["holly", "salmon"],
+    recipes: { 2: "cactusjam" },
+    sched: [{ h: 7, map: "desert", x: 26, y: 11 }, { h: 21, map: null }],
+    low: ["Hello, traveler. The sand keeps many secrets.", "Mind the sun. Water is life out here.", "Cactus fruit is sweeter than it looks."],
+    mid: ["The oasis holds a fish found nowhere else.", "Sand roses sell for a fortune.", "I walk this desert every day. It never looks the same."],
+    high: ["You're the first stranger I've trusted in years.", "Come, I'll show you the best dunes.", "The desert is kinder with good company."],
+    season: ["Spring brings a rare cool breeze.", "Summer here is no joke. Stay hydrated.", "Autumn nights are bright with stars.", "Even desert winters bite at night."],
   },
 };
