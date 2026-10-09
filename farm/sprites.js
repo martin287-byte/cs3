@@ -204,7 +204,83 @@ const dishIcon = col => mk(16, 16, g => { disc(g, "#d8d8e0", 8, 9, 6); disc(g, "
 const tonicIcon = () => mk(16, 16, g => { R(g, "#8b5a2b", 6, 2, 4, 3); R(g, "#cfe8ff", 5, 5, 6, 2); R(g, "#e84a6a", 4, 7, 8, 7); R(g, "#ff9ab0", 5, 8, 2, 4); R(g, "#6a2a3a", 4, 14, 8, 1); });
 const festEgg = () => mk(16, 16, g => { disc(g, "#e84a9a", 8, 9, 4); R(g, "#ffd23f", 4, 8, 9, 2); R(g, "#3a9ae8", 4, 11, 9, 1); R(g, "#fff", 7, 5, 1, 1); });
 
-export function buildSprites({ crops, forage, fish, npcs, ores, dishes }) {
+// ---- combat, animals, farm buildings ----
+const slime = f => mk(14, 12, g => {
+  const h = f ? 1 : 0;
+  disc(g, "#2f8a3a", 7, 7 + h, 5); R(g, "#2f8a3a", 2, 8, 11, 4 - h); R(g, "#5fd36a", 3, 5 + h, 8, 5); R(g, "#9affa0", 4, 5 + h, 2, 2);
+  R(g, "#111", 4, 7 + h, 2, 2); R(g, "#111", 8, 7 + h, 2, 2); R(g, "#fff", 4, 7 + h); R(g, "#fff", 8, 7 + h);
+});
+const bat = f => mk(14, 12, g => {
+  R(g, "#4a2f6a", 5, 4, 4, 5); R(g, "#6a4a8a", 6, 4, 2, 2); R(g, "#f33", 6, 5); R(g, "#f33", 8, 5);
+  R(g, "#4a2f6a", 5, 3, 1, 1); R(g, "#4a2f6a", 8, 3, 1, 1);
+  if (f) { R(g, "#3a2255", 0, 2, 5, 3); R(g, "#3a2255", 9, 2, 5, 3); R(g, "#3a2255", 1, 5, 3, 2); R(g, "#3a2255", 10, 5, 3, 2); }
+  else { R(g, "#3a2255", 0, 5, 5, 3); R(g, "#3a2255", 9, 5, 5, 3); R(g, "#3a2255", 1, 8, 3, 2); R(g, "#3a2255", 10, 8, 3, 2); }
+});
+const skeleton = f => mk(14, 16, g => {
+  R(g, "#e8e4d8", 4, 0, 6, 5); R(g, "#111", 5, 2, 2, 2); R(g, "#111", 8, 2, 2, 2); R(g, "#e8e4d8", 6, 4, 2, 1);
+  R(g, "#e8e4d8", 6, 5, 2, 6); R(g, "#e8e4d8", 4, 6, 6, 1); R(g, "#e8e4d8", 4, 8, 6, 1); R(g, "#e8e4d8", 2, 6, 1, 4); R(g, "#e8e4d8", 11, 6, 1, 4);
+  R(g, "#e8e4d8", f ? 4 : 5, 11, 1, 5); R(g, "#e8e4d8", f ? 9 : 8, 11, 1, 5);
+});
+const cow = () => mk(20, 14, g => {
+  R(g, "#f4f0e8", 3, 3, 14, 7); R(g, "#2b2b2b", 5, 4, 4, 3); R(g, "#2b2b2b", 12, 6, 4, 3);
+  R(g, "#f4f0e8", 15, 1, 5, 5); R(g, "#2b2b2b", 18, 2, 1, 1); R(g, "#e8a0a0", 18, 4, 2, 2); R(g, "#d8c8a0", 15, 0, 1, 2);
+  for (const x of [4, 7, 12, 15]) R(g, "#d8d4c8", x, 10, 2, 4);
+  R(g, "#e8a0a0", 8, 9, 3, 2);
+});
+const swordIcon = () => mk(16, 16, g => {
+  for (let i = 0; i < 10; i++) R(g, "#cfd4e0", 4 + i, 11 - i, 2, 2);
+  R(g, "#fff", 11, 2, 2, 2); R(g, "#8b5a2b", 3, 11, 3, 3); R(g, "#ffd23f", 3, 9, 5, 1); R(g, "#ffd23f", 7, 9, 1, 3);
+});
+function plot(w, h, label) {
+  return mk(w * 16, h * 16, g => {
+    R(g, "#8a6a3e", 2, 4, w * 16 - 4, h * 16 - 6); R(g, "#a4824f", 4, 6, w * 16 - 8, h * 16 - 10);
+    for (const [x, y] of [[1, 3], [w * 16 - 4, 3], [1, h * 16 - 4], [w * 16 - 4, h * 16 - 4]]) { R(g, "#5a3a1e", x, y, 3, 4); }
+    R(g, "#5a3a1e", w * 8 - 1, 6, 2, 9); R(g, "#d8c090", w * 8 - 9, 2, 18, 8);
+    g.fillStyle = "#5a3a1e"; g.font = "bold 6px monospace"; g.fillText(label, w * 8 - 8, 8);
+  });
+}
+function barn() {
+  return mk(48, 40, g => {
+    R(g, "#3a2616", 2, 14, 44, 26); R(g, "#b83a3a", 3, 15, 42, 24);
+    for (let x = 3; x < 45; x += 4) R(g, "#9a2e2e", x, 15, 1, 24);
+    for (let y = 0; y < 16; y++) { const half = Math.round(8 + y * 1.1); R(g, "#6a4a3a", 24 - half, y, half * 2, 1); if (y % 3 === 2) R(g, "#554034", 24 - half, y, half * 2, 1); }
+    R(g, "#222", 0, 15, 48, 1);
+    R(g, "#fff", 14, 22, 20, 17); R(g, "#d8d8d8", 15, 23, 18, 15); R(g, "#b83a3a", 24, 22, 1, 17);
+    R(g, "#fff", 15, 23, 18, 1); for (let i = 0; i < 7; i++) { R(g, "#b83a3a", 16 + i * 2, 23 + i * 2, 2, 2); R(g, "#b83a3a", 31 - i * 2, 23 + i * 2, 2, 2); }
+    R(g, "#ffd23f", 22, 6, 4, 4);
+  });
+}
+function coopB() {
+  return mk(48, 40, g => {
+    R(g, "#3a2616", 4, 16, 40, 24); R(g, "#d8b070", 5, 17, 38, 22);
+    for (let y = 20; y < 39; y += 4) R(g, "#c49a58", 5, y, 38, 1);
+    for (let y = 2; y < 17; y++) { const half = Math.round(6 + y * 1.3); R(g, "#7a4a2a", 24 - half, y, half * 2, 1); if (y % 3 === 2) R(g, "#5e3a20", 24 - half, y, half * 2, 1); }
+    R(g, "#222", 3, 17, 42, 1); R(g, "#2a1a10", 18, 24, 12, 16); R(g, "#6a4a2a", 19, 25, 10, 15); R(g, "#2a1a10", 22, 28, 4, 5);
+    R(g, "#e53935", 9, 22, 4, 4); R(g, "#fff", 10, 23, 2, 2);
+  });
+}
+function silo() {
+  return mk(32, 48, g => {
+    R(g, "#3a3a44", 3, 12, 26, 36); R(g, "#9aa0b0", 4, 12, 24, 36);
+    for (let y = 16; y < 48; y += 6) R(g, "#7a8090", 4, y, 24, 1);
+    R(g, "#c4cad8", 7, 12, 4, 36);
+    disc(g, "#3a3a44", 16, 12, 13); R(g, "#3a3a44", 3, 12, 26, 2);
+    disc(g, "#b84a3a", 16, 11, 12); R(g, "#b84a3a", 4, 11, 24, 2); disc(g, "#d8695a", 12, 7, 4);
+    R(g, "#2a2a30", 12, 34, 8, 14); R(g, "#6a4a2a", 13, 35, 6, 13);
+  });
+}
+function miscIcon(id) {
+  return mk(16, 16, g => {
+    if (id === "milk") { R(g, "#e8e8f0", 5, 5, 6, 9); R(g, "#fff", 6, 6, 2, 6); R(g, "#6a8ac8", 5, 3, 6, 3); R(g, "#6a8ac8", 5, 8, 6, 2); }
+    if (id === "slime") { disc(g, "#2f8a3a", 8, 9, 5); disc(g, "#5fd36a", 8, 8, 4); R(g, "#cfffd0", 6, 6, 2, 2); }
+    if (id === "batwing") { R(g, "#3a2255", 2, 5, 12, 3); R(g, "#4a2f6a", 3, 8, 3, 3); R(g, "#4a2f6a", 8, 8, 3, 3); R(g, "#6a4a8a", 5, 4, 6, 2); }
+    if (id === "bone") { R(g, "#e8e4d8", 4, 7, 8, 2); disc(g, "#e8e4d8", 4, 6, 2); disc(g, "#e8e4d8", 4, 10, 2); disc(g, "#e8e4d8", 12, 6, 2); disc(g, "#e8e4d8", 12, 10, 2); }
+    if (id === "bouquet") { R(g, "#3fae3f", 7, 8, 2, 7); for (const [x, y, c] of [[4, 3, "#e84a6a"], [8, 2, "#ffd93d"], [11, 4, "#b06ae0"], [6, 6, "#fff"], [10, 7, "#e84a6a"]]) { R(g, c, x, y, 3, 3); R(g, "#f08a24", x + 1, y + 1); } }
+    if (id === "pendant") { R(g, "#ffd23f", 6, 2, 1, 5); R(g, "#ffd23f", 9, 2, 1, 5); disc(g, "#ffd23f", 8, 10, 4); disc(g, "#5ad0ff", 8, 10, 2); R(g, "#fff", 7, 9); }
+  });
+}
+
+export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) {
   const S = {
     grass: SEASONS.map((_, s) => [0, 1, 2, 3].map(v => grass(s, v))),
     soil: soil(false), soilWet: soil(true), water: [water(0), water(1)], pen: pen(), path: [0, 1, 2, 3].map(path),
@@ -215,10 +291,11 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes }) {
       h1: building("#3f8a4a", "#2f6b38", "#d8b98a", "#c4a478", false),
       h2: building("#c9a227", "#a8851c", "#e3d4b0", "#cfc09a", false),
       h3: building("#7a4fa0", "#5f3d82", "#c9a7a0", "#b5948c", false),
-      bin: bin(), cave: caveBuilding(),
+      bin: bin(), cave: caveBuilding(), coop: coopB(), barn: barn(), silo: silo(), plot: plot(3, 2, "PLOT"), plotS: plot(2, 2, "PLOT"),
     },
     cave: [0, 1, 2, 3].map(caveWall), cfloor: [0, 1, 2, 3].map(caveFloor), node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
-    chicken: chicken(), crop: {}, icon: { hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg() },
+    chicken: chicken(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg() },
+    mon: { slime: [slime(0), slime(1)], bat: [bat(0), bat(1)], skeleton: [skeleton(0), skeleton(1)] }, cow: cow(),
     player: person({ o: "#2b1b17", h: "#5a3a22", s: "#f2c59b", e: "#222", r: "#d94f4f", b: "#3a5ba8", k: "#3b2a20" }),
     npc: {},
   };
@@ -226,6 +303,7 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes }) {
   for (const t of crops) { S.crop[t] = [0, 1, 2, 3, 4].map(st => crop(t, st)); S.icon[t] = S.crop[t][4]; }
   for (const id of forage) S.icon[id] = forageIcon(id);
   for (const [id, col] of Object.entries(ores)) { S.node[id] = oreNode(id, col); S.icon[id] = S.node[id]; }
+  for (const id of misc) if (id !== "tonic") S.icon[id] = miscIcon(id);
   for (const [id, col] of Object.entries(dishes)) S.icon[id] = dishIcon(col);
   for (const [id, color] of Object.entries(fish)) S.icon[id] = fishIcon(color);
   return S;

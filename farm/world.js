@@ -1,7 +1,7 @@
 // Procedural generation of the three maps: Farm, Town, Forest. Tile types:
 // 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
 // 11 cave wall, 12 cave floor, 13 ore node
-import { PEN, ORES } from "./data.js";
+import { PEN, PASTURE } from "./data.js";
 
 function rng(seed) {
   return () => {
@@ -37,17 +37,21 @@ function building(m, sprite, x, y, t, kind) {
   m.objects.push({ sprite, x, y, h: 2 });
 }
 
+// Building plots: [id, x, y, w, h, sprite]. Tiles block movement from the start; the sprite changes when built.
+export const PLOTS = [["coop", 44, 3, 3, 2, "plot"], ["barn", 30, 4, 3, 2, "plot"], ["silo", 16, 4, 2, 2, "plotS"]];
+
 function makeFarm(rnd) {
-  const m = blank(50, 34, "Farm");
-  border(m, [{ x0: 49, y0: 15, x1: 49, y1: 18 }]);
-  fill(m, 7, 7, 8, 16, 8); fill(m, 7, 16, 49, 17, 8);                            // paths: door -> east exit
+  const m = blank(64, 44, "Farm");
+  border(m, [{ x0: 63, y0: 19, x1: 63, y1: 22 }]);
+  fill(m, 7, 7, 8, 21, 8); fill(m, 7, 20, 63, 21, 8);                            // paths: door -> east exit
   building(m, "home", 6, 5, 4, "home");
   put(m, 11, 7, 5, { kind: "bin" }); m.objects.push({ sprite: "bin", x: 11, y: 7, h: 1 });
-  fill(m, PEN.x0, PEN.y0, PEN.x1, PEN.y1, 7);
-  pond(m, 34, 25, 4.5, 3, "pond");
-  scatter(m, rnd, 55, (x, y) => !(x >= 3 && x <= 14 && y >= 3 && y <= 10) && !(x >= PEN.x0 - 2 && x <= PEN.x1 + 2 && y >= PEN.y0 - 2 && y <= PEN.y1 + 2)
-    && !(y >= 14 && y <= 19) && !(x >= 28 && x <= 40 && y >= 20 && y <= 30));
-  m.warps.push({ x: 49, y: 15, w: 1, h: 4, to: "town", tx: 2, ty: 13 });
+  fill(m, PEN.x0, PEN.y0, PEN.x1, PEN.y1, 7); fill(m, PASTURE.x0, PASTURE.y0, PASTURE.x1, PASTURE.y1, 7);
+  for (const [id, x, y, w, h, sprite] of PLOTS) { fill(m, x, y, x + w - 1, y + h - 1, 10, { kind: "plot", plot: id }); m.objects.push({ sprite, x, y, h, w, plot: id }); }
+  pond(m, 46, 34, 5, 4, "pond");
+  scatter(m, rnd, 90, (x, y) => !(x >= 3 && x <= 19 && y >= 3 && y <= 10) && !(x >= 24 && x <= 50 && y >= 2 && y <= 14)
+    && !(y >= 18 && y <= 23) && !(x >= 38 && x <= 54 && y >= 28 && y <= 40));
+  m.warps.push({ x: 63, y: 19, w: 1, h: 4, to: "town", tx: 2, ty: 13 });
   return m;
 }
 
@@ -61,7 +65,7 @@ function makeTown(rnd) {
   pond(m, 38, 21, 4, 3, "pond");
   scatter(m, rnd, 45, (x, y) => !(y >= 12 && y <= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
     && !(x >= 4 && x <= 10 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
-  m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 47, ty: 16 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 });
+  m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 });
   return m;
 }
 

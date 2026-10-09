@@ -1,30 +1,33 @@
 import {
-  T, SEASON_LEN, GOAL, CHICKEN_COST, MAX_CHICKENS, HOE_UPGRADES, CAN_UPGRADES, PICK_UPGRADES, PEN, HEART_REWARDS,
-  CROPS, FORAGE, FISH, ORES, DISHES, START_RECIPES, VILLAGERS, MERCHANT, FESTIVALS, FESTIVAL_DAY, itemInfo, edibleEnergy,
+  T, SEASON_LEN, GOAL, CHICKEN_COST, MAX_CHICKENS, MAX_COWS, COW_COST, HOE_UPGRADES, CAN_UPGRADES, PICK_UPGRADES, SWORD_UPGRADES, SWORD_DAMAGE,
+  PEN, PASTURE, BUILDINGS, MONSTERS, MISC, HEART_REWARDS, CROPS, FORAGE, FISH, ORES, DISHES, START_RECIPES, VILLAGERS, MERCHANT,
+  FESTIVALS, SPOUSE_LINES, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { generateWorld, makeMine } from "./world.js";
+import { generateWorld, makeMine, PLOTS } from "./world.js";
 import * as audio from "./audio.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
-const SAVE_KEY = "tinyvalley-save-v5";
-const TOOLS = ["hoe", "can", "rod", "pick", "seeds"];
+const SAVE_KEY = "tinyvalley-save-v6";
+const TOOLS = ["hoe", "can", "rod", "pick", "sword", "seeds"];
+const SEED_SLOT = TOOLS.indexOf("seeds");
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13];
-const FORAGE_COUNT = { farm: 5, town: 4, forest: 22 };
+const FORAGE_COUNT = { farm: 8, town: 4, forest: 22 };
+const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts"];
 
 const S = buildSprites({
   crops: CROP_IDS, forage: Object.keys(FORAGE),
   fish: Object.fromEntries(Object.entries(FISH).map(([k, v]) => [k, v.color])),
   ores: Object.fromEntries(Object.entries(ORES).map(([k, v]) => [k, v.color])),
-  dishes: Object.fromEntries(Object.entries(DISHES).map(([k, v]) => [k, v.color])),
+  dishes: Object.fromEntries(Object.entries(DISHES).map(([k, v]) => [k, v.color])), misc: Object.keys(MISC),
   npcs: { ...Object.fromEntries(Object.entries(VILLAGERS).map(([k, v]) => [k, v.pal])), zed: MERCHANT.pal },
 });
 
-let scene = "title", titleSel = 0, maps, state, chickens = [], npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
+let scene = "title", titleSel = 0, maps, state, animals = [], monsters = [], slash = null, slashCool = 0, invuln = 0, npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
 
 const seasonOf = day => Math.floor((day - 1) / SEASON_LEN) % 4;
 const dayOfSeason = day => ((day - 1) % SEASON_LEN) + 1;
@@ -38,7 +41,8 @@ const tileAt = (x, y) => cur().tiles[y]?.[x];
 const inBounds = (x, y) => x >= 0 && y >= 0 && x < cur().w && y < cur().h;
 const hourNow = () => state.minutes / 60;
 const mood = () => ["spring", "summer", "fall", "winter"][seasonOf(state.day)];
-const festivalToday = () => (dayOfSeason(state.day) === FESTIVAL_DAY ? FESTIVALS.find(f => f.season === seasonOf(state.day)) : null);
+const festivalToday = () => FESTIVALS.find(f => f.season === seasonOf(state.day) && f.day === dayOfSeason(state.day)) ?? null;
+const partner = () => state.spouse ?? "rosa";
 const merchantHere = () => state.day % MERCHANT.every === 0;
 const curSeed = () => CROP_IDS[state.seedSel];
 
@@ -47,7 +51,8 @@ function defaultState() {
     map: "farm", px: 7 * T, py: 7 * T, fx: 0, fy: 1, sel: 0, seedSel: 0,
     money: 50, energy: 100, day: 1, minutes: 6 * 60, rain: false,
     inv: {}, seeds: Object.fromEntries(CROP_IDS.map(k => [k, k === "turnip" ? 5 : 0])),
-    water: 20, canLevel: 0, hoeLevel: 0, pickLevel: 0, chickens: 0, recipes: [...START_RECIPES],
+    water: 20, canLevel: 0, hoeLevel: 0, pickLevel: 0, swordLevel: 0, hp: 100, chickens: 0, cows: 0, build: {}, recipes: [...START_RECIPES],
+    dating: null, engaged: null, spouse: null,
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
@@ -57,13 +62,14 @@ function defaultState() {
 function newGame() {
   maps = generateWorld();
   state = defaultState();
-  spawnForage(); makeChickens();
+  spawnForage(); makeAnimals();
 }
 
-function makeChickens() {
-  chickens = Array.from({ length: state.chickens }, () => ({
-    x: (PEN.x0 + Math.random() * (PEN.x1 - PEN.x0)) * T, y: (PEN.y0 + Math.random() * (PEN.y1 - PEN.y0)) * T, vx: 0, vy: 0, t: 0,
+function makeAnimals() {
+  const spawn = (kind, n, r) => Array.from({ length: n }, () => ({
+    kind, r, x: (r.x0 + Math.random() * (r.x1 - r.x0)) * T, y: (r.y0 + Math.random() * (r.y1 - r.y0)) * T, vx: 0, vy: 0, t: 0,
   }));
+  animals = [...spawn("chicken", state.chickens, PEN), ...spawn("cow", state.cows, PASTURE)];
 }
 
 function spawnForage() {
@@ -84,14 +90,16 @@ function load() {
     if (!s?.maps || !s?.state) return false;
     const d = defaultState();
     maps = s.maps;
-    state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, friend: { ...d.friend, ...s.state.friend }, ui: null };
-    makeChickens(); return true;
+    state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
+    makeAnimals(); return true;
   } catch { return false; }
 }
 
 function startGame(cont) {
   if (!(cont && load())) newGame();
-  scene = "game"; fishing = null; audio.startMusic(state.map === "mine" ? "mine" : mood());
+  scene = "game"; fishing = null; monsters = [];
+  if (state.map === "mine") spawnMonsters();
+  audio.startMusic(state.map === "mine" ? "mine" : mood());
 }
 
 // ---------------------------------------------------------------- input
@@ -104,8 +112,8 @@ addEventListener("keydown", e => {
     else if (scene === "title") titleKey(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
-    else if (/^[1-5]$/.test(k)) { const n = Number(k) - 1; if (n === 4 && state.sel === 4) cycleSeed(); state.sel = n; }
-    else if (k === "q") { state.sel = 4; cycleSeed(); }
+    else if (/^[1-6]$/.test(k)) { const n = Number(k) - 1; if (n === SEED_SLOT && state.sel === SEED_SLOT) cycleSeed(); state.sel = n; }
+    else if (k === "q") { state.sel = SEED_SLOT; cycleSeed(); }
     else if (k === " ") useTool();
     else if (k === "e") interact();
     else if (k === "i") state.ui = { type: "inv", tab: 0 };
@@ -153,6 +161,7 @@ const npcNear = (tx, ty) => Object.entries(npcs).find(([, n]) => n.map === state
 function scheduleFor(id) {
   const h = hourNow();
   if (id === "zed") return merchantHere() && h >= 8 && h < 22 ? { map: "town", x: MERCHANT.x, y: MERCHANT.y } : { map: null };
+  if (state.spouse === id) return { map: "farm", x: 9, y: 8 };                                // lives on the farm
   const v = VILLAGERS[id], sched = v.sched;
   if (h < sched[0].h) return { map: null };
   if (state.fest && h >= 10 && h < 18) return { map: "town", ...v.gather };                // everyone attends festivals
@@ -181,12 +190,14 @@ function useTool() {
 
   if (tile.crop && tile.crop.age >= CROPS[tile.crop.type].days) {          // harvest with any tool
     const c = CROPS[tile.crop.type];
-    addItem(tile.crop.type); say(`Harvested ${tile.crop.type}!`); audio.beep(660, 0.12, "triangle");
+    const bonus = state.build.silo === "built" && Math.random() < 0.25;
+    addItem(tile.crop.type, bonus ? 2 : 1); say(`Harvested ${tile.crop.type}!${bonus ? " (silo bonus!)" : ""}`); audio.beep(660, 0.12, "triangle");
     if (c.regrow) tile.crop.age = c.days - c.regrow; else delete tile.crop;
     return;
   }
   if (tool === "rod") return castRod(tile, x, y);
   if (tool === "pick") return mine(tile);
+  if (tool === "sword") return swing();
   if (tool === "hoe") {
     if (state.map !== "farm") return say("The soil here isn't yours to till.");
     const tiles = lineTiles(state.hoeLevel + 1).filter(([a, b]) => tileAt(a, b).t === 0);
@@ -227,11 +238,63 @@ function mine(tile) {
 function enterMine(floor) {
   state.mineFloor = floor; maps.mine = makeMine(floor); state.map = "mine";
   const s = maps.mine.start; state.px = s.x * T + 2; state.py = s.y * T; state.fade = 0.4; fishing = null;
-  say(`${maps.mine.name} — find the ladder!`, 2.5); audio.startMusic("mine");
+  say(`${maps.mine.name} — find the ladder!`, 2.5); audio.startMusic("mine"); spawnMonsters();
 }
 function leaveMine() {
-  state.map = "forest"; state.px = 39 * T + 2; state.py = 6 * T; state.fx = 0; state.fy = 1; state.fade = 0.4;
+  monsters = []; state.map = "forest"; state.px = 39 * T + 2; state.py = 6 * T; state.fx = 0; state.fy = 1; state.fade = 0.4;
   say("Forest", 1.5); audio.startMusic(mood());
+}
+
+// ---------------------------------------------------------------- combat
+function spawnMonsters() {
+  monsters = [];
+  const m = maps.mine, floor = state.mineFloor, types = Object.entries(MONSTERS).filter(([, d]) => d.minFloor <= floor);
+  const total = types.reduce((a, [, d]) => a + d.weight, 0), want = Math.min(12, 3 + Math.floor(floor / 2));
+  for (let i = 0; i < 400 && monsters.length < want; i++) {
+    const x = 1 + Math.floor(Math.random() * (m.w - 2)), y = 1 + Math.floor(Math.random() * (m.h - 2)), t = m.tiles[y][x];
+    if (t.t !== 12 || t.kind || Math.hypot(x - m.start.x, y - m.start.y) < 7) continue;
+    let r = Math.random() * total, type = types[0][0];
+    for (const [id, d] of types) if ((r -= d.weight) <= 0) { type = id; break; }
+    monsters.push({ type, x: x * T + 1, y: y * T + 1, hp: MONSTERS[type].hp + Math.floor(floor / 6), hurt: 0, kx: 0, ky: 0, wob: Math.random() * 6 });
+  }
+}
+function swing() {
+  if (slashCool > 0) return;
+  slashCool = 0.4; slash = { t: 0.18, fx: state.fx, fy: state.fy }; audio.beep(500, 0.06, "sawtooth", 0.03);
+  const cx = state.px + 6 + state.fx * 14, cy = state.py + 8 + state.fy * 14, dmg = SWORD_DAMAGE[state.swordLevel];
+  for (const mon of [...monsters]) {
+    if (Math.abs(mon.x + 7 - cx) > 16 || Math.abs(mon.y + 7 - cy) > 16) continue;
+    mon.hp -= dmg; mon.hurt = 0.3;
+    const d = Math.hypot(mon.x - state.px, mon.y - state.py) || 1; mon.kx = (mon.x - state.px) / d * 90; mon.ky = (mon.y - state.py) / d * 90;
+    if (mon.hp <= 0) {
+      monsters.splice(monsters.indexOf(mon), 1);
+      const def = MONSTERS[mon.type];
+      if (Math.random() < 0.8) { addItem(def.drop); say(`Defeated ${def.name}! Got ${itemInfo(def.drop).name}`); } else say(`Defeated ${def.name}!`);
+      audio.beep(300, 0.12, "triangle");
+    } else audio.beep(220, 0.06, "square");
+  }
+}
+const monBlocked = (x, y) => [[x + 2, y + 4], [x + 11, y + 4], [x + 2, y + 11], [x + 11, y + 11]].some(([cx, cy]) => {
+  const t = tileAt(Math.floor(cx / T), Math.floor(cy / T)); return !t || t.t === 11 || t.t === 13;
+});
+function updateMonsters(dt) {
+  if (state.map !== "mine") return;
+  for (const mon of monsters) {
+    const def = MONSTERS[mon.type], dx = state.px + 6 - (mon.x + 7), dy = state.py + 8 - (mon.y + 7), dist = Math.hypot(dx, dy) || 1;
+    let vx = 0, vy = 0;
+    if (mon.hurt > 0) { mon.hurt -= dt; vx = mon.kx; vy = mon.ky; mon.kx *= 0.9; mon.ky *= 0.9; }
+    else if (dist < 120) {
+      mon.wob += dt * 6; const w = mon.type === "bat" ? Math.sin(mon.wob) * 0.9 : 0;
+      vx = (dx / dist + w * dy / dist) * def.speed; vy = (dy / dist - w * dx / dist) * def.speed;
+    }
+    if (!monBlocked(mon.x + vx * dt, mon.y)) mon.x += vx * dt;
+    if (!monBlocked(mon.x, mon.y + vy * dt)) mon.y += vy * dt;
+    if (dist < 11 && invuln <= 0) hurtPlayer(def.dmg + Math.floor(state.mineFloor / 5));
+  }
+}
+function hurtPlayer(n) {
+  state.hp -= n; invuln = 1; audio.beep(120, 0.2, "sawtooth"); say(`Ouch! -${n} HP`, 1.2);
+  if (state.hp <= 0) { const lost = Math.min(Math.floor(state.money * 0.1), 500); state.money -= lost; sleep(); say(`You were knocked out in the mine! Lost $${lost}.`, 5); }
 }
 
 // ---------------------------------------------------------------- fishing
@@ -302,6 +365,28 @@ function festProgress(id) {
   const f = FESTIVALS.find(x => x.id === id);
   if (++state.fest.progress >= f.goal) festPrize(); else say(`${f.name}: ${state.fest.progress}/${f.goal}`, 2);
 }
+const DANCE_KEYS = { a: "left", arrowleft: "left", w: "up", arrowup: "up", d: "right", arrowright: "right", s: "down", arrowdown: "down" };
+function startDance() {
+  const dirs = ["left", "up", "right", "down"];
+  state.ui = { type: "dance", i: 0, score: 0, seq: Array.from({ length: 8 }, () => dirs[Math.floor(Math.random() * 4)]), t: 1.5, wait: 0.9, fb: "Get ready!", done: false };
+}
+function updateDance(dt) {
+  const ui = state.ui;
+  if (ui.done) return;
+  if (ui.wait > 0) { ui.wait -= dt; return; }
+  if ((ui.t -= dt) <= 0) danceJudge(null);
+}
+function danceJudge(dir) {
+  const ui = state.ui;
+  if (dir && dir === ui.seq[ui.i]) { ui.score++; ui.fb = "Perfect!"; audio.beep(600 + ui.i * 50, 0.1, "triangle"); }
+  else { ui.fb = dir ? "Oops!" : "Too slow!"; audio.beep(150, 0.15, "sawtooth"); }
+  ui.i++; ui.wait = 0.3; ui.t = Math.max(0.85, 1.4 - ui.i * 0.06);
+  if (ui.i >= 8) {
+    ui.done = true; const prize = ui.score * 35, p = partner();
+    state.money += prize; state.fest.done = true; addFriend(p, ui.score * 10);
+    ui.fb = `Score ${ui.score}/8 — you earn $${prize}! ${VILLAGERS[p].name} enjoyed the dance.`; audio.beep(1000, 0.25, "triangle");
+  }
+}
 function festEntry() {                                                       // Rosa takes harvest-fair / feast entries
   const fe = state.fest, f = fe && FESTIVALS.find(x => x.id === fe.id);
   if (!f || fe.done) return null;
@@ -311,6 +396,7 @@ function festEntry() {                                                       // 
     for (const k of have.slice(0, 3)) state.inv[k]--;
     festPrize(); return "Rosa: Wonderful display! First prize!";
   }
+  if (f.id === "flowerdance" || f.id === "stardance") { startDance(); return ""; }
   if (f.id === "feast") {
     const dish = Object.keys(DISHES).find(k => (state.inv[k] || 0) > 0);
     if (!dish) return "Rosa: Bring me a cooked dish for the feast!";
@@ -342,8 +428,8 @@ function cook(id) {
 function eat(id) {
   const e = edibleEnergy(id);
   if (!e || !state.inv[id]) return;
-  if (state.energy >= 100) return say("You're not hungry.");
-  state.inv[id]--; state.energy = Math.min(100, state.energy + e); say(`Ate ${itemInfo(id).name}: +${e} energy`); audio.beep(440, 0.1, "sine");
+  if (state.energy >= 100 && state.hp >= 100) return say("You're not hungry.");
+  state.inv[id]--; state.energy = Math.min(100, state.energy + e); state.hp = Math.min(100, state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
 }
 
 // ---------------------------------------------------------------- interaction & menus
@@ -355,6 +441,8 @@ function interact() {
   else if (id) { state.ui = { type: "talk", id, mode: "menu", text: "", n: 0 }; audio.beep(520, 0.05); }
   else if (tile.kind === "bin") state.ui = { type: "bin" };
   else if (tile.kind === "home") state.ui = { type: "home" };
+  else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
+  else if (tile.kind === "built") say(tile.plot === "coop" ? `Coop: ${state.chickens}/${MAX_CHICKENS} chickens.` : tile.plot === "barn" ? `Barn: ${state.cows}/${MAX_COWS} cows.` : "Silo: 25% chance of a bonus crop at harvest.", 3);
   else if (tile.kind === "mine") enterMine(state.mineBest);
   else if (tile.kind === "mexit") leaveMine();
   else if (tile.kind === "ladder") {
@@ -380,15 +468,29 @@ function checkWin() {
 const upgrade = (name, list, level, apply) => level < list.length
   ? { label: `${name} Lv${level + 1} -> Lv${level + 2}`, cost: list[level].cost, mats: list[level].mats, buy: apply }
   : { label: `${name} maxed`, cost: Infinity };
+const buildItem = id => {
+  const st = state.build[id], b = BUILDINGS[id];
+  return st === "built" ? { label: `${b.name} (built)`, cost: Infinity }
+    : st === "pending" ? { label: `${b.name} (under construction)`, cost: Infinity }
+    : { label: `Build ${b.name}`, cost: b.cost, mats: b.mats, buy: () => { state.build[id] = "pending"; say(`${b.name} will be ready tomorrow!`); } };
+};
 const SHOP = page => page === 0
   ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, buy: () => { state.seeds[k] += 5; } }))
-  : [
+  : page === 1 ? [
     upgrade("Hoe", HOE_UPGRADES, state.hoeLevel, () => { state.hoeLevel++; }),
     upgrade("Watering can", CAN_UPGRADES, state.canLevel, () => { state.canLevel++; state.water = maxWater(); }),
     upgrade("Pickaxe", PICK_UPGRADES, state.pickLevel, () => { state.pickLevel++; }),
-    state.chickens < MAX_CHICKENS
-      ? { label: `Chicken (${state.chickens}/${MAX_CHICKENS})`, cost: CHICKEN_COST, buy: () => { state.chickens++; makeChickens(); } }
-      : { label: "Coop full", cost: Infinity },
+    upgrade("Sword", SWORD_UPGRADES, state.swordLevel, () => { state.swordLevel++; }),
+  ] : page === 2 ? [
+    buildItem("coop"), buildItem("barn"), buildItem("silo"),
+    state.build.coop !== "built" ? { label: "Chicken (build a coop first)", cost: Infinity }
+      : state.chickens < MAX_CHICKENS ? { label: `Chicken (${state.chickens}/${MAX_CHICKENS})`, cost: CHICKEN_COST, buy: () => { state.chickens++; makeAnimals(); } } : { label: "Coop full", cost: Infinity },
+    state.build.barn !== "built" ? { label: "Cow (build a barn first)", cost: Infinity }
+      : state.cows < MAX_COWS ? { label: `Cow (${state.cows}/${MAX_COWS}) — gives milk daily`, cost: COW_COST, buy: () => { state.cows++; makeAnimals(); } } : { label: "Barn full", cost: Infinity },
+  ] : [
+    { label: "Bouquet (give to someone at 8+ hearts to start dating)", cost: 200, buy: () => addItem("bouquet") },
+    { label: "Wedding Pendant (give to your partner at 10 hearts)", cost: 1500, buy: () => addItem("pendant") },
+    { label: "Energy Tonic (+60 energy)", cost: 60, buy: () => addItem("tonic") },
   ];
 
 function merchantBuy(i) {
@@ -410,7 +512,7 @@ function uiKey(k) {
   const ui = state.ui, num = /^[1-9]$/.test(k) ? Number(k) - 1 : -1, close = k === "escape" || k === "e";
   if (ui.type === "shop") {
     if (close) return void (state.ui = null);
-    if (k === "tab") return void (ui.page = 1 - ui.page);
+    if (k === "tab") return void (ui.page = (ui.page + 1) % SHOP_PAGES.length);
     const item = SHOP(ui.page)[num];
     if (!item || item.cost === Infinity) return;
     if (state.money < item.cost || !hasMats(item.mats)) return say(!hasMats(item.mats) ? `Needs ${matsText(item.mats)}` : "Not enough money!") ?? audio.beep(120, 0.15, "sawtooth");
@@ -433,6 +535,9 @@ function uiKey(k) {
       const items = invItems();
       if (items[num]) { const v = sellStack(items[num][0], 1.5); say(`Zed pays $${v}`); audio.beep(880, 0.1, "triangle"); }
     }
+  } else if (ui.type === "dance") {
+    if (ui.done) { state.ui = null; checkWin(); }
+    else if (DANCE_KEYS[k] && ui.wait <= 0) danceJudge(DANCE_KEYS[k]);
   } else if (ui.type === "home") {
     if (close) return void (state.ui = null);
     if (num === 0) sleep(); else if (num === 1) state.ui = { type: "cook" };
@@ -458,22 +563,40 @@ function talkKey(k, num) {
   if (ui.mode === "menu") {
     if (num === 0) {
       const h = hearts(ui.id), tier = h < 3 ? v.low : h < 6 ? v.mid : v.high;
-      const pool = [v.season[seasonOf(state.day)], ...tier];
+      const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier];
       ui.text = `${v.name}: ${pool[(state.day + ui.n++) % pool.length]}`;
       if (!f.talked) { f.talked = true; addFriend(ui.id, 20); }
     } else if (num === 1) { ui.mode = "gift"; ui.text = ""; }
-    else if (num === 2 && ui.id === "rosa") ui.text = festEntry() ?? "Rosa: No festival entries today.";
+    else if (num === 2 && ui.id === "rosa") { const r = festEntry(); if (r !== "") ui.text = r ?? "Rosa: No festival entries today."; }
   } else if (ui.mode === "gift") {
     const it = invItems()[num];
     if (!it) return;
-    if (f.gifted) return void (ui.text = `${v.name}: You already gave me something today!`);
     const [id] = it, name = itemInfo(id).name;
+    if (id === "bouquet" || id === "pendant") return giveSpecial(ui, id);
+    if (f.gifted) return void (ui.text = `${v.name}: You already gave me something today!`);
     state.inv[id]--; f.gifted = true;
     let pts = 20, line = `${v.name}: Oh, a ${name}. Thanks!`;
     if (v.loves.includes(id)) { pts = 80; line = `${v.name}: A ${name}?! I LOVE it! Thank you!!`; }
     else if (v.likes.includes(id)) { pts = 45; line = `${v.name}: A ${name}! That's really nice of you.`; }
     else if (v.hates.includes(id)) { pts = -20; line = `${v.name}: Ugh... a ${name}? No thanks.`; }
     addFriend(ui.id, pts); ui.text = line; ui.mode = "menu"; audio.beep(pts > 0 ? 880 : 150, 0.15, "triangle");
+  }
+}
+function giveSpecial(ui, id) {
+  const v = VILLAGERS[ui.id], h = hearts(ui.id);
+  ui.mode = "menu";
+  if (id === "bouquet") {
+    if (state.spouse || state.engaged) return void (ui.text = `${v.name}: That's sweet, but you're already committed!`);
+    if (state.dating && state.dating !== ui.id) return void (ui.text = `${v.name}: You're already seeing someone else...`);
+    if (state.dating === ui.id) return void (ui.text = `${v.name}: We're already dating, silly! Maybe a pendant next?`);
+    if (h < 8) return void (ui.text = `${v.name}: That's lovely... but I don't know you well enough yet. (needs 8 hearts)`);
+    state.inv.bouquet--; state.dating = ui.id; addFriend(ui.id, 50);
+    ui.text = `${v.name}: A bouquet?! I'd love to be closer to you. We're dating now!`; audio.beep(990, 0.25, "triangle");
+  } else {
+    if (state.dating !== ui.id) return void (ui.text = `${v.name}: Oh... we're not at that stage. (give a bouquet first)`);
+    if (h < 10) return void (ui.text = `${v.name}: I'm honored, but not quite yet. (needs 10 hearts)`);
+    state.inv.pendant--; state.engaged = { id: ui.id, day: state.day + 3 };
+    ui.text = `${v.name}: Yes!! Let's marry in 3 days — day ${state.day + 3}!`; audio.beep(1200, 0.4, "triangle");
   }
 }
 function addFriend(id, pts) {
@@ -491,6 +614,12 @@ function addFriend(id, pts) {
 
 function sleep() {
   const old = seasonOf(state.day);
+  let extra = "";
+  if (state.spouse) {                                                                // spouse waters some crops
+    let n = 0;
+    for (const row of maps.farm.tiles) for (const t of row) if (n < 12 && t.crop && !t.wet) { t.wet = true; n++; }
+    if (n) extra += ` ${VILLAGERS[state.spouse].name} watered ${n} crops.`;
+  }
   for (const m of Object.values(maps)) for (const row of m.tiles) for (const tile of row) {
     if (tile.crop && tile.wet) tile.crop.age++;
     tile.wet = false;
@@ -498,9 +627,19 @@ function sleep() {
   state.day++; state.minutes = 6 * 60; state.energy = 100;
   state.map = "farm"; state.px = 7 * T; state.py = 7 * T; state.fx = 0; state.fy = 1; fishing = null; state.ui = null;
   for (const id in state.friend) { state.friend[id].talked = false; state.friend[id].gifted = false; }
-  addItem("egg", state.chickens);
+  state.hp = 100; invuln = 0; monsters = [];
+  addItem("egg", state.chickens); addItem("milk", state.cows);
+  for (const [id] of PLOTS) if (state.build[id] === "pending") {                      // buildings finish overnight
+    state.build[id] = "built";
+    const o = maps.farm.objects.find(x => x.plot === id); if (o) o.sprite = id;
+    for (const row of maps.farm.tiles) for (const t of row) if (t.plot === id) t.kind = "built";
+    extra += ` Your ${BUILDINGS[id].name} is finished!`;
+  }
+  if (state.engaged && state.day >= state.engaged.day) {
+    const v = VILLAGERS[state.engaged.id]; state.spouse = state.engaged.id; state.dating = null; state.engaged = null; state.friend[state.spouse].pts = 1000;
+    extra += ` You married ${v.name}! They now live on the farm.`; audio.beep(1200, 0.5, "triangle");
+  }
   const s = seasonOf(state.day);
-  let extra = "";
   if (s !== old) {
     let withered = 0;
     for (const m of Object.values(maps)) for (const row of m.tiles) for (const tile of row) if (tile.crop && !CROPS[tile.crop.type].seasons.includes(s)) { delete tile.crop; withered++; }
@@ -513,7 +652,7 @@ function sleep() {
   if (state.fest) { const f = FESTIVALS.find(x => x.id === state.fest.id); extra += ` Today: ${f.name}! ${f.desc}.`; }
   if (merchantHere()) extra += " Zed the merchant is in Town today.";
   save();
-  say(`Day ${state.day}${state.rain ? (s === 3 ? " — snowing" : " — raining") : ""}.${state.chickens ? ` ${state.chickens} egg(s) laid.` : ""}${extra}`, extra ? 6 : 3);
+  say(`Day ${state.day}${state.rain ? (s === 3 ? " — snowing" : " — raining") : ""}.${state.chickens ? ` ${state.chickens} egg(s)` : ""}${state.cows ? ` ${state.cows} milk` : ""}${state.chickens || state.cows ? " collected." : ""}${extra}`, extra ? 7 : 3);
 }
 
 // ---------------------------------------------------------------- update
@@ -534,13 +673,17 @@ function update(dt) {
     if (p.x > W) p.x -= W;
   }
   updateNpcs(dt); updateFishing(dt);
-  for (const c of chickens) {
+  slashCool -= dt; invuln -= dt; if (slash && (slash.t -= dt) <= 0) slash = null;
+  for (const c of animals) {
+    const w = c.kind === "cow" ? 20 : 12, h = c.kind === "cow" ? 14 : 10, sp = c.kind === "cow" ? 12 : 20;
     c.t -= dt;
-    if (c.t <= 0) { c.t = 1 + Math.random() * 2; c.vx = (Math.random() - .5) * 20; c.vy = (Math.random() - .5) * 20; }
-    c.x = Math.max(PEN.x0 * T, Math.min((PEN.x1 + 1) * T - 12, c.x + c.vx * dt));
-    c.y = Math.max(PEN.y0 * T, Math.min((PEN.y1 + 1) * T - 10, c.y + c.vy * dt));
+    if (c.t <= 0) { c.t = 1 + Math.random() * 3; c.vx = (Math.random() - .5) * sp; c.vy = (Math.random() - .5) * sp; }
+    c.x = Math.max(c.r.x0 * T, Math.min((c.r.x1 + 1) * T - w, c.x + c.vx * dt));
+    c.y = Math.max(c.r.y0 * T, Math.min((c.r.y1 + 1) * T - h, c.y + c.vy * dt));
   }
+  if (state.ui?.type === "dance") updateDance(dt);
   if (state.ui) { moving = false; return; }
+  updateMonsters(dt);
 
   const dx = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
   const dy = (keys.has("s") || keys.has("arrowdown") ? 1 : 0) - (keys.has("w") || keys.has("arrowup") ? 1 : 0);
@@ -623,14 +766,21 @@ function drawWorld() {
     const f = n.moving ? 1 + (Math.floor(clock * 6) % 2) : 0;
     things.push({ img: S.npc[id][n.dir][f], x: Math.round(n.x), y: Math.round(n.y) - 1, sort: n.y + 14 });
   }
-  if (state.map === "farm") for (const c of chickens) things.push({ img: S.chicken, x: Math.round(c.x), y: Math.round(c.y), sort: c.y + 10, flip: c.vx < 0 });
+  if (state.map === "farm") for (const c of animals) things.push({ img: c.kind === "cow" ? S.cow : S.chicken, x: Math.round(c.x), y: Math.round(c.y), sort: c.y + (c.kind === "cow" ? 14 : 10), flip: c.vx < 0 });
+  if (state.map === "mine") for (const mon of monsters) things.push({ img: S.mon[mon.type][Math.floor(clock * 4) % 2], x: Math.round(mon.x), y: Math.round(mon.y), sort: mon.y + 14, hurt: mon.hurt > 0 });
   const dir = state.fy > 0 ? 0 : state.fy < 0 ? 1 : state.fx > 0 ? 2 : 3;
   const pf = moving ? 1 + (Math.floor(walkT * 8) % 2) : 0;
   things.push({ img: S.player[dir][pf], x: Math.round(state.px) - 2, y: Math.round(state.py) - 1, sort: state.py + 14 });
   things.sort((a, b) => a.sort - b.sort);
   for (const t of things) {
+    if (t.hurt) ctx.globalAlpha = 0.55;
     if (t.flip) { ctx.save(); ctx.translate(t.x + t.img.width, t.y); ctx.scale(-1, 1); ctx.drawImage(t.img, 0, 0); ctx.restore(); }
     else ctx.drawImage(t.img, t.x, t.y);
+    ctx.globalAlpha = 1;
+  }
+  if (slash) {                                                                      // sword arc
+    const a = Math.atan2(slash.fy, slash.fx), p = 1 - slash.t / 0.18, cx = state.px + 6, cy = state.py + 8;
+    ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, 15, a - 1.1 + p * 1.2, a - 0.1 + p * 1.2); ctx.stroke(); ctx.lineWidth = 1;
   }
   if (fishing) {                                                                    // line and bobber
     const bx = fishing.x * T + 8, by = fishing.y * T + 8 + (fishing.phase === "bite" ? Math.sin(clock * 30) * 1.5 : Math.sin(clock * 3));
@@ -666,6 +816,8 @@ function drawHud(hr, tx, ty) {
   ctx.font = "9px monospace";
   const h = Math.floor(hr) % 24, mm = Math.floor(state.minutes % 60 / 10) * 10;
   txt(`${cur().name} | ${SEASONS[s].name} ${dayOfSeason(state.day)} Y${yearOf(state.day)} ${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}${state.rain ? (s === 3 ? " snow" : " rain") : ""} | $${state.money}/${GOAL} | En ${Math.ceil(state.energy)} | Water ${state.water}/${maxWater()}`, 4, 10);
+  ctx.fillStyle = "#400"; ctx.fillRect(W - 66, 3, 62, 7); ctx.fillStyle = state.hp > 30 ? "#e03a3a" : "#ff8a3a"; ctx.fillRect(W - 66, 3, Math.max(0, state.hp) * 0.62, 7); txt("HP", W - 80, 10, "#f99");
+  if (invuln > 0.6) { ctx.fillStyle = "rgba(220,30,30,.25)"; ctx.fillRect(0, 0, W, H); }
   if (state.fest) {
     const f = FESTIVALS.find(x => x.id === state.fest.id);
     ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(0, 14, 170, 11);
@@ -680,14 +832,14 @@ function drawHud(hr, tx, ty) {
     : tile.t === 2 && TOOLS[state.sel] === "rod" ? "Space: fish" : tile.t === 13 && TOOLS[state.sel] === "pick" ? "Space: mine" : "";
   if (hint) { const w = ctx.measureText(hint).width + 4; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(W - w - 2, H - 38, w, 12); txt(hint, W - 4, H - 28, "#ffd23f", "right"); }
 
-  const sw = 96;
+  const sw = 80;
   TOOLS.forEach((t, i) => {
     const x = 2 + i * sw, sel = i === state.sel;
     ctx.fillStyle = sel ? "#ffd23f" : "#3b3550"; ctx.fillRect(x, H - 22, sw - 2, 20);
     const icon = t === "seeds" ? S.icon[curSeed()] : S.icon[t];
     ctx.drawImage(icon, x + 1, H - 20);
-    const label = t === "hoe" ? `Hoe L${state.hoeLevel + 1}` : t === "can" ? `Can L${state.canLevel + 1}` : t === "rod" ? "Rod" : t === "pick" ? `Pick L${state.pickLevel + 1}` : `${curSeed()} x${state.seeds[curSeed()]}`;
-    ctx.font = "8px monospace"; txt(`${i + 1} ${label}`, x + 19, H - 9, sel ? "#000" : "#fff"); ctx.font = "9px monospace";
+    const label = t === "hoe" ? `Hoe L${state.hoeLevel + 1}` : t === "can" ? `Can L${state.canLevel + 1}` : t === "rod" ? "Rod" : t === "pick" ? `Pick L${state.pickLevel + 1}` : t === "sword" ? `Sword L${state.swordLevel + 1}` : `${curSeed()} x${state.seeds[curSeed()]}`;
+    ctx.font = "8px monospace"; txt(`${i + 1} ${label}`, x + 18, H - 9, sel ? "#000" : "#fff"); ctx.font = "9px monospace";
   });
 
   if (fishing?.phase === "reel") {                                                  // timing bar
@@ -715,12 +867,12 @@ function drawUi() {
   const ui = state.ui; if (!ui) return;
   ctx.font = "9px monospace";
   if (ui.type === "shop") {
-    panel(50, 22, 380, 214, `SHOP ${ui.page ? "(upgrades)" : "(seeds)"}  $${state.money}  Tab: page  E: close`);
+    panel(40, 22, 400, 214, `SHOP: ${SHOP_PAGES[ui.page]} (page ${ui.page + 1}/${SHOP_PAGES.length})  $${state.money}  Tab: next  E: close`);
     SHOP(ui.page).forEach((it, i) => {
       const ok = it.cost !== Infinity && state.money >= it.cost && hasMats(it.mats);
-      txt(`${i + 1}. ${it.label}${it.cost === Infinity ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 58, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
+      txt(`${i + 1}. ${it.label}${it.cost === Infinity ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
     });
-    txt(`Now: ${SEASONS[seasonOf(state.day)].name}. Out-of-season crops wither when the season changes. Ore comes from the mine.`, 58, 228, "#9aa");
+    txt(`Now: ${SEASONS[seasonOf(state.day)].name}. Out-of-season crops wither when the season changes. Ore and stone come from the mine.`, 48, 228, "#9aa");
   } else if (ui.type === "bin") {
     panel(60, 30, 360, 200, "SELL  (number sells a stack, A sells all, E to close)");
     const items = invItems();
@@ -733,7 +885,8 @@ function drawUi() {
       txt("Zed pays 1.5x for everything:", 68, 52, "#8f8");
       invItems().slice(0, 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 68, 55 + (i + 1) * 14 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name} = $${Math.round(n * itemInfo(id).price * 1.5)}`, 84, 54 + (i + 1) * 14); });
     }
-  } else if (ui.type === "home") {
+  } else if (ui.type === "dance") drawDance(ui);
+  else if (ui.type === "home") {
     panel(150, 80, 180, 70, "FARMHOUSE");
     txt("1. Sleep (end the day)", 160, 106); txt("2. Cook", 160, 122); txt("E: cancel", 160, 138, "#777");
   } else if (ui.type === "cook") {
@@ -761,12 +914,33 @@ function drawUi() {
   }
 }
 
+function drawArrow(dir, cx, cy, size, color) {
+  const rot = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[dir];
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(0, -size); ctx.lineTo(0, -size / 2.5); ctx.lineTo(-size, -size / 2.5); ctx.lineTo(-size, size / 2.5); ctx.lineTo(0, size / 2.5); ctx.lineTo(0, size); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawDance(ui) {
+  const p = partner(), v = VILLAGERS[p];
+  panel(110, 50, 260, 170, `${festivalToday()?.name ?? "Dance"} — with ${v.name}`);
+  ctx.drawImage(S.player[0][0], 160 + Math.sin(clock * 6) * 4, 140); ctx.drawImage(S.npc[p][0][0], 304 - Math.sin(clock * 6) * 4, 140);
+  txt(`Match the arrow! (WASD / arrows)  ${Math.min(ui.i + 1, 8)}/8`, 240, 80, "#cfe8ff", "center");
+  if (!ui.done && ui.wait <= 0) {
+    const frac = Math.max(0, ui.t / Math.max(0.85, 1.4 - ui.i * 0.06));
+    drawArrow(ui.seq[ui.i], 240, 112, 16, "#ffd23f");
+    ctx.strokeStyle = "#fff"; ctx.beginPath(); ctx.arc(240, 112, 14 + frac * 14, 0, 7); ctx.stroke();
+  }
+  txt(ui.fb, 240, 180, ui.fb.startsWith("Perfect") ? "#8f8" : "#fff", "center");
+  txt(`Score ${ui.score}`, 240, 196, "#ffd23f", "center");
+  if (ui.done) txt("Press any key", 240, 212, "#9aa", "center");
+}
+
 function drawInventory(ui) {
   panel(30, 14, 420, 230, `${ui.tab === 0 ? "[ITEMS]  friends" : " items  [FRIENDS]"}   (Tab: switch, I/E: close)`);
   let y = 40;
   if (ui.tab === 0) {
     const row = (t, c = "#fff") => { txt(t, 40, y, c); y += 12; };
-    row(`Hoe L${state.hoeLevel + 1}  Can L${state.canLevel + 1} (${maxWater()})  Pick L${state.pickLevel + 1}`, "#cfe8ff");
+    row(`Hoe L${state.hoeLevel + 1}  Can L${state.canLevel + 1} (${maxWater()})  Pick L${state.pickLevel + 1}  Sword L${state.swordLevel + 1}`, "#cfe8ff");
     row(`Fish caught ${state.caught}  Mine best ${state.mineBest}F`, "#cfe8ff");
     y += 2; row("Seeds (Q switches)        Season  Sell", "#ffd23f");
     CROP_IDS.forEach((k, i) => {
@@ -792,8 +966,11 @@ function drawInventory(ui) {
       txt(`Loves: ${v.loves.slice(0, 3).map(i => itemInfo(i).name).join(", ")}`, 215, y - 2, "#8f8"); txt(`Likes: ${v.likes.slice(0, 3).map(i => itemInfo(i).name).join(", ")}`, 215, y + 8, "#cfe8ff");
       y += 28;
     }
-    y += 2; txt(`Recipes: ${state.recipes.map(r => DISHES[r].name).join(", ")}`.slice(0, 70), 40, y, "#ffd23f");
-    txt(`Chickens ${state.chickens}/${MAX_CHICKENS}   Goal $${state.money}/${GOAL}   Zed visits every ${MERCHANT.every}th day`, 40, y + 14, "#cfe8ff");
+    y += 2;
+    const rel = state.spouse ? `Married to ${VILLAGERS[state.spouse].name}` : state.engaged ? `Engaged to ${VILLAGERS[state.engaged.id].name} — wedding on day ${state.engaged.day}` : state.dating ? `Dating ${VILLAGERS[state.dating].name}` : "Single (8 hearts + bouquet to date, 10 + pendant to marry)";
+    txt(rel, 40, y, "#ff7a9c");
+    txt(`Recipes: ${state.recipes.map(r => DISHES[r].name).join(", ")}`.slice(0, 74), 40, y + 12, "#ffd23f");
+    txt(`Chickens ${state.chickens}/${MAX_CHICKENS}  Cows ${state.cows}/${MAX_COWS}  Goal $${state.money}/${GOAL}  Zed every ${MERCHANT.every}th day`, 40, y + 24, "#cfe8ff");
   }
 }
 
@@ -821,7 +998,7 @@ function drawTitle() {
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress,
+  sleep, useTool, startGame, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, startDance, danceJudge, giveSpecial,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();

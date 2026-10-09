@@ -1,6 +1,30 @@
 export const T = 16, SEASON_LEN = 10;
-export const GOAL = 3000, EGG_PRICE = 15, CHICKEN_COST = 250, MAX_CHICKENS = 4;
-export const PEN = { x0: 36, y0: 5, x1: 44, y1: 10 };                            // chicken pen on the farm
+export const GOAL = 3000, EGG_PRICE = 15, CHICKEN_COST = 250;
+export const PEN = { x0: 40, y0: 6, x1: 48, y1: 10 };                            // chicken pen on the farm
+export const PASTURE = { x0: 26, y0: 7, x1: 36, y1: 12 };                        // cow pasture
+export const MAX_CHICKENS = 6, MAX_COWS = 3, COW_COST = 500;
+// Farm buildings stand on pre-marked plots; they are finished the morning after you pay.
+export const BUILDINGS = {
+  coop: { name: "Coop", cost: 300, mats: { stone: 20 } },
+  barn: { name: "Barn", cost: 600, mats: { stone: 40, copper: 5 } },
+  silo: { name: "Silo", cost: 250, mats: { stone: 15 } },
+};
+export const SWORD_UPGRADES = [{ cost: 200, mats: { copper: 6 } }, { cost: 450, mats: { iron: 6 } }];
+export const SWORD_DAMAGE = [1, 2, 3];
+export const MONSTERS = {
+  slime:    { name: "Slime",    hp: 3, dmg: 8,  speed: 20, drop: "slime",   minFloor: 1, weight: 5 },
+  bat:      { name: "Bat",      hp: 2, dmg: 6,  speed: 46, drop: "batwing", minFloor: 3, weight: 3 },
+  skeleton: { name: "Skeleton", hp: 8, dmg: 14, speed: 28, drop: "bone",    minFloor: 8, weight: 2 },
+};
+export const MISC = {
+  milk:    { name: "Milk",            price: 50 },
+  slime:   { name: "Slime",           price: 8 },
+  batwing: { name: "Bat Wing",        price: 15 },
+  bone:    { name: "Bone",            price: 30 },
+  bouquet: { name: "Bouquet",         price: 100 },
+  pendant: { name: "Wedding Pendant", price: 750 },
+  tonic:   { name: "Energy Tonic",    price: 30 },
+};
 export const HEART_REWARDS = [{ hearts: 3, money: 75 }, { hearts: 6, money: 200 }, { hearts: 9, money: 400 }];
 
 // Tool upgrades: each level reaches one more tile (hoe/can) or breaks harder rock (pickaxe); materials come from the mine.
@@ -60,6 +84,7 @@ export const DISHES = {
   pie:      { name: "Pumpkin Pie",  price: 220, energy: 80, need: [["pumpkin", 1], ["egg", 1]],                  color: "#e98a15" },
   fishstew: { name: "Fish Stew",    price: 110, energy: 55, need: [["@fish", 1], ["potato", 1]],                 color: "#6aa8f0" },
   salad:    { name: "Forest Salad", price: 90,  energy: 45, need: [["@forage", 3]],                              color: "#5fae4f" },
+  pancakes: { name: "Pancakes",    price: 80,  energy: 50, need: [["egg", 1], ["milk", 1]],                    color: "#e0b070" },
   cornbread:{ name: "Cornbread",    price: 130, energy: 60, need: [["corn", 2], ["egg", 1]],                     color: "#f0c040" },
 };
 export const START_RECIPES = ["friedegg", "stew"];
@@ -67,23 +92,29 @@ export const START_RECIPES = ["friedegg", "stew"];
 export const EGG = { name: "Egg", price: EGG_PRICE };
 export function itemInfo(id) {
   if (CROPS[id]) return { name: id[0].toUpperCase() + id.slice(1), price: CROPS[id].price };
-  return FORAGE[id] || FISH[id] || ORES[id] || DISHES[id] || (id === "egg" ? EGG : id === "tonic" ? { name: "Energy Tonic", price: 30 } : { name: id, price: 0 });
+  return FORAGE[id] || FISH[id] || ORES[id] || DISHES[id] || MISC[id] || (id === "egg" ? EGG : { name: id, price: 0 });
 }
 export function edibleEnergy(id) {
   if (DISHES[id]) return DISHES[id].energy;
   if (id === "tonic") return 60;
+  if (id === "milk") return 15;
   if (CROPS[id] || FORAGE[id]) return 6;
   if (FISH[id]) return 4;
   return id === "egg" ? 3 : 0;
 }
 
-// Festivals fall on day 8 of each season.
-export const FESTIVAL_DAY = 8;
+// Festivals: each has a season and day. Dances are played through Rosa (or your spouse).
 export const FESTIVALS = [
-  { id: "egghunt", name: "Egg Hunt",     season: 0, goal: 10, prize: 200, desc: "Collect 10 festival eggs in Town" },
-  { id: "derby",   name: "Fishing Derby",season: 1, goal: 5,  prize: 300, desc: "Catch 5 fish today" },
-  { id: "fair",    name: "Harvest Fair", season: 2, goal: 3,  prize: 250, desc: "Show Rosa 3 different crops (talk to her)" },
-  { id: "feast",   name: "Winter Feast", season: 3, goal: 1,  prize: 150, desc: "Give Rosa a cooked dish (talk to her)" },
+  { id: "egghunt",     name: "Egg Hunt",       season: 0, day: 8, goal: 10, prize: 200, desc: "Collect 10 festival eggs in Town" },
+  { id: "flowerdance", name: "Flower Dance",   season: 0, day: 9, goal: 1,  prize: 0,   desc: "Talk to Rosa in Town to dance" },
+  { id: "derby",       name: "Fishing Derby",  season: 1, day: 8, goal: 5,  prize: 300, desc: "Catch 5 fish today" },
+  { id: "fair",        name: "Harvest Fair",   season: 2, day: 8, goal: 3,  prize: 250, desc: "Show Rosa 3 different crops (talk to her)" },
+  { id: "feast",       name: "Winter Feast",   season: 3, day: 8, goal: 1,  prize: 150, desc: "Give Rosa a cooked dish (talk to her)" },
+  { id: "stardance",   name: "Starlight Dance",season: 3, day: 9, goal: 1,  prize: 0,   desc: "Talk to Rosa in Town to dance" },
+];
+export const SPOUSE_LINES = [
+  "Good morning, love! Ready for another day on the farm?", "I watered a few crops for you. Don't work too hard!",
+  "I'm so lucky to share this farm with you.", "Dinner tonight? I'll cook something nice.", "The valley feels like home because of you.",
 ];
 
 export const MERCHANT = { name: "Zed", pal: { h: "#222222", r: "#e0a030", b: "#6a3fa0" }, every: 5, x: 22, y: 14 };   // visits every 5th day
@@ -94,7 +125,7 @@ export const VILLAGERS = {
   rosa: {
     name: "Rosa", job: "Baker", pal: { h: "#8e44ad", r: "#f08fb4", b: "#c2578a" }, gather: { x: 24, y: 13 },
     loves: ["pumpkin", "daffodil", "pie"], likes: ["carrot", "egg", "grape", "cabbage", "cornbread"], hates: ["mushroom", "catfish", "stone"],
-    recipes: { 2: "soup", 4: "pie" },
+    recipes: { 2: "soup", 3: "pancakes", 4: "pie" },
     sched: [{ h: 6, map: "town", x: 24, y: 13 }, { h: 12, map: "town", x: 14, y: 13 }, { h: 18, map: "town", x: 34, y: 13 }, { h: 23, map: null }],
     low: ["Welcome to the valley! I'm Rosa — I run the bakery.", "Water your crops every day, newcomer.", "Nice weather for farming, isn't it?"],
     mid: ["Your farm is coming along nicely!", "I'd love to bake with your pumpkins sometime.", "Cook at your farmhouse — E on the door."],
