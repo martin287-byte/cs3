@@ -4,7 +4,7 @@ A small browser platformer prototype (canvas + vanilla JS ES modules, no build s
 
 ## Games
 - `index.html` — platformer prototype
-- `farm/index.html` — Stardew-style farming prototype (seasons, shop, tool upgrades, chickens, procedural pixel art; add `?debug` to the URL for a `window.__farm` test hook)
+- `farm/index.html` — **Tiny Valley**, a Stardew-style farming game: three scrolling maps (Farm, Town, Forest), seasons, foraging, fishing, four villagers with schedules and gifts, tool upgrades, chickens, shop, title screen, procedural music and pixel art. Add `?debug` to the URL for a `window.__farm` test hook.
 
 ## Run
     python3 -m http.server 8000   # then open http://localhost:8000

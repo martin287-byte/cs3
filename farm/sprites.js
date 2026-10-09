@@ -131,17 +131,58 @@ const canIcon = () => mk(16, 16, g => {
   R(g, "#2d5aa8", 1, 7, 2, 1); R(g, "#2d5aa8", 1, 7, 1, 5); R(g, "#2d5aa8", 1, 12, 2, 1);
 });
 
-export function buildSprites(cropTypes) {
+// ---- world extras ----
+const path = v => mk(16, 16, g => {
+  R(g, "#b8a27a", 0, 0, 16, 16);
+  for (let i = 0; i < 9; i++) R(g, i % 2 ? "#a38d66" : "#cdb88f", Math.floor(hash(i, v, 21) * 14), Math.floor(hash(i, v, 22) * 15), 2, 1);
+  R(g, "#9b8660", Math.floor(hash(v, 5) * 12) + 2, Math.floor(hash(v, 6) * 12) + 2, 2, 2);
+});
+
+// ---- items ----
+function forageIcon(id) {
+  return mk(16, 16, g => {
+    const G = "#3fae3f", GD = "#2e7d32";
+    if (id === "leek") { R(g, "#f4f4e4", 7, 8, 2, 6); R(g, G, 6, 2, 4, 7); R(g, GD, 7, 3, 1, 5); }
+    if (id === "daffodil") { R(g, GD, 8, 8, 1, 6); R(g, G, 6, 11, 2, 1); for (const [x, y] of [[8, 4], [8, 8], [5, 6], [11, 6]]) R(g, "#ffd93d", x - 1, y - 1, 3, 3); R(g, "#f08a24", 7, 6, 3, 2); }
+    if (id === "berry") { R(g, G, 4, 4, 8, 3); for (const [x, y] of [[5, 8], [8, 7], [10, 9], [6, 11], [9, 12]]) { R(g, "#e84a6a", x, y, 3, 3); R(g, "#ff9ab0", x, y); } }
+    if (id === "grape") { for (const [x, y] of [[5, 5], [8, 5], [11, 5], [6, 8], [9, 8], [7, 11]]) { R(g, "#7a3fa0", x - 1, y - 1, 4, 4); R(g, "#a874c8", x - 1, y - 1); } R(g, GD, 7, 1, 2, 3); }
+    if (id === "mushroom") { R(g, "#f4e4c4", 6, 9, 4, 5); disc(g, "#c0392b", 8, 8, 5); R(g, "#f4e4c4", 4, 8, 8, 5 - 5); R(g, "#fff", 5, 6, 2, 2); R(g, "#fff", 9, 5, 2, 2); R(g, "#f4e4c4", 6, 9, 4, 5); }
+    if (id === "blackberry") { for (const [x, y] of [[5, 6], [8, 5], [10, 8], [6, 9], [9, 11], [7, 12]]) { R(g, "#3b1f5e", x - 1, y - 1, 4, 4); R(g, "#7a5aa8", x - 1, y - 1); } R(g, GD, 7, 1, 3, 3); }
+    if (id === "holly") { for (const [x, y] of [[4, 6], [9, 5], [6, 10], [10, 10]]) { R(g, "#1f6b3a", x, y, 4, 3); R(g, "#2e8b4a", x, y, 2, 1); } for (const [x, y] of [[7, 8], [8, 9], [9, 8]]) R(g, "#e03030", x, y, 2, 2); }
+    if (id === "snowyam") { disc(g, "#b9935a", 8, 9, 4); R(g, "#d8b97a", 6, 7, 3, 2); R(g, "#fff", 9, 10, 1, 1); R(g, "#fff", 6, 11, 1, 1); R(g, "#fff", 10, 7, 1, 1); }
+  });
+}
+const fishIcon = col => mk(16, 16, g => {
+  for (let y = -3; y <= 3; y++) for (let x = -5; x <= 5; x++) if ((x * x) / 25 + (y * y) / 9 <= 1) R(g, col, 7 + x, 8 + y);
+  R(g, col, 12, 5, 2, 1); R(g, col, 12, 6, 3, 4); R(g, col, 12, 10, 2, 1);
+  R(g, "rgba(255,255,255,.4)", 4, 9, 7, 1); R(g, "#111", 4, 7); R(g, "rgba(0,0,0,.25)", 8, 6, 1, 4);
+});
+const eggIcon = () => mk(16, 16, g => { disc(g, "#e8dcc4", 8, 9, 4); disc(g, "#fff8ea", 8, 8, 3); R(g, "#fff", 7, 6, 1, 1); });
+const rodIcon = () => mk(16, 16, g => {
+  for (let i = 0; i < 11; i++) R(g, "#8b5a2b", 2 + i, 13 - i, 1, 2);
+  R(g, "#ddd", 13, 3, 1, 8); R(g, "#e33", 12, 11, 3, 3); R(g, "#fff", 12, 11, 3, 1);
+});
+
+export function buildSprites({ crops, forage, fish, npcs }) {
   const S = {
     grass: SEASONS.map((_, s) => [0, 1, 2, 3].map(v => grass(s, v))),
-    soil: soil(false), soilWet: soil(true), water: [water(0), water(1)], pen: pen(),
+    soil: soil(false), soilWet: soil(true), water: [water(0), water(1)], pen: pen(), path: [0, 1, 2, 3].map(path),
     tree: SEASONS.map((_, s) => tree(s)), rock: rock(),
-    house: building("#a63d3d", "#8a2f2f", "#c98a5b", "#b27545", false),
-    shop: building("#2f5d9a", "#264b7d", "#d9c7a0", "#c4b08a", true),
-    bin: bin(), chicken: chicken(), crop: {}, icon: { hoe: hoeIcon(), can: canIcon() },
+    bldg: {
+      home: building("#a63d3d", "#8a2f2f", "#c98a5b", "#b27545", false),
+      shop: building("#2f5d9a", "#264b7d", "#d9c7a0", "#c4b08a", true),
+      h1: building("#3f8a4a", "#2f6b38", "#d8b98a", "#c4a478", false),
+      h2: building("#c9a227", "#a8851c", "#e3d4b0", "#cfc09a", false),
+      h3: building("#7a4fa0", "#5f3d82", "#c9a7a0", "#b5948c", false),
+      bin: bin(),
+    },
+    chicken: chicken(), crop: {}, icon: { hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), egg: eggIcon() },
     player: person({ o: "#2b1b17", h: "#5a3a22", s: "#f2c59b", e: "#222", r: "#d94f4f", b: "#3a5ba8", k: "#3b2a20" }),
-    rosa: person({ o: "#2b1b17", h: "#8e44ad", s: "#f2c59b", e: "#222", r: "#f08fb4", b: "#c2578a", k: "#3b2a20" }),
+    npc: {},
   };
-  for (const t of cropTypes) { S.crop[t] = [0, 1, 2, 3, 4].map(st => crop(t, st)); S.icon[t] = S.crop[t][4]; }
+  for (const [id, pal] of Object.entries(npcs)) S.npc[id] = person({ o: "#2b1b17", s: "#f2c59b", e: "#222", k: "#3b2a20", ...pal });
+  for (const t of crops) { S.crop[t] = [0, 1, 2, 3, 4].map(st => crop(t, st)); S.icon[t] = S.crop[t][4]; }
+  for (const id of forage) S.icon[id] = forageIcon(id);
+  for (const [id, color] of Object.entries(fish)) S.icon[id] = fishIcon(color);
   return S;
 }
