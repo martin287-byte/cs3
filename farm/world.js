@@ -215,27 +215,37 @@ export function makeHouse(level = 0) {
 
 // Family homes in the enlarged town: building top-left tile, residents, and the look of the interior.
 export const HOMES = {
-  rosa:  { x: 6,  y: 4,  who: ["rosa", "oliver"], name: "Rosa & Oliver's home", style: "wood" },
-  ben:   { x: 26, y: 4,  who: ["ben", "iris"],     name: "Ben & Iris's home",    style: "stone" },
-  marlo: { x: 6,  y: 18, who: ["marlo", "mina"],   name: "Marlo & Mina's home",  style: "wood" },
-  nora:  { x: 26, y: 18, who: ["nora", "hugo"],    name: "Nora & Hugo's home",   style: "stone" },
-  theo:  { x: 8,  y: 34, who: ["theo", "lena"],    name: "Theo & Lena's home",   style: "wood" },
-  quill: { x: 45, y: 4,  who: ["quill"],           name: "Quill's home",         style: "stone" },
-  dune:  { x: 55, y: 18, who: ["dune"],            name: "Dune's home",          style: "wood" },
+  rosa: { x: 6, y: 4, who: ["rosa", "oliver"], name: "Rosa & Oliver's home", style: "wood", w: 12, h: 8, door: 5, spots: [[3, 4], [8, 4]],        // cosy bakery home with a kitchen
+    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 9, 2, 2, 2], ["stove", "nstove", 4, 2, 2, 1], ["counter", "counter", 6, 2, 2, 1], ["table", "table", 5, 5, 2, 1], ["plant", "plant", 1, 6], ["plant", "plant", 10, 6]],
+    d: [["rugS", 4, 3, 3, 2]], win: [2, 8] },
+  ben: { x: 26, y: 4, who: ["ben", "iris"], name: "Ben & Iris's home", style: "stone", w: 14, h: 9, door: 6, spots: [[4, 5], [9, 5]],                // big old farmhouse
+    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 11, 2, 2, 2], ["hearth", "nhearth", 6, 2, 2, 1], ["shelf", "shelf", 4, 2], ["mirror", "nmirror", 8, 2], ["shelf", "shelf", 9, 2], ["table", "table", 6, 5, 2, 1], ["barrel", "barrel", 12, 6], ["barrel", "barrel", 12, 7], ["plant", "plant", 1, 7]],
+    d: [["rug", 5, 3, 4, 2]], win: [2, 5, 10] },
+  marlo: { x: 6, y: 18, who: ["marlo", "mina"], name: "Marlo & Mina's home", style: "sea", w: 10, h: 7, door: 4, spots: [[3, 3], [6, 3]],               // small seaside cottage
+    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 7, 2, 2, 2], ["hearth", "nhearth", 4, 2, 2, 1], ["table", "table", 4, 4, 2, 1], ["barrel", "barrel", 1, 5], ["crate", "crate", 8, 5]],
+    d: [["rugS", 3, 3, 3, 2]], win: [3, 6] },
+  nora: { x: 26, y: 18, who: ["nora", "hugo"], name: "Nora & Hugo's home", style: "forge", w: 13, h: 9, door: 5, spots: [[3, 4], [9, 5]],             // workshop-style home
+    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 10, 2, 2, 2], ["shelf", "shelf", 3, 2], ["stove", "nstove", 4, 2, 2, 1], ["counter", "counter", 6, 2, 2, 1], ["crate", "crate", 8, 2], ["table", "table", 5, 6, 2, 1], ["barrel", "barrel", 1, 7], ["barrel", "barrel", 11, 7]],
+    d: [["rug", 4, 3, 4, 2]], win: [3, 7, 11] },
+  theo: { x: 8, y: 34, who: ["theo", "lena"], name: "Theo & Lena's home", style: "plum", w: 14, h: 8, door: 6, spots: [[3, 4], [10, 4]],               // a home full of books
+    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 11, 2, 2, 2], ["shelf", "shelf", 3, 2], ["shelf", "shelf", 4, 2], ["hearth", "nhearth", 6, 2, 2, 1], ["mirror", "nmirror", 8, 2], ["shelf", "shelf", 9, 2], ["table", "table", 6, 5, 2, 1], ["plant", "plant", 1, 6], ["plant", "plant", 12, 6]],
+    d: [["rugS", 5, 3, 3, 2]], win: [2, 7, 11] },
+  quill: { x: 45, y: 4, who: ["quill"], name: "Quill's home", style: "mono", w: 8, h: 7, door: 3, spots: [[3, 3]],                                          // a writer's studio
+    f: [["bed", "nbed", 1, 2, 2, 2], ["hearth", "nhearth", 3, 2, 2, 1], ["shelf", "shelf", 5, 2], ["shelf", "shelf", 6, 2], ["table", "table", 5, 4, 2, 1], ["plant", "plant", 1, 5]],
+    d: [], win: [3] },
+  dune: { x: 55, y: 18, who: ["dune"], name: "Dune's home", style: "sand", w: 9, h: 7, door: 4, spots: [[3, 3]],                                           // nomad's room
+    f: [["bed", "nbed", 1, 2, 2, 2], ["hearth", "nhearth", 4, 2, 2, 1], ["barrel", "barrel", 7, 2], ["crate", "crate", 7, 3], ["table", "table", 5, 4, 2, 1], ["plant", "plant", 7, 5]],
+    d: [["rugS", 3, 3, 3, 2]], win: [3, 6] },
 };
-export const HOME_SPOTS = [[3, 4], [6, 4]];                                       // where residents stand indoors
 export function makeHome(key) {
-  const h = HOMES[key], w = 10, m = blank(w, 8, h.name);
-  m.indoor = true; m.zoom = 2; m.style = h.style; m.home = key; m.entry = { x: 4, y: 6 }; m.spawn = { x: 4, y: 6 };
-  fill(m, 0, 0, w - 1, 7, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, 7, 18); fill(m, w - 1, 2, w - 1, 7, 18);
-  furn(m, "bed", "nbed", 1, 2, 2, 2);
-  if (h.who.length > 1) furn(m, "bed", "nbed", 7, 2, 2, 2);
-  furn(m, "hearth", "nhearth", 4, 2, 2, 1);
-  furn(m, "table", "table", 4, 5, 2, 1);
-  furn(m, "plant", "plant", 1, 6); if (h.who.length > 1) furn(m, "shelf", "shelf", 8, 6); else furn(m, "shelf", "shelf", 7, 2);
-  decal(m, "rug", 3, 3, 4, 2); decal(m, "mat", 4, 7, 2, 1);
-  deco(m, "window", 3, 0, 1, 2); deco(m, "window", 6, 0, 1, 2);
-  m.warps.push({ x: 4, y: 7, w: 2, h: 1, to: "town", tx: h.x + 1, ty: h.y + 2 });
+  const h = HOMES[key], w = h.w, H = h.h, m = blank(w, H, h.name);
+  m.indoor = true; m.zoom = 2; m.style = h.style; m.home = key; m.v = 2; m.entry = { x: h.door, y: H - 2 }; m.spawn = m.entry;
+  fill(m, 0, 0, w - 1, H - 1, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, H - 1, 18); fill(m, w - 1, 2, w - 1, H - 1, 18);
+  for (const [sprite, kind, x, y, fw = 1, fh = 1] of h.f) furn(m, sprite, kind, x, y, fw, fh);
+  for (const [sprite, x, y, dw, dh] of h.d) decal(m, sprite, x, y, dw, dh);
+  decal(m, "mat", h.door, H - 1, 2, 1);
+  for (const x of h.win) deco(m, "window", x, 0, 1, 2);
+  m.warps.push({ x: h.door, y: H - 1, w: 2, h: 1, to: "town", tx: h.x + 1, ty: h.y + 2 });
   return m;
 }
 export function upgradeHomes(town) {                                              // make the front of each family house a door

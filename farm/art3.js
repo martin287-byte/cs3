@@ -1,6 +1,6 @@
 // Interior art for the farmhouse and cellar (floors, walls, furniture) and the exterior upgrade variants.
 // Everything is procedural pixel art in the same style as the rest of the game.
-import { mk, R, shade, outline, hash } from "./px.js";
+import { mk, R, shade, outline, hash, tint } from "./px.js";
 
 const WOOD = "#c8935a", WOOD_D = "#a8743c", WOOD_L = "#dcab72", DARK = "#4a2e18", MID = "#6a4020";
 
@@ -174,6 +174,12 @@ function overlay(base, level, scaffold) {
 export function buildHouseArt(S) {
   S.hfloor = { wood: [0, 1, 2, 3].map(v => floorTile(v, false)), stone: [0, 1, 2, 3].map(v => floorTile(v, true)) };
   S.hwall = { wood: { top: wallTile("top", false), base: wallTile("base", false), side: wallTile("side", false) }, stone: { top: wallTile("top", true), base: wallTile("base", true), side: wallTile("side", true) } };
+  // one palette per family home: the base wood / stone tiles recoloured
+  const STYLES = { sea: ["wood", "#5a9ab8", 0.4, "#4aa0b0", 0.5], forge: ["stone", "#b8603a", 0.3, "#a85a4a", 0.35], plum: ["wood", "#6a3a6a", 0.35, "#8a5aa8", 0.5], mono: ["stone", "#c8c8d8", 0.3, "#b8b8cc", 0.5], sand: ["wood", "#e8d098", 0.5, "#e0b878", 0.55] };
+  for (const [k, [base, fc, fa, wc, wa]] of Object.entries(STYLES)) {
+    S.hfloor[k] = S.hfloor[base].map(t => tint(t, fc, fa));
+    S.hwall[k] = Object.fromEntries(Object.entries(S.hwall[base]).map(([n, t]) => [n, tint(t, wc, wa)]));
+  }
   S.flame = flameFrames();
   for (const [k, fn] of Object.entries(FURN)) S.bldg[k] = fn();
   S.bldg.bed = bed(false); S.bldg.bed2 = bed(true);

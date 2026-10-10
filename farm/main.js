@@ -4,7 +4,7 @@ import {
   FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, PERKS, TRAVEL, BUNDLES, RESTORE_PRIZE, SPRINKLER_SHOP, HORSE_COST, PET_COST, PETS, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS, HOMES, HOME_SPOTS, makeHome, upgradeHomes } from "./world.js";
+import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS, HOMES, makeHome, upgradeHomes } from "./world.js";
 import { HOUSE, HOUSE_ENERGY, HOUSE_BUILD_DAYS, CHEST_CAP, CELLAR_CAP } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
@@ -193,7 +193,7 @@ function ensureHouseMaps() {                                                    
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
   if (maps.town && !maps.town.v2) upgradeTown(maps.town);
-  if (maps.town?.w >= 64) { upgradeHomes(maps.town); for (const k of Object.keys(HOMES)) maps["home_" + k] ??= makeHome(k); }                           // older saves get the village upgrade too
+  if (maps.town?.w >= 64) { upgradeHomes(maps.town); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 2) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
   try {
@@ -325,7 +325,7 @@ const homeOf = id => Object.keys(HOMES).find(k => HOMES[k].who.includes(id));
 function atHome(id, h) {                                                            // when a villager is "off", they are in their house (8:00-22:00)
   const k = homeOf(id);
   if (!k || !maps["home_" + k] || h < 8 || h >= 22 || (NEWCOMERS.includes(id) && maps.town.w < 64)) return { map: null };
-  const [x, y] = HOME_SPOTS[HOMES[k].who.indexOf(id)]; return { map: "home_" + k, x, y };
+  const [x, y] = HOMES[k].spots[HOMES[k].who.indexOf(id)]; return { map: "home_" + k, x, y };
 }
 function scheduleFor(id) {
   const h = hourNow();
@@ -852,6 +852,7 @@ function eat(id) {
 // ---------------------------------------------------------------- interaction & menus
 const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now.",
   nbed: "A neatly made bed. It isn't yours.", nhearth: "A warm fire crackles in the hearth.",
+  nstove: "Something smells delicious.", nmirror: "A tall mirror. You look good today.",
   fountain: "A stone fountain. The villagers love to meet here.", lamp: "A street lamp. It lights up at dusk.", stall: "A market stall. The stallholder is away today.",
   library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", hall: "Town hall. The mayor is away on valley business.", museum: "The museum is being restored. Bring relics from the island one day.", post: "The post office. No letters for you today.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
 const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
@@ -869,7 +870,7 @@ function enterHome(key) {
   const h = hourNow(), H = HOMES[key]; state.mounted = false;
   if (h < 8 || h >= 22) return say(tf("The door is locked. (Visit between 8:00 and 22:00)"), 3);
   ensureHouseMaps(); tip("homes", "You can visit the villagers' homes between 8:00 and 22:00. Residents are home when they aren't out in the village.");
-  goMap("home_" + key, 4, 6);
+  goMap("home_" + key, maps["home_" + key].entry.x, maps["home_" + key].entry.y);
 }
 function visitClinic() {                                                            // the village clinic: patch yourself up for a fee
   const h = hourNow(); if (h < 9 || h >= 17) return say("The clinic is closed. (Open 9:00–17:00)", 3);

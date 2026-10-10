@@ -468,6 +468,8 @@ const UI = {
   "My sister fusses over me. I pretend to hate it.": "A nővérem folyton aggódik értem. Úgy teszek, mintha utálnám.",
   "Lena has dragged half the museum's relics into her library. Don't tell her I know.": "Lena a múzeum régiségeinek felét átcipelte a könyvtárába. Ne mondd el neki, hogy tudom.",
   "Uncle Theo tells me everything old is precious. Even his jokes.": "Theo bácsi szerint minden régi dolog értékes. Még a viccei is.",
+  "Something smells delicious.": "Valami nagyon finom illata van.",
+  "A tall mirror. You look good today.": "Egy magas tükör. Ma jól nézel ki.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons
