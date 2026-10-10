@@ -213,6 +213,35 @@ export function makeHouse(level = 0) {
   return m;
 }
 
+// Family homes in the enlarged town: building top-left tile, residents, and the look of the interior.
+export const HOMES = {
+  rosa:  { x: 6,  y: 4,  who: ["rosa", "oliver"], name: "Rosa & Oliver's home", style: "wood" },
+  ben:   { x: 26, y: 4,  who: ["ben", "iris"],     name: "Ben & Iris's home",    style: "stone" },
+  marlo: { x: 6,  y: 18, who: ["marlo", "mina"],   name: "Marlo & Mina's home",  style: "wood" },
+  nora:  { x: 26, y: 18, who: ["nora", "hugo"],    name: "Nora & Hugo's home",   style: "stone" },
+  theo:  { x: 8,  y: 34, who: ["theo", "lena"],    name: "Theo & Lena's home",   style: "wood" },
+  quill: { x: 45, y: 4,  who: ["quill"],           name: "Quill's home",         style: "stone" },
+  dune:  { x: 55, y: 18, who: ["dune"],            name: "Dune's home",          style: "wood" },
+};
+export const HOME_SPOTS = [[3, 4], [6, 4]];                                       // where residents stand indoors
+export function makeHome(key) {
+  const h = HOMES[key], w = 10, m = blank(w, 8, h.name);
+  m.indoor = true; m.zoom = 2; m.style = h.style; m.home = key; m.entry = { x: 4, y: 6 }; m.spawn = { x: 4, y: 6 };
+  fill(m, 0, 0, w - 1, 7, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, 7, 18); fill(m, w - 1, 2, w - 1, 7, 18);
+  furn(m, "bed", "nbed", 1, 2, 2, 2);
+  if (h.who.length > 1) furn(m, "bed", "nbed", 7, 2, 2, 2);
+  furn(m, "hearth", "nhearth", 4, 2, 2, 1);
+  furn(m, "table", "table", 4, 5, 2, 1);
+  furn(m, "plant", "plant", 1, 6); if (h.who.length > 1) furn(m, "shelf", "shelf", 8, 6); else furn(m, "shelf", "shelf", 7, 2);
+  decal(m, "rug", 3, 3, 4, 2); decal(m, "mat", 4, 7, 2, 1);
+  deco(m, "window", 3, 0, 1, 2); deco(m, "window", 6, 0, 1, 2);
+  m.warps.push({ x: 4, y: 7, w: 2, h: 1, to: "town", tx: h.x + 1, ty: h.y + 2 });
+  return m;
+}
+export function upgradeHomes(town) {                                              // make the front of each family house a door
+  if (town.v4 || town.w < 64) return; town.v4 = true;
+  for (const [key, h] of Object.entries(HOMES)) for (let dx = 0; dx < 3; dx++) { const t = town.tiles[h.y + 1]?.[h.x + dx]; if (t && t.t === 10) { t.kind = "door"; t.home = key; } }
+}
 export function makeCellar() {
   const m = blank(10, 8, "Cellar");
   m.indoor = true; m.zoom = 2; m.style = "stone"; m.entry = { x: 4, y: 3 };
@@ -227,7 +256,10 @@ export function makeCellar() {
 
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
-  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse(), house: makeHouse(0), cellar: makeCellar() };
+  const world0 = { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse(), house: makeHouse(0), cellar: makeCellar() };
+  upgradeHomes(world0.town);
+  for (const k of Object.keys(HOMES)) world0["home_" + k] = makeHome(k);
+  return world0;
 }
 
 // One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.

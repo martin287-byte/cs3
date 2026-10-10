@@ -59,3 +59,17 @@ export const HEART_EVENTS = {
     8: { lines: ["Theo unrolls an old map across the museum floor.", "Theo: The island holds more than a few buried coins. Someone once lived there, you know.", "Theo: Take this. And promise to bring me every strange thing you find."], reward: { pts: 50, item: "pearl" } },
   },
 };
+
+// Family ties: shown in the talk panel; gifts to one member are noticed by the other.
+export const FAMILY = {
+  rosa: [["oliver", "brother"]], oliver: [["rosa", "sister"]], ben: [["iris", "granddaughter"]], iris: [["ben", "grandfather"]],
+  marlo: [["mina", "daughter"]], mina: [["marlo", "father"]], nora: [["hugo", "brother"]], hugo: [["nora", "sister"]],
+  theo: [["lena", "niece"]], lena: [["theo", "uncle"]],
+};
+export const FAMILY_LINES = {
+  rosa: "Oliver pretends he doesn't like my pastries, yet he eats half the tray.", oliver: "Rosa bakes, I count the coins. It's a family business, really.",
+  ben: "Iris is always in the woods. She gets that from her grandmother.", iris: "Grandpa Ben tells the same farm stories every spring. I love them.",
+  marlo: "Mina caught a bigger fish than me last week. I'm still proud. Mostly.", mina: "Dad says I fish like my mother. It's the best compliment.",
+  nora: "Hugo works too hard. Make sure he eats something warm.", hugo: "My sister fusses over me. I pretend to hate it.",
+  theo: "Lena has dragged half the museum's relics into her library. Don't tell her I know.", lena: "Uncle Theo tells me everything old is precious. Even his jokes.",
+};

@@ -4,7 +4,7 @@ import {
   FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, PERKS, TRAVEL, BUNDLES, RESTORE_PRIZE, SPRINKLER_SHOP, HORSE_COST, PET_COST, PETS, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS } from "./world.js";
+import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS, HOMES, HOME_SPOTS, makeHome, upgradeHomes } from "./world.js";
 import { HOUSE, HOUSE_ENERGY, HOUSE_BUILD_DAYS, CHEST_CAP, CELLAR_CAP } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
@@ -13,7 +13,7 @@ import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
 import { AXE_UPGRADES, MACHINES, machineRecipe } from "./data.js";
-import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS } from "./events.js";
+import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS, FAMILY, FAMILY_LINES } from "./events.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -192,7 +192,8 @@ function ensureAxe() {                                                          
 function ensureHouseMaps() {                                                         // saves from before the interiors existed (or after an upgrade)
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
-  if (maps.town && !maps.town.v2) upgradeTown(maps.town);                           // older saves get the village upgrade too
+  if (maps.town && !maps.town.v2) upgradeTown(maps.town);
+  if (maps.town?.w >= 64) { upgradeHomes(maps.town); for (const k of Object.keys(HOMES)) maps["home_" + k] ??= makeHome(k); }                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
   try {
@@ -320,18 +321,25 @@ const npcOverlap = (nx, ny) => Object.values(npcs).some(n => n.map === state.map
 const npcNear = (tx, ty) => Object.entries(npcs).find(([, n]) => n.map === state.map && Math.abs(n.x + 8 - (tx * T + 8)) < 10 && Math.abs(n.y + 8 - (ty * T + 8)) < 10)?.[0];
 
 const NEWCOMERS = ["nora", "hugo", "lena", "theo"];
+const homeOf = id => Object.keys(HOMES).find(k => HOMES[k].who.includes(id));
+function atHome(id, h) {                                                            // when a villager is "off", they are in their house (8:00-22:00)
+  const k = homeOf(id);
+  if (!k || !maps["home_" + k] || h < 8 || h >= 22 || (NEWCOMERS.includes(id) && maps.town.w < 64)) return { map: null };
+  const [x, y] = HOME_SPOTS[HOMES[k].who.indexOf(id)]; return { map: "home_" + k, x, y };
+}
 function scheduleFor(id) {
   const h = hourNow();
   if (id === "zed") return merchantHere() && h >= 8 && h < 22 ? { map: "town", x: MERCHANT.x, y: MERCHANT.y } : { map: null };
   if (state.spouse === id) return { map: "farm", x: 9, y: 8 };                                // lives on the farm
   if (NEWCOMERS.includes(id) && maps.town.w < 64) return { map: null };                  // they live in the enlarged town (older saves keep the small one)
-  const v = VILLAGERS[id], sched = v.sched;
-  if (h < sched[0].h) return { map: null };
+  const v = VILLAGERS[id], sched = v.sched, inside = () => atHome(id, h);
+  if (h < sched[0].h) return inside();
   const fh = state.fest && FESTIVALS.find(x => x.id === state.fest.id)?.host;
   if (state.fest && h >= 10 && h < 18 && fh !== id) return { map: "town", ...v.gather };    // everyone attends festivals (the host stays put)
+  if (h >= 20 && homeOf(id)) return inside();                                       // evenings are spent at home
   let entry = sched[0];
   for (const e of sched) if (e.h <= h) entry = e;
-  return entry;
+  return entry.map ? entry : inside();
 }
 function updateNpcs(dt) {
   for (const id of [...Object.keys(VILLAGERS), "zed"]) {
@@ -612,7 +620,7 @@ function petDigs() {                                                            
 function toggleMount() {
   if (!state.horse) return say("You don't have a horse. (Shop → Farm page; needs a barn)");
   if (state.mounted) { state.mounted = false; return say("Dismounted."); }
-  if (["mine", "greenhouse", "house", "cellar"].includes(state.map)) return say("No riding indoors.");
+  if (["mine", "greenhouse", "house", "cellar"].includes(state.map) || cur().indoor) return say("No riding indoors.");
   if (fishing) return;
   state.mounted = true; say("Mounted! Press H to get down."); audio.beep(400, 0.1, "triangle");
 }
@@ -843,6 +851,7 @@ function eat(id) {
 
 // ---------------------------------------------------------------- interaction & menus
 const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now.",
+  nbed: "A neatly made bed. It isn't yours.", nhearth: "A warm fire crackles in the hearth.",
   fountain: "A stone fountain. The villagers love to meet here.", lamp: "A street lamp. It lights up at dusk.", stall: "A market stall. The stallholder is away today.",
   library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", hall: "Town hall. The mayor is away on valley business.", museum: "The museum is being restored. Bring relics from the island one day.", post: "The post office. No letters for you today.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
 const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
@@ -855,6 +864,12 @@ function enterHouse() {
 function openWardrobe() {                                                            // change name and looks
   state.ui = null; scene = "builder";
   builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
+}
+function enterHome(key) {
+  const h = hourNow(), H = HOMES[key]; state.mounted = false;
+  if (h < 8 || h >= 22) return say(tf("The door is locked. (Visit between 8:00 and 22:00)"), 3);
+  ensureHouseMaps(); tip("homes", "You can visit the villagers' homes between 8:00 and 22:00. Residents are home when they aren't out in the village.");
+  goMap("home_" + key, 4, 6);
 }
 function visitClinic() {                                                            // the village clinic: patch yourself up for a fee
   const h = hourNow(); if (h < 9 || h >= 17) return say("The clinic is closed. (Open 9:00–17:00)", 3);
@@ -878,6 +893,7 @@ function interact() {
   else if (tile.kind === "chest" || tile.kind === "chest2") { state.ui = { type: "chest", which: tile.kind === "chest2" ? "cellar" : "chest", mode: "store", page: 0 }; audio.beep(480, 0.05); }
   else if (tile.kind === "mirror") openWardrobe();
   else if (tile.kind === "clinic") visitClinic();
+  else if (tile.kind === "door") enterHome(tile.home);
   else if (FLAVOR[tile.kind]) say(FLAVOR[tile.kind], 2.5);
   else if (tile.kind === "board") { tip("board", "Accept up to 3 quests. Press J to see your journal; delivery quests are handed in here."); state.ui = { type: "board" }; audio.beep(480, 0.05); }
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
@@ -1079,7 +1095,7 @@ function talkKey(k, num) {
       const lv = [8, 4].find(l => hearts(ui.id) >= l && HEART_EVENTS[ui.id]?.[l] && !f["ev" + l]);
       if (lv && state.spouse !== ui.id) { f["ev" + lv] = true; f.talked = true; ui.mode = "event"; ui.ev = HEART_EVENTS[ui.id][lv]; ui.i = 0; ui.text = tr(ui.ev.lines[0]); return; }
       const h = hearts(ui.id), tier = h < 3 ? v.low : h < 6 ? v.mid : v.high;
-      const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier];
+      const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier, ...(h >= 3 && FAMILY_LINES[ui.id] ? [FAMILY_LINES[ui.id]] : [])];
       const first = !f.talked, line = tr(pool[(state.day + ui.n++) % pool.length]);
       const greet = !first || !state.name ? "" : state.spouse === ui.id ? tf("Hi, {0}, love.", state.name) : tf(h < 3 ? "Hello, {0}." : h < 6 ? "Hey, {0}!" : "{0}! Good to see you.", state.name);
       ui.text = `${v.name}: ${greet ? greet + " " : ""}${line}`;
@@ -1099,7 +1115,8 @@ function talkKey(k, num) {
     else if (v.likes.includes(id)) { pts = 45; line = `${v.name}: A ${name}! That's really nice of you.`; }
     else if (v.hates.includes(id)) { pts = -20; line = `${v.name}: Ugh... a ${name}? No thanks.`; }
     if (bday && pts > 0) { pts *= BIRTHDAY_MULT; line += ` ${tr("Birthday gift!")}`; }
-    addFriend(ui.id, pts); ui.text = line; ui.mode = "menu"; audio.beep(pts > 0 ? 880 : 150, 0.15, "triangle");
+    addFriend(ui.id, pts); ui.text = line; ui.mode = "menu";
+    if (pts > 0) for (const [kin] of FAMILY[ui.id] || []) if (state.friend[kin]) addFriend(kin, 5);                 // family talk audio.beep(pts > 0 ? 880 : 150, 0.15, "triangle");
   }
 }
 function giveSpecial(ui, id) {
@@ -1219,6 +1236,7 @@ function update(dt) {
   if (scene === "builder" && !setUi) builder.update(dt);
   if (scene !== "game" || setUi) return;
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
+  if (state.map.startsWith("home_") && hourNow() >= 22) { const H = HOMES[state.map.slice(5)]; goMap("town", H.x + 1, H.y + 2); say("It's late — you say goodnight and head out.", 3.5); }
   const snow = seasonOf(state.day) === 3, amb = !state.rain, sea = seasonOf(state.day);
   for (const p of particles) {                                                      // rain / snow / drifting petals and leaves
     if (amb) { p.y += (sea === 2 ? 14 : sea === 0 ? 9 : 2) * dt * (0.6 + p.v / 120); p.x += (Math.sin(clock * 1.5 + p.v) * 10 - 4) * dt; }
@@ -1669,6 +1687,7 @@ function drawUiInner(ui) {
     const v = VILLAGERS[ui.id], hh = hearts(ui.id), fe = festHostFor(ui.id);
     panel(50, 112, 380, 126, `${v.name} — ${v.job}`);
     for (let i = 0; i < 10; i++) drawHeart(300 + i * 12, 120, i < hh ? "#f0506a" : "#4a3a3a");
+    { const kin = FAMILY[ui.id]?.[0]; if (kin) txt(tf("Family: {0} ({1})", VILLAGERS[kin[0]].name, tr(kin[1])), 114, 134, "#9aa"); }
     woodFrame(58, 128, 46, 62, "#7a5a36"); ctx.drawImage(S.npc[ui.id][0][0], 59, 134, 36, 52); ctx.drawImage(S.npc[ui.id][0][0], 59, 134, 0, 0);
     if (ui.mode === "event") txt("Press any key to continue", 114, 146, "#ffd23f");
     else if (ui.mode === "menu") txt(`1. Talk    2. Give gift${fe ? `    3. ${fe.id.endsWith("dance") ? "Join the dance" : "Festival entry"}` : ""}    E: leave`, 114, 146);
@@ -1708,7 +1727,7 @@ function drawMap() {
   panel(30, 14, 420, 232, "WORLD MAP  (number = fast travel, 30 min; N / E: close)");
   ctx.fillStyle = "#d8bf88"; ctx.fillRect(38, 32, 404, 198); ctx.fillStyle = "#c4a86e"; ctx.fillRect(38, 32, 404, 2); ctx.fillRect(38, 228, 404, 2); ctx.fillRect(38, 32, 2, 198); ctx.fillRect(440, 32, 2, 198);
   for (let i = 0; i < 40; i++) { ctx.fillStyle = "rgba(120,90,40,.07)"; ctx.fillRect(40 + (i * 53) % 396, 36 + (i * 37) % 190, 14 + (i * 7) % 22, 3); }
-  const here = ["greenhouse", "house", "cellar"].includes(state.map) ? "farm" : state.map === "mine" ? "forest" : state.map;
+  const here = state.map.startsWith("home_") ? "town" : ["greenhouse", "house", "cellar"].includes(state.map) ? "farm" : state.map === "mine" ? "forest" : state.map;
   const cell = { forest: [240, 34], town: [240, 96], farm: [110, 96], desert: [370, 96], beach: [240, 158], island: [370, 158] };    // top-left y of each 56px-high cell; x is the centre
   const sc = id => Math.min(118 / maps[id].w, 46 / maps[id].h), mid = id => [cell[id][0], cell[id][1] + 11 + maps[id].h * sc(id) / 2];
   ctx.strokeStyle = "#8a5a30"; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
