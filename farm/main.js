@@ -4,7 +4,7 @@ import {
   FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, PERKS, TRAVEL, BUNDLES, RESTORE_PRIZE, SPRINKLER_SHOP, HORSE_COST, PET_COST, PETS, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { generateWorld, makeMine, makeHouse, makeCellar, PLOTS } from "./world.js";
+import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS } from "./world.js";
 import { HOUSE, HOUSE_ENERGY, HOUSE_BUILD_DAYS, CHEST_CAP, CELLAR_CAP } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
@@ -192,6 +192,7 @@ function ensureAxe() {                                                          
 function ensureHouseMaps() {                                                         // saves from before the interiors existed (or after an upgrade)
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
+  if (maps.town && !maps.town.v2) upgradeTown(maps.town);                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
   try {
@@ -839,7 +840,9 @@ function eat(id) {
 }
 
 // ---------------------------------------------------------------- interaction & menus
-const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now." };
+const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now.",
+  fountain: "A stone fountain. The villagers love to meet here.", lamp: "A street lamp. It lights up at dusk.", stall: "A market stall. The stallholder is away today.",
+  library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
 const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
 function enterHouse() {
   state.mounted = false;
@@ -850,6 +853,12 @@ function enterHouse() {
 function openWardrobe() {                                                            // change name and looks
   state.ui = null; scene = "builder";
   builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
+}
+function visitClinic() {                                                            // the village clinic: patch yourself up for a fee
+  const h = hourNow(); if (h < 9 || h >= 17) return say("The clinic is closed. (Open 9:00–17:00)", 3);
+  if (state.hp >= maxHp() && state.energy >= maxEnergy() - 10) return say("The nurse says you look perfectly healthy.", 3);
+  if (state.money < 60) return say("A check-up costs $60.", 3);
+  state.money -= 60; state.hp = maxHp(); state.energy = Math.min(maxEnergy(), state.energy + 40); audio.beep(660, 0.15, "triangle"); say("The nurse patches you up. (-$60, health restored, +40 energy)", 4);
 }
 function interact() {
   const { x, y } = targetTile();
@@ -866,6 +875,7 @@ function interact() {
   else if (tile.kind === "hearth" || tile.kind === "stove") state.ui = { type: "cook" };
   else if (tile.kind === "chest" || tile.kind === "chest2") { state.ui = { type: "chest", which: tile.kind === "chest2" ? "cellar" : "chest", mode: "store", page: 0 }; audio.beep(480, 0.05); }
   else if (tile.kind === "mirror") openWardrobe();
+  else if (tile.kind === "clinic") visitClinic();
   else if (FLAVOR[tile.kind]) say(FLAVOR[tile.kind], 2.5);
   else if (tile.kind === "board") { tip("board", "Accept up to 3 quests. Press J to see your journal; delivery quests are handed in here."); state.ui = { type: "board" }; audio.beep(480, 0.05); }
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
@@ -1437,12 +1447,12 @@ function drawWorld() {
     if (hr > 17.5 || hr < 6.5) {                                                    // lit windows: warm light pools around houses
       const st = hr < 6.5 ? 1 : Math.min(1, (hr - 17.5) / 2.5);
       for (const o of m.objects) {
-        if (!["home", "shop", "h1", "h2", "h3", "centre"].includes(o.sprite)) continue;
+        if (!["home", "shop", "h1", "h2", "h3", "centre", "clinic", "inn", "library", "smithy", "lamp"].includes(o.sprite)) continue;
         const img = S.bldg[o.sprite === "centre" && state.restored ? "centreOk" : o.sprite], ow = o.w || 3, lw = logicalW(img), lh = logicalH(img);
         const gx = o.x * T + ow * T / 2 - camX, gy = (o.y + o.h) * T - lh * 0.4 - camY;
         if (gx > -60 && gx < W + 60 && gy > -60 && gy < H + 60) {
           windowGlow(ctx, gx, gy, Math.max(40, lw * 0.9), st, clock);
-          if (["home", "shop", "h1", "h2", "h3"].includes(o.sprite)) litWindows(ctx, o.x * T + ow * T / 2 - lw / 2 - camX, (o.y + o.h) * T - lh - camY, st);
+          if (["home", "shop", "h1", "h2", "h3", "clinic", "inn", "library"].includes(o.sprite)) litWindows(ctx, o.x * T + ow * T / 2 - lw / 2 - camX, (o.y + o.h) * T - lh - camY, st);
         }
       }
     }
@@ -1677,29 +1687,46 @@ const festHostFor = id => {
   return f && (f.host ?? "rosa") === id && ["fair", "feast", "luau", "flowerdance", "stardance"].includes(f.id) ? f : null;
 };
 
+const MAP_COL = { 0: "#5aa04a", 1: "#8a6a40", 2: "#3a7ab8", 3: "#2e7a3e", 4: "#b8453d", 5: "#8a5a30", 6: "#3a6aa8", 7: "#c8b070", 8: "#dcc896", 10: "#b89a6a", 11: "#555560", 12: "#7a7a84", 14: "#ead49a", 15: "#bfe6ee", 16: "#6a8a94" };
+let mapThumbs = null;
+function mapThumb(id) {                                                             // one pixel per tile, coloured by terrain
+  const key = `${state.day}:${state.build.greenhouse}:${id}`;
+  if (mapThumbs?.[id]?.key === key) return mapThumbs[id].cv;
+  const m = maps[id], cv = document.createElement("canvas"); cv.width = m.w; cv.height = m.h; const g = cv.getContext("2d");
+  const sn = seasonOf(state.day), grass = ["#6cb85a", "#4fa84a", "#c8883a", "#dfe8ee"][sn];
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+    const t = m.tiles[y][x];
+    g.fillStyle = t.t === 0 ? grass : t.t === 3 ? (t.rock ? "#8a8a94" : t.deco === "palm" ? "#3a9a4a" : t.deco === "cactus" ? "#6a9a4a" : sn === 2 ? "#a8552a" : sn === 3 ? "#9ab8b0" : "#2e7a3e") : (MAP_COL[t.t] || grass);
+    g.fillRect(x, y, 1, 1);
+  }
+  for (const o of m.objects) { g.fillStyle = o.sprite === "fountain" ? "#8ac8f0" : o.sprite === "lamp" ? "#ffe08a" : "#b8453d"; if (!["lamp", "fountain", "stall"].includes(o.sprite)) g.fillRect(o.x, o.y, o.w || 3, Math.max(1, o.h - 1)); }
+  (mapThumbs ??= {})[id] = { key, cv }; return cv;
+}
 function drawMap() {
   panel(30, 14, 420, 232, "WORLD MAP  (number = fast travel, 30 min; N / E: close)");
+  ctx.fillStyle = "#d8bf88"; ctx.fillRect(38, 32, 404, 198); ctx.fillStyle = "#c4a86e"; ctx.fillRect(38, 32, 404, 2); ctx.fillRect(38, 228, 404, 2); ctx.fillRect(38, 32, 2, 198); ctx.fillRect(440, 32, 2, 198);
+  for (let i = 0; i < 40; i++) { ctx.fillStyle = "rgba(120,90,40,.07)"; ctx.fillRect(40 + (i * 53) % 396, 36 + (i * 37) % 190, 14 + (i * 7) % 22, 3); }
   const here = ["greenhouse", "house", "cellar"].includes(state.map) ? "farm" : state.map === "mine" ? "forest" : state.map;
-  void 0;
-  const box = { forest: [190, 36, 100, 38], town: [190, 98, 100, 38], farm: [58, 98, 100, 38], desert: [322, 98, 100, 38], beach: [190, 160, 100, 38], island: [322, 160, 100, 38] };
-  ctx.strokeStyle = "#665f88"; ctx.lineWidth = 2;
+  const cell = { forest: [240, 34], town: [240, 96], farm: [110, 96], desert: [370, 96], beach: [240, 158], island: [370, 158] };    // top-left y of each 56px-high cell; x is the centre
+  const sc = id => Math.min(118 / maps[id].w, 46 / maps[id].h), mid = id => [cell[id][0], cell[id][1] + 11 + maps[id].h * sc(id) / 2];
+  ctx.strokeStyle = "#8a5a30"; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
   for (const [a, b] of [["farm", "town"], ["town", "desert"], ["forest", "town"], ["town", "beach"], ["beach", "island"]]) {
-    const A = box[a], B = box[b]; ctx.beginPath(); ctx.moveTo(A[0] + A[2] / 2, A[1] + A[3] / 2); ctx.lineTo(B[0] + B[2] / 2, B[1] + B[3] / 2); ctx.stroke();
+    const A = mid(a), B = mid(b); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
   }
-  ctx.lineWidth = 1;
-  const fill = { forest: "#2e6b3a", town: "#7a5a3a", farm: "#4a8a3a", desert: "#b8884a", beach: "#3a7ab8", island: "#2a9a8a" };
-  for (const [id, [x, y, w, h]] of Object.entries(box)) {
-    const seen = state.visited[id], cur = id === here;
-    ctx.fillStyle = seen ? fill[id] : "#3a3a48"; ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = cur ? `rgba(255,255,255,${0.6 + 0.4 * Math.sin(clock * 6)})` : "#14121f"; ctx.lineWidth = cur ? 3 : 1; ctx.strokeRect(x, y, w, h); ctx.lineWidth = 1;
-    txt(seen ? maps[id].name : "???", x + w / 2, y + 15, "#fff", "center");
-    const who = Object.entries(npcs).filter(([, n]) => n.map === id).map(([k]) => (k === "zed" ? "Zed" : VILLAGERS[k].name));
-    if (seen && who.length) txt(who.join(", ").slice(0, 20), x + w / 2, y + 30, "#ffe9a8", "center");
-    if (cur) txt("YOU", x + w / 2, y - 3, "#ffd23f", "center");
+  ctx.setLineDash([]); ctx.lineWidth = 1;
+  for (const id of Object.keys(cell)) {
+    const [cx, cy] = cell[id], seen = state.visited[id], cur = id === here, m = maps[id], k = sc(id), w = Math.round(m.w * k), h = Math.round(m.h * k), x = Math.round(cx - w / 2), y = cy + 11;
+    ctx.fillStyle = "rgba(60,40,20,.35)"; ctx.fillRect(x + 2, y + 2, w, h);
+    if (seen) ctx.drawImage(mapThumb(id), x, y, w, h); else { ctx.fillStyle = "#8a8a94"; ctx.fillRect(x, y, w, h); }
+    ctx.strokeStyle = cur ? `rgba(255,255,255,${0.7 + 0.3 * Math.sin(clock * 6)})` : "#4a3220"; ctx.lineWidth = cur ? 2 : 1; ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1); ctx.lineWidth = 1;
+    txt(seen ? m.name : "???", cx, y - 3, "#3a2410", "center");
+    if (seen) for (const [nid, n] of Object.entries(npcs)) if (n.map === id) { ctx.fillStyle = "#ff7a9c"; ctx.fillRect(x + Math.round(n.x / T * k) - 1, y + Math.round(n.y / T * k) - 1, 3, 3); }
+    if (cur) { const px = x + Math.round(state.px / T * k), py = y + Math.round(state.py / T * k); ctx.fillStyle = "#14121f"; ctx.fillRect(px - 3, py - 3, 7, 7); ctx.fillStyle = Math.sin(clock * 8) > 0 ? "#ffd23f" : "#fff"; ctx.fillRect(px - 2, py - 2, 5, 5); }
   }
-  if (state.build.greenhouse === "built") txt("+ Greenhouse", 108, 156, "#9aa", "center");
-  txt("+ Mine (Forest)", 340, 62, "#9aa", "center");
-  txt("1. Farm   2. Town   3. Forest   4. Beach   5. Desert   6. Island ($50)", 240, 232, "#fff", "center");
+  if (state.build.greenhouse === "built") txt("+ Greenhouse", 110, 90, "#5a3a14", "center");
+  txt("+ Mine (Forest)", 330, 56, "#5a3a14", "center");
+  txt("pink dots = villagers", 48, 46, "#5a3a14");
+  txt("1. Farm  2. Town  3. Forest  4. Beach  5. Desert  6. Island ($50)", 250, 222, "#2a1a08", "center");
 }
 function drawCentre(ui) {
   const done = BUNDLES.filter(bundleDone).length;

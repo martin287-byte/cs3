@@ -339,6 +339,19 @@ const UI = {
   "{0} gave you: {1}": "{0} ezt adta neked: {1}",
   "Birthday gift!": "Születésnapi ajándék!",
   "Today is {0}'s birthday! Gifts mean more today.": "Ma {0} születésnapja van! Ma többet ér az ajándék.",
+  // village upgrade
+  "A stone fountain. The villagers love to meet here.": "Egy kőkút. A falusiak szívesen találkoznak itt.",
+  "A street lamp. It lights up at dusk.": "Egy utcai lámpa. Alkonyatkor felgyullad.",
+  "A market stall. The stallholder is away today.": "Egy piaci stand. Az árus ma nincs itt.",
+  "The library is quiet today. Quill says the best stories are about this valley.": "A könyvtár ma csendes. Quill szerint a legjobb történetek erről a völgyről szólnak.",
+  "The inn: the rooms are full of sleepy travellers.": "A fogadó: a szobák tele vannak álmos utazókkal.",
+  "The smithy. Your tools are upgraded at Oliver's shop.": "A kovácsműhely. Az eszközeidet Oliver boltjában fejlesztheted.",
+  "The clinic is closed. (Open 9:00–17:00)": "A rendelő zárva van. (Nyitva 9:00–17:00)",
+  "The nurse says you look perfectly healthy.": "A nővér szerint makkegészséges vagy.",
+  "A check-up costs $60.": "A vizsgálat 60 dollárba kerül.",
+  "The nurse patches you up. (-$60, health restored, +40 energy)": "A nővér összefoltoz. (-60$, életerő helyreállt, +40 energia)",
+  "pink dots = villagers": "rózsaszín pont = falusi",
+  "1. Farm  2. Town  3. Forest  4. Beach  5. Desert  6. Island ($50)": "1. Farm  2. Város  3. Erdő  4. Part  5. Sivatag  6. Sziget (50$)",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

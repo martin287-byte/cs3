@@ -3,6 +3,7 @@ import { SEASONS, hash, mk, R, disc, ellipse, flip, shade, outline, tint } from 
 import { cropSprite, produceIcon, chickenFrames, cowFrames, dogFrames, catFrames } from "./art2.js";
 import { buildHouseArt } from "./art3.js";
 import { buildMachineArt } from "./art4.js";
+import { buildTownArt } from "./art5.js";
 import { makeTileCache, drawTree, drawRock, drawPalm, drawCactus, drawHouse, makePerson } from "./art.js";
 export { SEASONS, hash };
 function art(g, rows, pal) { rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) R(g, pal[ch], x, y); })); }
@@ -410,6 +411,6 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) 
   for (const id of misc) if (id !== "tonic") S.icon[id] = miscIcon(id);
   for (const [id, col] of Object.entries(dishes)) S.icon[id] = dishIcon(col);
   for (const [id, color] of Object.entries(fish)) S.icon[id] = fishIcon(color);
-  buildHouseArt(S); buildMachineArt(S);
+  buildHouseArt(S); buildMachineArt(S); buildTownArt(S);
   return S;
 }

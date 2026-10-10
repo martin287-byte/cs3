@@ -56,6 +56,22 @@ function makeFarm(rnd) {
   return m;
 }
 
+// The village upgrade: a fountain plaza, clinic, library, inn, smithy, market stalls and lamp posts. Idempotent, and also applied to older saves.
+export function upgradeTown(m) {
+  if (m.v2) return; m.v2 = true;
+  const stamp = (sprite, x, y, w, h, kind) => { fill(m, x, y, x + w - 1, y + h - 1, 10, { kind }); m.objects.push({ sprite, x, y, w, h }); };
+  fill(m, 20, 8, 25, 11, 8);                                                       // paved plaza
+  stamp("fountain", 22, 9, 2, 2, "fountain");
+  const lots = [["clinic", 35, 4, "clinic", 36], ["library", 11, 4, "library", 12], ["inn", 26, 23, "inn", 27], ["smithy", 6, 23, "smithy", 7]];
+  for (const [sprite, x, y, kind, dx] of lots) {
+    fill(m, x - 1, y, x + 3, y + 1, 0); stamp(sprite, x, y, 3, 2, kind);
+    if (y < 10) fill(m, dx, y + 2, dx + 1, 12, 8);                                // path from the door down to the main road
+  }
+  fill(m, 7, 25, 21, 26, 8); fill(m, 22, 25, 28, 26, 8);                          // south paths join the road to the beach
+  for (const [x, y] of [[17, 12], [25, 12], [17, 15], [25, 15], [33, 12], [9, 12], [9, 15], [40, 12]]) if (m.tiles[y][x].t === 0) stamp("lamp", x, y, 1, 1, "lamp");
+  stamp("stall", 23, 16, 2, 1, "stall"); stamp("stall", 26, 16, 2, 1, "stall");
+}
+
 function makeTown(rnd) {
   const m = blank(44, 28, "Town");
   border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 27, x1: 23, y1: 27 }, { x0: 43, y0: 12, x1: 43, y1: 15 }]);
@@ -66,6 +82,7 @@ function makeTown(rnd) {
   building(m, "h3", 6, 18, 10, "house"); building(m, "h1", 26, 18, 10, "house");
   building(m, "centre", 12, 18, 10, "centre");                                     // community centre
   pond(m, 38, 21, 4, 3, "pond");
+  upgradeTown(m);
   scatter(m, rnd, 45, (x, y) => !(y >= 11 && y <= 15) && !(x >= 19 && x <= 22 && y >= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
     && !(x >= 4 && x <= 16 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
   m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 },
