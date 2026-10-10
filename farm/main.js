@@ -13,6 +13,7 @@ import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
 import { AXE_UPGRADES, MACHINES, machineRecipe } from "./data.js";
+import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS } from "./events.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -46,6 +47,8 @@ const dayOfSeason = day => ((day - 1) % SEASON_LEN) + 1;
 const yearOf = day => Math.floor((day - 1) / (SEASON_LEN * 4)) + 1;
 const seasonTag = k => CROPS[k].seasons.map(s => SEASONS[s].name.slice(0, 2)).join("/");
 const maxWater = () => CAN_UPGRADES[state.canLevel - 1]?.cap ?? 20;
+const birthdayOf = id => { const b = BIRTHDAYS[id]; return b && seasonOf(state.day) === b.s && dayOfSeason(state.day) === b.d; };
+const todaysBirthday = () => Object.keys(BIRTHDAYS).find(birthdayOf);
 const hearts = id => Math.min(10, Math.floor(state.friend[id].pts / 100));
 const readMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || "{}"); } catch { return {}; } };
 function slotMeta(n) {                                                               // summary of a save without parsing the whole thing
@@ -1050,9 +1053,19 @@ function uiKey(k) {
 
 function talkKey(k, num) {
   const ui = state.ui, f = state.friend[ui.id], v = VILLAGERS[ui.id];
-  if (k === "escape" || k === "e") return void (state.ui = null);
+  if ((k === "escape" || k === "e") && ui.mode !== "event") return void (state.ui = null);
+  if (ui.mode === "event") {                                                        // scripted heart event: any key moves on
+    ui.i++;
+    if (ui.i < ui.ev.lines.length) { ui.text = tr(ui.ev.lines[ui.i]); return; }
+    const r = ui.ev.reward, g = [];
+    if (r.money) { state.money += r.money; g.push(`$${r.money}`); }
+    if (r.item) { addItem(r.item); g.push(tr(itemInfo(r.item).name)); }
+    addFriend(ui.id, r.pts); ui.mode = "menu"; ui.text = tf("{0} gave you: {1}", v.name, g.join(", ")); audio.beep(990, 0.2, "triangle"); return;
+  }
   if (ui.mode === "menu") {
     if (num === 0) {
+      const lv = [8, 4].find(l => hearts(ui.id) >= l && HEART_EVENTS[ui.id]?.[l] && !f["ev" + l]);
+      if (lv && state.spouse !== ui.id) { f["ev" + lv] = true; f.talked = true; ui.mode = "event"; ui.ev = HEART_EVENTS[ui.id][lv]; ui.i = 0; ui.text = tr(ui.ev.lines[0]); return; }
       const h = hearts(ui.id), tier = h < 3 ? v.low : h < 6 ? v.mid : v.high;
       const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier];
       const first = !f.talked, line = tr(pool[(state.day + ui.n++) % pool.length]);
@@ -1069,9 +1082,11 @@ function talkKey(k, num) {
     if (f.gifted) return void (ui.text = `${v.name}: You already gave me something today!`);
     state.inv[id]--; f.gifted = true;
     let pts = 20, line = `${v.name}: Oh, a ${name}. Thanks!`;
+    const bday = birthdayOf(ui.id);
     if (v.loves.includes(id)) { pts = 80; line = `${v.name}: A ${name}?! I LOVE it! Thank you!!`; }
     else if (v.likes.includes(id)) { pts = 45; line = `${v.name}: A ${name}! That's really nice of you.`; }
     else if (v.hates.includes(id)) { pts = -20; line = `${v.name}: Ugh... a ${name}? No thanks.`; }
+    if (bday && pts > 0) { pts *= BIRTHDAY_MULT; line += ` ${tr("Birthday gift!")}`; }
     addFriend(ui.id, pts); ui.text = line; ui.mode = "menu"; audio.beep(pts > 0 ? 880 : 150, 0.15, "triangle");
   }
 }
@@ -1137,6 +1152,7 @@ function sleep() {
   if (expired.length) { state.quests = state.quests.filter(q => q.deadline >= state.day); extra += ` ${expired.length} quest(s) expired.`; }
   refreshBoard();
   state.mounted = false; extra += petDigs();
+  { const b = todaysBirthday(); if (b) extra += ` ${tf("Today is {0}'s birthday! Gifts mean more today.", VILLAGERS[b].name)}`; }
   for (const [b, n, item] of [["coop", state.chickens, "egg"], ["barn", state.cows, "milk"]]) if (n) {                 // care decides the harvest
     const c = careOf(b), fed = c.fed === state.day - 1;
     if (fed) { let out = n; for (let i = 0; i < n; i++) if (Math.random() < animalHearts(b) * 0.05) out++; addItem(item, out); if (out > n) extra += ` ${tf("Happy {0}: +{1} extra.", tr(item), out - n)}`; }
@@ -1642,7 +1658,8 @@ function drawUiInner(ui) {
     panel(50, 112, 380, 126, `${v.name} — ${v.job}`);
     for (let i = 0; i < 10; i++) drawHeart(300 + i * 12, 120, i < hh ? "#f0506a" : "#4a3a3a");
     woodFrame(58, 128, 46, 62, "#7a5a36"); ctx.drawImage(S.npc[ui.id][0][0], 59, 134, 36, 52); ctx.drawImage(S.npc[ui.id][0][0], 59, 134, 0, 0);
-    if (ui.mode === "menu") txt(`1. Talk    2. Give gift${fe ? `    3. ${fe.id.endsWith("dance") ? "Join the dance" : "Festival entry"}` : ""}    E: leave`, 114, 146);
+    if (ui.mode === "event") txt("Press any key to continue", 114, 146, "#ffd23f");
+    else if (ui.mode === "menu") txt(`1. Talk    2. Give gift${fe ? `    3. ${fe.id.endsWith("dance") ? "Join the dance" : "Festival entry"}` : ""}    E: leave`, 114, 146);
     else {
       txt("Pick a gift (number)  — E: leave", 114, 146, "#ffd23f");
       invItems().slice(0, 6).forEach(([id, n], i) => txt(`${i + 1}. ${n}x ${itemInfo(id).name}`, 114 + (i % 3) * 104, 162 + Math.floor(i / 3) * 12));
@@ -1884,6 +1901,7 @@ function drawInvOther(ui) {
       const cx = 40 + (i % 2) * 205, cy = y + Math.floor(i / 2) * 31;
       ctx.drawImage(S.npc[id][0][0], cx - 1, cy - 12);
       txt(tr(`${v.name} (${v.job})`).slice(0, 24), cx + 22, cy - 2); txt(`${"*".repeat(hearts(id))}${".".repeat(10 - hearts(id))} ${hearts(id)}/10`, cx + 22, cy + 8, "#ff7a9c");
+      { const b = BIRTHDAYS[id]; txt(`${birthdayOf(id) ? "* " : ""}${tr(SEASONS[b.s].name).slice(0, 3)} ${b.d}`, cx + 150, cy + 8, birthdayOf(id) ? "#ffd23f" : "#9aa"); }
       txt(tr(`Loves: ${v.loves.slice(0, 2).map(i => itemInfo(i).name).join(", ")}`).slice(0, 30), cx + 22, cy + 17, "#8f8");
     });
     y += 4 * 31 - 4;
