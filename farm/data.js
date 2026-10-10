@@ -327,6 +327,16 @@ export const VILLAGERS = {
     high: ["You've made my museum a better place already.", "Your finds will have their own display case.", "I'd be honoured to show you the back rooms."],
     season: ["Spring: the digs begin again.", "Summer: tourists, sunburn and old pots.", "Autumn light is best for photographing relics.", "Winter: the museum is quiet, and so am I."],
   },
+  hazel: {
+    look: { hair: "#8a4a2a", hairStyle: "cap", cap: "#c8883a", skin: "#e8b890", shirt: "#5a8a4a", pants: "#6a5a3a", shoes: "#3a2a1a" },
+    name: "Hazel", job: "Carpenter", pal: { h: "#8a4a2a", r: "#5a8a4a", b: "#6a5a3a" }, gather: { x: 46, y: 14 },
+    loves: ["wood", "iron", "cornbread"], likes: ["stone", "copper", "stew", "pancakes", "soup"], hates: ["slime", "bone", "egg"],
+    sched: [{ h: 9, map: "store_carpenter", x: 5, y: 4 }, { h: 17, map: null }],
+    low: ["Need something built? You've come to the right place.", "Measure twice, cut once. That's my motto.", "I'm Hazel, the carpenter. I build whatever the valley needs."],
+    mid: ["Your farm has good bones. Let's give it some walls.", "Good timber is hard to find. Bring me wood and I'll make magic.", "I've built half the houses in this town."],
+    high: ["You're my favourite client. Don't tell the others.", "I drew up a plan for your farm. Come see it!", "Sawdust in my hair and I'm happy. Funny, isn't it?"],
+    season: ["Spring is when everyone wants a new barn.", "Summer is for sanding porches in the shade.", "Autumn: last chance to build before the frost.", "Winter: the workshop is warm and smells of pine."],
+  },
 };
 
 // Community centre: deposit `take` different items from each bundle's list to complete it.

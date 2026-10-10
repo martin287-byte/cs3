@@ -257,6 +257,32 @@ export function makeHome(key) {
   m.warps.push({ x: h.door, y: H - 1, w: 2, h: 1, to: "town", tx: h.x + 1, ty: h.y + 2 });
   return m;
 }
+// Shops you can walk into. The carpenter sells farm buildings, house upgrades and crafting.
+export const STORES = {
+  carpenter: { x: 40, y: 4, sprite: "carpenter", name: "Hazel's Carpentry", w: 11, h: 8, door: 5, open: [9, 17], keeper: "hazel", spot: [5, 4] },
+};
+export function makeStore(key) {
+  const st = STORES[key], w = st.w, H = st.h, m = blank(w, H, st.name);
+  m.indoor = true; m.zoom = 2; m.style = "wood"; m.store = key; m.v = 1; m.entry = { x: st.door, y: H - 2 }; m.spawn = m.entry;
+  fill(m, 0, 0, w - 1, H - 1, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, H - 1, 18); fill(m, w - 1, 2, w - 1, H - 1, 18);
+  furn(m, "shelf", "shelf", 1, 2); furn(m, "shelf", "shelf", 2, 2); furn(m, "shelf", "shelf", 8, 2); furn(m, "shelf", "shelf", 9, 2);
+  furn(m, "counter", "ccounter", 3, 4, 2, 1); furn(m, "counter", "ccounter", 6, 4, 2, 1);                          // the keeper stands in the gap at x=5
+  furn(m, "barrel", "barrel", 1, 5); furn(m, "crate", "crate", 1, 6); furn(m, "crate", "crate", 9, 5); furn(m, "barrel", "barrel", 9, 6); furn(m, "plant", "plant", 9, 3);
+  decal(m, "rug", 4, 5, 4, 2); decal(m, "mat", st.door, H - 1, 2, 1);
+  deco(m, "window", 3, 0, 1, 2); deco(m, "window", 7, 0, 1, 2);
+  m.warps.push({ x: st.door, y: H - 1, w: 2, h: 1, to: "town", tx: st.x + 1, ty: st.y + 2 });
+  return m;
+}
+export function upgradeStores(town) {                                             // clear a lot and put the shop front in the big town
+  if (town.v5 || town.w < 64) return; town.v5 = true;
+  for (const st of Object.values(STORES)) {
+    fill(town, st.x - 1, st.y - 1, st.x + 3, 12, 0);
+    fill(town, st.x, st.y, st.x + 2, st.y + 1, 10, { kind: "house" });
+    town.objects.push({ sprite: st.sprite, x: st.x, y: st.y, w: 3, h: 2 });
+    for (let dx = 0; dx < 3; dx++) { town.tiles[st.y + 1][st.x + dx].kind = "store"; town.tiles[st.y + 1][st.x + dx].store = Object.keys(STORES).find(k => STORES[k] === st); }
+    fill(town, st.x + 1, st.y + 2, st.x + 2, 12, 8);
+  }
+}
 export function upgradeHomes(town) {                                              // make the front of each family house a door
   if (town.v4 || town.w < 64) return; town.v4 = true;
   for (const [key, h] of Object.entries(HOMES)) for (let dx = 0; dx < 3; dx++) { const t = town.tiles[h.y + 1]?.[h.x + dx]; if (t && t.t === 10) { t.kind = "door"; t.home = key; } }
@@ -276,7 +302,8 @@ export function makeCellar() {
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
   const world0 = { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse(), house: makeHouse(0), cellar: makeCellar() };
-  upgradeHomes(world0.town);
+  upgradeHomes(world0.town); upgradeStores(world0.town);
+  for (const k of Object.keys(STORES)) world0["store_" + k] = makeStore(k);
   for (const k of Object.keys(HOMES)) world0["home_" + k] = makeHome(k);
   return world0;
 }

@@ -6,6 +6,7 @@ export const BIRTHDAYS = {
   hugo: { s: 1, d: 4 },
   lena: { s: 2, d: 3 },
   theo: { s: 3, d: 1 },
+  hazel: { s: 1, d: 9 },
 };
 export const BIRTHDAY_MULT = 3;
 // 4-heart and 8-heart scenes: three lines each, then a reward ({ pts, money, item }).
@@ -57,6 +58,10 @@ export const HEART_EVENTS = {
   theo: {
     4: { lines: ["Theo is dusting a clay pot with a tiny brush.", "Theo: This is eight hundred years old. And I broke it. Twice.", "Theo: Take this coin, it's from the same dig. It's lucky."], reward: { pts: 30, item: "coin" } },
     8: { lines: ["Theo unrolls an old map across the museum floor.", "Theo: The island holds more than a few buried coins. Someone once lived there, you know.", "Theo: Take this. And promise to bring me every strange thing you find."], reward: { pts: 50, item: "pearl" } },
+  },
+  hazel: {
+    4: { lines: ["Hazel is staring at a crooked shelf with her arms crossed.", "Hazel: I built that at midnight. In my defence, it was dark.", "Hazel: Take some planks. I've got too many and no more shelves."], reward: { pts: 30, item: "wood" } },
+    8: { lines: ["Hazel unrolls a blueprint on the counter, with a tiny drawing of a cabin.", "Hazel: I always wanted to build a house for someone I care about. I'm still drawing it.", "Hazel: Take this for your next project. You inspire me."], reward: { pts: 50, money: 500 } },
   },
 };
 
