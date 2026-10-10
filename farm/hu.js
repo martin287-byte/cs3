@@ -258,6 +258,9 @@ const UI = {
   "A strong drink that perks you right up.": "Erős ital, ami azonnal feldob.", "Give it to someone you like a lot.": "Add oda valakinek, akit nagyon kedvelsz.", "A proposal gift for the one you love.": "Eljegyzési ajándék annak, akit szeretsz.",
   "Place it on your farm (press P). It waters nearby soil every night.": "Tedd le a farmon (P). Minden éjjel megöntözi a közeli földet.", "Place it on your farm (press P). It waters a wider area every night.": "Tedd le a farmon (P). Minden éjjel nagyobb területet öntöz.",
   "Dropped by monsters in the mine.": "A bánya szörnyei hagyják el.", "A rare treasure.": "Ritka kincs.",
+  // save slots
+  "Load Game": "Játék betöltése", "LOAD GAME": "JÁTÉK BETÖLTÉSE", "NEW GAME — CHOOSE A SLOT": "ÚJ JÁTÉK — VÁLASSZ MENTÉSI HELYET", "Autosave": "Automentés", "E: back": "E: vissza",
+  "Slot {0} is in use. Overwrite it?": "A(z) {0}. hely foglalt. Felülírod?", "1. Yes, overwrite": "1. Igen, felülírom", "2. No": "2. Nem", "Game saved (slot {0}).": "Játék mentve ({0}. hely).",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

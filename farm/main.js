@@ -22,7 +22,8 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
-const SAVE_KEY = "tinyvalley-save-v10";
+const SLOT_KEYS = { 1: "tinyvalley-save-v10", 2: "tinyvalley-save-slot2", 3: "tinyvalley-save-slot3", 0: "tinyvalley-save-auto" };   // slot 1 keeps the original key
+const META_KEY = "tinyvalley-save-meta";
 const TOOL_NAMES = { hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" };
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
@@ -45,7 +46,13 @@ const yearOf = day => Math.floor((day - 1) / (SEASON_LEN * 4)) + 1;
 const seasonTag = k => CROPS[k].seasons.map(s => SEASONS[s].name.slice(0, 2)).join("/");
 const maxWater = () => CAN_UPGRADES[state.canLevel - 1]?.cap ?? 20;
 const hearts = id => Math.min(10, Math.floor(state.friend[id].pts / 100));
-const hasSave = () => { try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; } };
+const readMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || "{}"); } catch { return {}; } };
+function slotMeta(n) {                                                               // summary of a save without parsing the whole thing
+  const m = readMeta()[n]; if (m) return m;
+  try { const raw = localStorage.getItem(SLOT_KEYS[n]); if (!raw) return null; const st = JSON.parse(raw).state; return { name: st.name || "", day: st.day, money: st.money, t: 0 }; } catch { return null; }
+}
+const hasSave = () => [1, 2, 3, 0].some(n => slotMeta(n));
+const lastSave = () => [1, 2, 3, 0].map(n => [n, slotMeta(n)]).filter(([, m]) => m).sort((a, b) => b[1].t - a[1].t)[0]?.[0] ?? 1;
 const cur = () => maps[state.map];
 const tileAt = (x, y) => cur().tiles[y]?.[x];
 const inBounds = (x, y) => x >= 0 && y >= 0 && x < cur().w && y < cur().h;
@@ -144,28 +151,35 @@ function spawnForage() {
   }
 }
 
-const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ maps, state })); } catch {} };
+function writeSave(n) {
+  try {
+    localStorage.setItem(SLOT_KEYS[n], JSON.stringify({ maps, state }));
+    const meta = readMeta(); meta[n] = { name: state.name || "", day: state.day, money: state.money, t: Date.now() };
+    localStorage.setItem(META_KEY, JSON.stringify(meta)); return true;
+  } catch { return false; }
+}
+const save = () => writeSave(state.slot || 1);
 function ensureHouseMaps() {                                                         // saves from before the interiors existed (or after an upgrade)
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
 }
-function load() {
+function load(n = lastSave()) {
   try {
-    const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+    const s = JSON.parse(localStorage.getItem(SLOT_KEYS[n]));
     if (!s?.maps || !s?.state) return false;
     const d = defaultState();
     maps = s.maps;
     state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, tut: { ...d.tut, ...s.state.tut }, visited: { ...d.visited, ...s.state.visited }, tips: { ...s.state.tips }, perks: { ...s.state.perks }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
     if (!Array.isArray(s.state.slots)) { state.pack = 36; state.slots = defaultSlots(36); }      // saves from before backpack slots keep a full-size bag
     state.sel = Math.max(0, Math.min(state.pack - 1, state.sel | 0)); state.row = Math.floor(state.sel / COLS);
-    syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
+    state.slot = n === 0 ? state.slot || 1 : n; syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
   } catch (e) { console.warn("Could not load the save:", e); return false; }
 }
 
 const applyLook = () => { S.player = makePerson(toSpriteLook(state.look)); };
-function startGame(cont, skipIntro) {
-  const fresh = !(cont && load());
-  if (fresh) newGame();
+function startGame(cont, skipIntro, slot) {
+  const fresh = !(cont && load(slot ?? lastSave()));
+  if (fresh) { newGame(); state.slot = slot || 1; }
   fishing = null; monsters = []; placePet();
   if (state.map === "mine") spawnMonsters();
   applyLook();
@@ -173,7 +187,7 @@ function startGame(cont, skipIntro) {
     scene = "builder"; audio.startMusic("title");
     builder.begin({ look: state.look, name: "" }, res => {
       state.look = res.look; state.name = res.name; applyLook();
-      scene = "intro"; intro.begin(() => { scene = "game"; audio.startMusic(areaMood()); });
+      scene = "intro"; intro.begin(() => { scene = "game"; audio.startMusic(areaMood()); save(); });
     });
     return;
   }
@@ -191,6 +205,7 @@ addEventListener("keydown", e => {
     else if (setUi) settingsKey(k);
     else if (k === "o") openSettings();
     else if (k === "m") audio.toggleMute();
+    else if (slotUi) slotKey(k);
     else if (scene === "title") titleKey(k);
     else if (scene === "intro") intro.key(k);
     else if (scene === "builder") builder.key(k);
@@ -218,7 +233,7 @@ function cycleSeed() {                                                          
   selectSlot(at.find(i => i > state.sel) ?? at[0]);
 }
 
-const titleOptions = () => [...(hasSave() ? ["Continue"] : []), "New Game", "Settings"];
+const titleOptions = () => [...(hasSave() ? ["Continue"] : []), "New Game", ...(hasSave() ? ["Load Game"] : []), "Settings"];
 function titleKey(k) {
   const opts = titleOptions();
   if (k === "arrowup" || k === "w") titleSel = (titleSel + opts.length - 1) % opts.length;
@@ -227,7 +242,8 @@ function titleKey(k) {
     audio.beep(600, 0.1, "triangle");
     const o = opts[titleSel];
     if (o === "Continue") return startGame(true);
-    if (o === "New Game") return startGame(false);
+    if (o === "New Game") { slotUi = { mode: "new", sel: 0 }; return; }
+    if (o === "Load Game") { slotUi = { mode: "load", sel: 0 }; return; }
     return openSettings();
   }
   audio.startMusic("title");
@@ -949,7 +965,7 @@ function uiKey(k) {
     invKey(ui, k);
   } else if (ui.type === "pause") {
     if (k === "escape" || k === "1") state.ui = null;
-    else if (k === "2") { save(); state.ui = null; say("Game saved."); }
+    else if (k === "2") { save(); state.ui = null; say(tf("Game saved (slot {0}).", state.slot || 1)); }
     else if (k === "3") audio.toggleMute();
     else if (k === "4") { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; }
     else if (k === "5") { state.ui = null; openSettings(); }
@@ -1074,7 +1090,7 @@ function sleep() {
   state.water = maxWater(); spawnForage(); startFestival();
   if (state.fest) { const f = FESTIVALS.find(x => x.id === state.fest.id); extra += ` ${tf("Today: {0}! {1}.", tr(f.name), tr(f.desc))}`; }
   if (merchantHere()) extra += ` ${tf("Zed the merchant is in Town today.")}`;
-  save();
+  save(); writeSave(0);                                                             // the daily autosave is kept separately from your slot
   say(`${state.name && state.day > 1 ? tf("Good morning, {0}! ", state.name) : ""}${tf("Day {0}", state.day)}${state.rain ? ` — ${tf(s === 3 ? "snowing" : "raining")}` : ""}.${state.chickens ? ` ${tf("{0} egg(s)", state.chickens)}` : ""}${state.cows ? ` ${tf("{0} milk", state.cows)}` : ""}${state.chickens || state.cows ? ` ${tf("collected.")}` : ""}${extra}`, extra ? 7 : 3);
 }
 
@@ -1815,6 +1831,46 @@ function drawTitle() {
   drawGear();
 }
 
+// ---------------------------------------------------------------- save slots (title screen)
+let slotUi = null;
+const slotLabel = n => {
+  const m = slotMeta(n); if (!m) return tr("Empty slot");
+  return `${m.name || "Farmer"} — ${tr(SEASONS[seasonOf(m.day)].name)} ${dayOfSeason(m.day)}, Y${yearOf(m.day)} — $${m.money}`;
+};
+function slotKey(k) {
+  const list = slotUi.mode === "load" ? [1, 2, 3, 0] : [1, 2, 3];
+  const go = n => {
+    if (slotUi.mode === "load") { if (!slotMeta(n)) return audio.beep(150, 0.1, "sawtooth"); slotUi = null; return startGame(true, true, n); }
+    if (slotMeta(n)) { slotUi.confirm = n; return; }
+    slotUi = null; startGame(false, false, n);
+  };
+  if (slotUi.confirm != null) {
+    if (k === "1" || k === "enter") { const n = slotUi.confirm; slotUi = null; startGame(false, false, n); }
+    else if (k === "2" || k === "e" || k === "escape") slotUi.confirm = null;
+    return;
+  }
+  if (k === "escape" || k === "e") { slotUi = null; return; }
+  if (k === "arrowup" || k === "w") slotUi.sel = (slotUi.sel + list.length - 1) % list.length;
+  else if (k === "arrowdown" || k === "s") slotUi.sel = (slotUi.sel + 1) % list.length;
+  else if (k === "enter" || k === " ") go(list[slotUi.sel]);
+  else if (/^[1-4]$/.test(k) && list[Number(k) - 1] != null) { slotUi.sel = Number(k) - 1; go(list[slotUi.sel]); }
+}
+function drawSlotUi() {
+  rec = [];
+  ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(0, 0, W, H);
+  woodFrame(50, 52, 380, 168); ctx.font = "bold 11px monospace";
+  txt(slotUi.mode === "load" ? "LOAD GAME" : "NEW GAME — CHOOSE A SLOT", W / 2, 72, "#ffe9b0", "center"); ctx.font = "9px monospace";
+  if (slotUi.confirm != null) {
+    txt(tf("Slot {0} is in use. Overwrite it?", slotUi.confirm), W / 2, 112, "#ffb0a0", "center");
+    txt("1. Yes, overwrite", 150, 142, "#fff"); txt("2. No", 150, 160, "#fff");
+  } else {
+    const list = slotUi.mode === "load" ? [1, 2, 3, 0] : [1, 2, 3];
+    list.forEach((n, i) => txt(`${i + 1}. ${n === 0 ? tr("Autosave") + ": " : ""}${slotLabel(n)}`.slice(0, 66), 62, 100 + i * 22, slotUi.sel === i ? "#ffd23f" : slotMeta(n) ? "#fff" : "#8a7a5a"));
+    txt("E: back", W / 2, 212, "#c9a56a", "center");
+  }
+  uiLines = rec; rec = null;
+}
+
 // ---------------------------------------------------------------- settings overlay (works on the title screen too)
 let setUi = null;
 const SIZE_NAMES = ["Small", "Medium", "Large"];
@@ -1881,6 +1937,7 @@ function hitUi(cx, cy) {
 canvas.addEventListener("pointerdown", e => {
   const { x: cx, y: cy } = canvasPoint(e, canvas, W, H);
   if (setUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
+  if (slotUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
   if (scene === "intro") return intro.tap(cx, cy);
   if (scene === "builder") return builder.tap(cx, cy);
   if (!isTouch() && gearHit(cx, cy, scene === "title")) return openSettings();
@@ -1935,6 +1992,7 @@ let last = performance.now();
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
   ctx.font = "9px monospace";
   if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else if (scene === "builder") builder.draw(); else { drawWorld(); drawGear(); }
+  if (slotUi) drawSlotUi();
   if (setUi) drawSettings();
   syncBodyClasses();
   requestAnimationFrame(frame);
