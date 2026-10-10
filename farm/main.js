@@ -866,6 +866,16 @@ function openWardrobe() {                                                       
   state.ui = null; scene = "builder";
   builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
 }
+function useSofa() {                                                                // living room: a nap on the sofa, once a day
+  if (state.rested === state.day) return say("You already rested today.", 2.5);
+  if (state.energy >= maxEnergy()) return say("You are not tired.", 2.5);
+  state.rested = state.day; state.energy = Math.min(maxEnergy(), state.energy + 20); audio.beep(330, 0.2, "sine"); say("You relax on the sofa. (+20 energy)", 3);
+}
+function useDesk() {                                                                // study: read a book, once a day
+  if (state.studied === state.day) return say("You already read today.", 2.5);
+  const sk = Object.keys(SKILLS).sort((a, b) => skillLevel(a) - skillLevel(b))[0];
+  state.studied = state.day; gainXp(sk, 25); audio.beep(600, 0.12, "triangle"); say(tf("You read a book about {0}. (+25 xp)", tr(SKILLS[sk].name).toLowerCase()), 3.5);
+}
 function enterHome(key) {
   const h = hourNow(), H = HOMES[key]; state.mounted = false;
   if (h < 8 || h >= 22) return say(tf("The door is locked. (Visit between 8:00 and 22:00)"), 3);
@@ -893,6 +903,9 @@ function interact() {
   else if (tile.kind === "hearth" || tile.kind === "stove") state.ui = { type: "cook" };
   else if (tile.kind === "chest" || tile.kind === "chest2") { state.ui = { type: "chest", which: tile.kind === "chest2" ? "cellar" : "chest", mode: "store", page: 0 }; audio.beep(480, 0.05); }
   else if (tile.kind === "mirror") openWardrobe();
+  else if (tile.kind === "sofa") useSofa();
+  else if (tile.kind === "desk") useDesk();
+  else if (tile.kind === "bench") { state.ui = { type: "shop", page: 5, only: 5 }; audio.beep(480, 0.05); }
   else if (tile.kind === "clinic") visitClinic();
   else if (tile.kind === "door") enterHome(tile.home);
   else if (FLAVOR[tile.kind]) say(FLAVOR[tile.kind], 2.5);
@@ -946,7 +959,7 @@ const houseShop = () => HOUSE.slice(1).map((h, i) => {
   if (state.houseWork || lvl > state.house + 1) return { label: `${h.name} (${state.houseWork ? "wait for the builders" : "needs " + HOUSE[lvl - 1].name})`, cost: Infinity };
   return { label: `Upgrade: ${h.name}`, cost: h.cost, mats: h.mats, buy: () => { state.houseWork = { to: lvl, ready: state.day + HOUSE_BUILD_DAYS }; say(tf("Oliver starts work on your {0}. Ready on day {1}!", tr(h.name), state.houseWork.ready), 4); } };
 });
-const workshop = () => Object.entries(MACHINES).map(([t, m]) => ({ label: `${m.name} — ${m.desc}`, cost: 0, mats: m.cost, slot: ["item", "m_" + t], buy: () => addItem("m_" + t) }));
+const workshop = () => Object.entries(MACHINES).map(([t, m]) => ({ label: m.name, cost: 0, mats: m.cost, slot: ["item", "m_" + t], buy: () => addItem("m_" + t) }));
 const SHOP = page => page === 5 ? workshop() : page === 4 ? houseShop() : page === 0
   ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, slot: ["seed", k], buy: () => { addSeeds(k, 5); } }))
   : page === 1 ? [
@@ -1009,7 +1022,7 @@ function uiKey(k) {
   if (ui.type === "chest") return chestKey(ui, k, num, close);
   if (ui.type === "shop") {
     if (close) return void (state.ui = null);
-    if (k === "tab") return void (ui.page = (ui.page + 1) % SHOP_PAGES.length);
+    if (k === "tab") return void (ui.only == null && (ui.page = (ui.page + 1) % SHOP_PAGES.length));
     const item = SHOP(ui.page)[num];
     if (!item || item.cost === Infinity) return;
     if (item.slot && !holds(...item.slot)) return full();
@@ -1399,7 +1412,7 @@ function drawWorld() {
     for (let x = x0; x <= x1; x++) { ctx.fillStyle = cols[x % 4]; ctx.fillRect(x * T + 3, 12 * T + 3, 8, 3); ctx.fillRect(x * T + 4, 12 * T + 6, 6, 2); ctx.fillRect(x * T + 6, 12 * T + 8, 2, 1); }
   }
   for (const o of m.objects) {
-    const key = o.sprite === "centre" && state.restored ? "centreOk" : o.sprite === "home" ? (state.houseWork ? "homeScaf" : state.house ? "home" + state.house : "home") : o.sprite;
+    const key = o.sprite === "centre" && state.restored ? "centreOk" : o.sprite === "home" ? (state.houseWork ? "homeScaf" : state.house ? "home" + Math.min(3, state.house) : "home") : o.sprite;
     const img = S.bldg[key], ow = o.w || 3;
     if (o.x * T > camX + VW + 32 || (o.x + ow) * T < camX - 32) continue;
     if (o.flat) { ctx.drawImage(img, o.x * T, o.y * T); continue; }                  // rugs and mats lie under everything
@@ -1609,12 +1622,13 @@ function drawUi() {
 function drawUiInner(ui) {
   ctx.font = "9px monospace";
   if (ui.type === "shop") {
-    panel(40, 22, 400, 214, `SHOP: ${SHOP_PAGES[ui.page]} (page ${ui.page + 1}/${SHOP_PAGES.length})  $${state.money}  Tab: next  E: close`);
+    panel(40, 22, 400, 214, ui.only != null ? `WORKBENCH  (craft machines from materials)  E: close` : `SHOP: ${SHOP_PAGES[ui.page]} (page ${ui.page + 1}/${SHOP_PAGES.length})  $${state.money}  Tab: next  E: close`);
     if (ui.page === 4) {                                                             // what each house upgrade gives
-      ctx.font = "9px monospace"; let dy = 98;
-      HOUSE.slice(1).forEach(h => { wrap(`${tr(h.name)}: ${tr(h.desc)}`, 380).forEach(l => { txt(l, 48, dy, state.house >= HOUSE.indexOf(h) ? "#8f8" : "#cfe8ff"); dy += 11; }); dy += 3; });
+      ctx.font = "9px monospace"; let dy = 142;
+      HOUSE.slice(1).forEach(h => { txt(`${tr(h.name)}: ${tr(h.short)}`.slice(0, 74), 48, dy, state.house >= HOUSE.indexOf(h) ? "#8f8" : "#cfe8ff"); dy += 11; });
       txt(tf("Every upgrade adds +{0} max energy. Oliver needs 2 days to build.", HOUSE_ENERGY), 48, dy + 4, "#ffd23f");
     }
+    if (ui.page === 5) { let dy = 112; for (const m of Object.values(MACHINES)) for (const l of wrap(`${tr(m.name)}: ${tr(m.desc)}`, 380)) { txt(l, 48, dy, "#cfe8ff"); dy += 11; } }
     SHOP(ui.page).forEach((it, i) => {
       const ok = it.cost !== Infinity && state.money >= it.cost && hasMats(it.mats);
       txt(`${i + 1}. ${it.label}${it.cost === Infinity || !it.cost ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");

@@ -360,9 +360,12 @@ export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [
 // House upgrades (Oliver builds them overnight, ready in 2 days). Every level adds a room and +10 max energy.
 export const HOUSE = [
   { name: "Cabin" },
-  { id: "kitchen", name: "Kitchen", cost: 2000, mats: { wood: 50, stone: 20, copper: 8 }, desc: "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy." },
-  { id: "bedroom", name: "Bedroom", cost: 5000, mats: { wood: 100, stone: 20, iron: 10 }, desc: "A second bedroom with a double bed. If you are married, breakfast is waiting every morning." },
-  { id: "cellar", name: "Cellar", cost: 9000, mats: { wood: 150, stone: 40, gold: 8 }, desc: "A cool cellar under the house with a huge storage chest." },
+  { id: "kitchen", name: "Kitchen", cost: 2000, mats: { wood: 50, stone: 20, copper: 8 }, desc: "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy.", short: "Stove and fridge. Dishes restore 25% more energy." },
+  { id: "bedroom", name: "Bedroom", cost: 5000, mats: { wood: 100, stone: 20, iron: 10 }, desc: "A second bedroom with a double bed. If you are married, breakfast is waiting every morning.", short: "Double bed. A spouse makes you breakfast." },
+  { id: "cellar", name: "Cellar", cost: 9000, mats: { wood: 150, stone: 40, gold: 8 }, desc: "A cool cellar under the house with a huge storage chest.", short: "A cool cellar with a huge storage chest." },
+  { id: "living", name: "Living Room", cost: 12000, mats: { wood: 200, stone: 60, iron: 15 }, desc: "A cosy living room with a sofa. Resting on it restores energy once a day.", short: "Sofa: rest once a day for +20 energy." },
+  { id: "study", name: "Study", cost: 16000, mats: { wood: 250, copper: 30, gold: 12 }, desc: "A quiet study with a desk. Reading there once a day gives skill XP.", short: "Desk: read once a day for skill XP." },
+  { id: "workshop", name: "Workshop", cost: 22000, mats: { wood: 300, iron: 30, gold: 15 }, desc: "A workshop with a crafting bench for artisan machines.", short: "Bench: craft artisan machines at home." },
 ];
 export const HOUSE_ENERGY = 10;                                                     // max energy per house level
 export const HOUSE_BUILD_DAYS = 2;

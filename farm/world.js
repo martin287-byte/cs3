@@ -186,7 +186,7 @@ const decal = (m, sprite, x, y, w, h) => m.objects.push({ sprite, x, y, w, h, fl
 const deco = (m, sprite, x, y, w, h) => m.objects.push({ sprite, x, y, w, h });                         // sprites on the wall (no collision)
 
 export function makeHouse(level = 0) {
-  const w = 9 + 3 * Math.min(2, level), m = blank(w, 8, "House");
+  const w = 9 + 3 * Math.min(2, level) + 4 * Math.max(0, level - 3), m = blank(w, 8, "House");
   m.indoor = true; m.zoom = 2; m.style = "wood"; m.level = level; m.entry = { x: 3, y: 6 }; m.spawn = { x: 2, y: 4 };
   fill(m, 0, 0, w - 1, 7, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, 7, 18); fill(m, w - 1, 2, w - 1, 7, 18);
   furn(m, "bed", "bed", 1, 2, 2, 2);
@@ -209,6 +209,15 @@ export function makeHouse(level = 0) {
   if (level >= 3) {                                                                   // cellar hatch
     decal(m, "trapdoor", 10, 6, 1, 1);
     m.warps.push({ x: 10, y: 6, w: 1, h: 1, to: "cellar", tx: 4, ty: 3 });
+  }
+  if (level >= 4) {                                                                   // living room: sofa, rug, plants
+    furn(m, "sofa", "sofa", 15, 2, 2, 1); furn(m, "plant", "plant", 14, 6); furn(m, "plant", "plant", 17, 6); decal(m, "rugS", 14, 3, 3, 2); deco(m, "window", 17, 0, 1, 2);
+  }
+  if (level >= 5) {                                                                   // study: desk, bookshelves
+    furn(m, "shelf", "shelf", 18, 2); furn(m, "desk", "desk", 19, 2, 2, 1); furn(m, "shelf", "shelf", 21, 2); furn(m, "plant", "plant", 21, 6); decal(m, "rug", 18, 3, 4, 2); deco(m, "window", 20, 0, 1, 2);
+  }
+  if (level >= 6) {                                                                   // workshop: crafting bench, storage
+    furn(m, "shelf", "shelf", 22, 2); furn(m, "bench", "bench", 23, 2, 2, 1); furn(m, "barrel", "barrel", 25, 2); furn(m, "crate", "crate", 25, 3); decal(m, "rugS", 23, 3, 3, 2); deco(m, "window", 24, 0, 1, 2);
   }
   return m;
 }
