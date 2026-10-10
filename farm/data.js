@@ -283,3 +283,15 @@ export const PERKS = {
 };
 // Fast travel: where you arrive in each area.
 export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [21, 2], desert: [3, 15], island: [20, 19] };
+
+// House upgrades (Oliver builds them overnight, ready in 2 days). Every level adds a room and +10 max energy.
+export const HOUSE = [
+  { name: "Cabin" },
+  { id: "kitchen", name: "Kitchen", cost: 2000, mats: { stone: 20, copper: 8 }, desc: "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy." },
+  { id: "bedroom", name: "Bedroom", cost: 5000, mats: { stone: 30, iron: 10 }, desc: "A second bedroom with a double bed. If you are married, breakfast is waiting every morning." },
+  { id: "cellar", name: "Cellar", cost: 9000, mats: { stone: 40, gold: 8 }, desc: "A cool cellar under the house with a huge storage chest." },
+];
+export const HOUSE_ENERGY = 10;                                                     // max energy per house level
+export const HOUSE_BUILD_DAYS = 2;
+export const CHEST_CAP = lvl => 12 + 4 * lvl;                                         // stacks the house chest can hold
+export const CELLAR_CAP = 40;

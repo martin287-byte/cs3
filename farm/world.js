@@ -1,5 +1,5 @@
 // Procedural generation of the three maps: Farm, Town, Forest. Tile types:
-// 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
+// 17 house floor, 18 house wall, 19 furniture (blocking, drawn on floor); 0 grass, 1 tilled, 2 water, 3 tree/rock, 4 farmhouse, 5 bin, 6 shop, 7 pen floor, 8 path, 10 decor building,
 // 11 cave wall, 12 cave floor, 13 ore node, 14 sand (beach / desert), 15 greenhouse floor, 16 greenhouse wall
 import { PEN, PASTURE } from "./data.js";
 
@@ -142,9 +142,60 @@ function makeGreenhouse() {
   return m;
 }
 
+
+// ---- house interiors -------------------------------------------------------------------------------------
+// Rooms are 8 tiles tall (two wall rows, six floor rows) and grow wider with each upgrade; they are drawn at 2x zoom.
+// Tile types: 17 floor, 18 wall, 19 furniture (blocks movement, drawn on the floor). Flat objects (rugs, mats) are decals.
+function furn(m, sprite, kind, x, y, w = 1, h = 1) {
+  fill(m, x, y, x + w - 1, y + h - 1, 19, { kind });
+  m.objects.push({ sprite, x, y, w, h });
+}
+const decal = (m, sprite, x, y, w, h) => m.objects.push({ sprite, x, y, w, h, flat: true });
+const deco = (m, sprite, x, y, w, h) => m.objects.push({ sprite, x, y, w, h });                         // sprites on the wall (no collision)
+
+export function makeHouse(level = 0) {
+  const w = 9 + 3 * Math.min(2, level), m = blank(w, 8, "House");
+  m.indoor = true; m.zoom = 2; m.style = "wood"; m.level = level; m.entry = { x: 3, y: 6 }; m.spawn = { x: 2, y: 4 };
+  fill(m, 0, 0, w - 1, 7, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, 7, 18); fill(m, w - 1, 2, w - 1, 7, 18);
+  furn(m, "bed", "bed", 1, 2, 2, 2);
+  furn(m, "hearth", "hearth", 4, 2, 2, 1);
+  furn(m, "chest", "chest", 6, 2);
+  furn(m, "mirror", "mirror", 7, 2);
+  furn(m, "table", "table", 4, 5, 2, 1);
+  furn(m, "plant", "plant", 1, 6);
+  decal(m, "rug", 3, 3, 4, 2); decal(m, "mat", 3, 7, 2, 1);
+  deco(m, "window", 3, 0, 1, 2); deco(m, "window", 6, 0, 1, 2);
+  m.warps.push({ x: 3, y: 7, w: 2, h: 1, to: "farm", tx: 7, ty: 7 });
+  if (level >= 1) {                                                                   // kitchen: stove, fridge, counter
+    furn(m, "stove", "stove", 8, 2, 2, 1); furn(m, "fridge", "chest", 10, 2); furn(m, "counter", "counter", 8, 4, 2, 1);
+    deco(m, "window", 9, 0, 1, 2);
+  }
+  if (level >= 2) {                                                                   // bedroom wing: double bed, bookshelf, rug
+    furn(m, "bed2", "bed", 11, 2, 2, 2); furn(m, "shelf", "shelf", 13, 2); furn(m, "plant", "plant", 12, 6);
+    decal(m, "rugS", 11, 4, 3, 2); deco(m, "window", 12, 0, 1, 2);
+  }
+  if (level >= 3) {                                                                   // cellar hatch
+    decal(m, "trapdoor", 10, 6, 1, 1);
+    m.warps.push({ x: 10, y: 6, w: 1, h: 1, to: "cellar", tx: 4, ty: 3 });
+  }
+  return m;
+}
+
+export function makeCellar() {
+  const m = blank(10, 8, "Cellar");
+  m.indoor = true; m.zoom = 2; m.style = "stone"; m.entry = { x: 4, y: 3 };
+  fill(m, 0, 0, 9, 7, 17); fill(m, 0, 0, 9, 1, 18); fill(m, 0, 2, 0, 7, 18); fill(m, 9, 2, 9, 7, 18);
+  decal(m, "stairs", 4, 2, 2, 1);
+  m.warps.push({ x: 4, y: 2, w: 2, h: 1, to: "house", tx: 10, ty: 5 });
+  furn(m, "barrel", "barrel", 1, 2); furn(m, "barrel", "barrel", 2, 2); furn(m, "crate", "crate", 7, 2); furn(m, "crate", "crate", 8, 2);
+  furn(m, "chest", "chest2", 8, 5); furn(m, "barrel", "barrel", 1, 6); furn(m, "crate", "crate", 7, 6);
+  decal(m, "mat", 4, 5, 2, 1);
+  return m;
+}
+
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
-  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse() };
+  return { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse(), house: makeHouse(0), cellar: makeCellar() };
 }
 
 // One mine floor: a chain of caves joined by corridors, an exit where you arrive and a ladder down.

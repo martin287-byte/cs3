@@ -4,7 +4,8 @@ import {
   FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, PERKS, TRAVEL, BUNDLES, RESTORE_PRIZE, SPRINKLER_SHOP, HORSE_COST, PET_COST, PETS, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { generateWorld, makeMine, PLOTS } from "./world.js";
+import { generateWorld, makeMine, makeHouse, makeCellar, PLOTS } from "./world.js";
+import { HOUSE, HOUSE_ENERGY, HOUSE_BUILD_DAYS, CHEST_CAP, CELLAR_CAP } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
 import { initView, canvasPoint } from "./view.js";
@@ -24,9 +25,9 @@ const SAVE_KEY = "tinyvalley-save-v10";
 const TOOLS = ["hoe", "can", "rod", "pick", "sword", "seeds"];
 const SEED_SLOT = TOOLS.indexOf("seeds");
 const CROP_IDS = Object.keys(CROPS);
-const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16];
+const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
 const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12, island: 12 };
-const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts"];
+const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts", "House"];
 
 const S = buildSprites({
   crops: CROP_IDS, forage: Object.keys(FORAGE),
@@ -57,6 +58,7 @@ const areaMood = () => (state.map === "island" ? "beach" : ["mine", "beach", "de
 // ---- skills ----
 const skillLevel = id => XP_TABLE.filter(x => state.xp[id] >= x).length;                  // 1..10
 const hasPerk = id => Object.values(state.perks).includes(id);
+const maxEnergy = () => 100 + HOUSE_ENERGY * state.house;
 const maxHp = () => 100 + 5 * (skillLevel("combat") - 1) + (hasPerk("defender") ? 25 : 0);
 function gainXp(id, n) {
   const before = skillLevel(id);
@@ -96,6 +98,7 @@ function defaultState() {
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
+    house: 0, houseWork: null, chest: {}, cellarChest: {},
     name: "", look: { skin: PLAYER_LOOK.skin, hair: PLAYER_LOOK.hair, hairStyle: PLAYER_LOOK.hairStyle, eye: PLAYER_LOOK.eye, shirt: PLAYER_LOOK.shirt, pants: PLAYER_LOOK.pants },
   };
 }
@@ -134,6 +137,10 @@ function spawnForage() {
 }
 
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ maps, state })); } catch {} };
+function ensureHouseMaps() {                                                         // saves from before the interiors existed (or after an upgrade)
+  if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
+  if (!maps.cellar) maps.cellar = makeCellar();
+}
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -141,7 +148,7 @@ function load() {
     const d = defaultState();
     maps = s.maps;
     state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, tut: { ...d.tut, ...s.state.tut }, visited: { ...d.visited, ...s.state.visited }, tips: { ...s.state.tips }, perks: { ...s.state.perks }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
-    makeAnimals(); return true;
+    ensureHouseMaps(); makeAnimals(); return true;
   } catch { return false; }
 }
 
@@ -472,7 +479,7 @@ function petDigs() {                                                            
 function toggleMount() {
   if (!state.horse) return say("You don't have a horse. (Shop → Farm page; needs a barn)");
   if (state.mounted) { state.mounted = false; return say("Dismounted."); }
-  if (["mine", "greenhouse"].includes(state.map)) return say("No riding indoors.");
+  if (["mine", "greenhouse", "house", "cellar"].includes(state.map)) return say("No riding indoors.");
   if (fishing) return;
   state.mounted = true; say("Mounted! Press H to get down."); audio.beep(400, 0.1, "triangle");
 }
@@ -514,7 +521,7 @@ const TUT_STEPS = () => {
     "Tap 1 to take the hoe, face some grass and tap A to till the soil.",
     "Tap 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
     "Tap 2 for the watering can and water your seeds. Refill it at any pond.",
-    "Walk to your farmhouse door and tap E, then choose Sleep. Watered crops grow overnight!",
+    "Walk to your farmhouse door and tap E to go in, then tap E at the bed to sleep. Watered crops grow overnight!",
     "Tap A on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
     "Explore east to reach the Town. Tap MAP any time for the world map and fast travel.",
   ] : [
@@ -522,7 +529,7 @@ const TUT_STEPS = () => {
     "Press 1 to take the hoe, face some grass and press Space to till the soil.",
     "Press 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
     "Press 2 for the watering can and water your seeds. Refill it at any pond.",
-    "Walk to your farmhouse door and press E, then choose Sleep. Watered crops grow overnight!",
+    "Walk to your farmhouse door and press E to go in, then press E at the bed to sleep. Watered crops grow overnight!",
     "Press Space on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
     "Explore east to reach the Town. Press N any time for the world map and fast travel.",
   ];
@@ -696,13 +703,26 @@ function cook(id) {
 }
 function eat(id) {
   let e = edibleEnergy(id);
+  if (e && DISHES[id] && state.house >= 1) e = Math.round(e * 1.25);                    // kitchen upgrade: dishes restore 25% more
   if (e && hasPerk("naturalist") && (CROPS[id] || FORAGE[id])) e *= 3;
   if (!e || !state.inv[id]) return;
-  if (state.energy >= 100 && state.hp >= maxHp()) return say("You're not hungry.");
-  state.inv[id]--; state.energy = Math.min(100, state.energy + e); state.hp = Math.min(maxHp(), state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
+  if (state.energy >= maxEnergy() && state.hp >= maxHp()) return say("You're not hungry.");
+  state.inv[id]--; state.energy = Math.min(maxEnergy(), state.energy + e); state.hp = Math.min(maxHp(), state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
 }
 
 // ---------------------------------------------------------------- interaction & menus
+const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now." };
+const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
+function enterHouse() {
+  state.mounted = false;
+  if (state.houseWork) { state.ui = { type: "home" }; return say(`The builders are busy — you sleep in a tent until day ${state.houseWork.ready}.`, 4); }
+  ensureHouseMaps(); tip("house", "The bed ends the day, the hearth cooks, the chest stores items and the mirror changes your look. Upgrade the house at the shop (House page).");
+  goMap("house", maps.house.entry.x, maps.house.entry.y);
+}
+function openWardrobe() {                                                            // change name and looks
+  state.ui = null; scene = "builder";
+  builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
+}
 function interact() {
   const { x, y } = targetTile();
   if (!inBounds(x, y)) return;
@@ -711,7 +731,12 @@ function interact() {
   if (id === "zed") { state.ui = { type: "merchant", mode: "buy" }; audio.beep(520, 0.05); }
   else if (id) { tip("talk", "Talk once a day and give gifts (option 2) to raise friendship. Check what people like in the inventory's Friends tab."); state.ui = { type: "talk", id, mode: "menu", text: "", n: 0 }; audio.beep(520, 0.05); }
   else if (tile.kind === "bin") state.ui = { type: "bin" };
-  else if (tile.kind === "home") state.ui = { type: "home" };
+  else if (tile.kind === "home") enterHouse();
+  else if (tile.kind === "bed") state.ui = { type: "home" };
+  else if (tile.kind === "hearth" || tile.kind === "stove") state.ui = { type: "cook" };
+  else if (tile.kind === "chest" || tile.kind === "chest2") { state.ui = { type: "chest", which: tile.kind === "chest2" ? "cellar" : "chest", mode: "store", page: 0 }; audio.beep(480, 0.05); }
+  else if (tile.kind === "mirror") openWardrobe();
+  else if (FLAVOR[tile.kind]) say(FLAVOR[tile.kind], 2.5);
   else if (tile.kind === "board") { tip("board", "Accept up to 3 quests. Press J to see your journal; delivery quests are handed in here."); state.ui = { type: "board" }; audio.beep(480, 0.05); }
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
   else if (tile.kind === "centre") { state.ui = { type: "centre", bundle: null }; audio.beep(480, 0.05); }
@@ -749,7 +774,14 @@ const buildItem = id => {
     : st === "pending" ? { label: `${b.name} (under construction)`, cost: Infinity }
     : { label: `Build ${b.name}`, cost: b.cost, mats: b.mats, buy: () => { state.build[id] = "pending"; say(`${b.name} will be ready tomorrow!`); } };
 };
-const SHOP = page => page === 0
+const houseShop = () => HOUSE.slice(1).map((h, i) => {
+  const lvl = i + 1;
+  if (state.house >= lvl) return { label: `${h.name} (built)`, cost: Infinity };
+  if (state.houseWork?.to === lvl) return { label: `${h.name} (under construction, ready day ${state.houseWork.ready})`, cost: Infinity };
+  if (state.houseWork || lvl > state.house + 1) return { label: `${h.name} (${state.houseWork ? "wait for the builders" : "needs " + HOUSE[lvl - 1].name})`, cost: Infinity };
+  return { label: `Upgrade: ${h.name}`, cost: h.cost, mats: h.mats, buy: () => { state.houseWork = { to: lvl, ready: state.day + HOUSE_BUILD_DAYS }; say(tf("Oliver starts work on your {0}. Ready on day {1}!", tr(h.name), state.houseWork.ready), 4); } };
+});
+const SHOP = page => page === 4 ? houseShop() : page === 0
   ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, buy: () => { state.seeds[k] += 5; } }))
   : page === 1 ? [
     upgrade("Hoe", HOE_UPGRADES, state.hoeLevel, () => { state.hoeLevel++; }),
@@ -789,8 +821,23 @@ function merchantBuy(i) {
   return i === undefined ? stock : stock[i];
 }
 
+function chestKey(ui, k, num, close) {
+  const chest = ui.which === "cellar" ? state.cellarChest : state.chest, cap = ui.which === "cellar" ? CELLAR_CAP : CHEST_CAP(state.house);
+  if (close) return void (state.ui = null);
+  if (k === "tab") { ui.mode = ui.mode === "store" ? "take" : "store"; ui.page = 0; return; }
+  const list = ui.mode === "store" ? invItems() : Object.entries(chest).filter(([, n]) => n > 0).sort((a, b) => itemInfo(a[0]).name.localeCompare(itemInfo(b[0]).name));
+  if (k === "arrowright") return void (ui.page = Math.min(Math.max(0, Math.ceil(list.length / 9) - 1), ui.page + 1));
+  if (k === "arrowleft") return void (ui.page = Math.max(0, ui.page - 1));
+  const it = list[ui.page * 9 + num]; if (!it || num < 0) return;
+  const [id, n] = it;
+  if (ui.mode === "store") {
+    if (!(id in chest) && Object.keys(chest).filter(x => chest[x] > 0).length >= cap) return say("The chest is full.");
+    chest[id] = (chest[id] || 0) + n; state.inv[id] = 0; audio.beep(520, 0.05);
+  } else { addItem(id, n); delete chest[id]; audio.beep(620, 0.05); }
+}
 function uiKey(k) {
   const ui = state.ui, num = /^[1-9]$/.test(k) ? Number(k) - 1 : -1, close = k === "escape" || k === "e";
+  if (ui.type === "chest") return chestKey(ui, k, num, close);
   if (ui.type === "shop") {
     if (close) return void (state.ui = null);
     if (k === "tab") return void (ui.page = (ui.page + 1) % SHOP_PAGES.length);
@@ -845,10 +892,7 @@ function uiKey(k) {
   } else if (ui.type === "home") {
     if (close) return void (state.ui = null);
     if (num === 0) sleep(); else if (num === 1) state.ui = { type: "cook" };
-    else if (num === 2) {                                                          // wardrobe: change name and looks
-      state.ui = null; scene = "builder";
-      builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
-    }
+    else if (num === 2) openWardrobe();
   } else if (ui.type === "cook") {
     if (close) return void (state.ui = null);
     const id = state.recipes[num];
@@ -946,7 +990,7 @@ function sleep() {
     if (tile.crop && tile.wet) { tile.crop.age++; if (hasPerk("agri") && Math.random() < 0.25) tile.crop.age++; }
     tile.wet = false;
   }
-  state.day++; state.minutes = 6 * 60; state.energy = 100;
+  state.day++; state.minutes = 6 * 60; state.energy = maxEnergy();
   state.map = "farm"; state.px = 7 * T; state.py = 7 * T; state.fx = 0; state.fy = 1; fishing = null; state.ui = null;
   for (const id in state.friend) { state.friend[id].talked = false; state.friend[id].gifted = false; }
   state.hp = maxHp(); invuln = 0; monsters = [];
@@ -965,6 +1009,12 @@ function sleep() {
     const v = VILLAGERS[state.engaged.id]; state.spouse = state.engaged.id; state.dating = null; state.engaged = null; state.friend[state.spouse].pts = 1000;
     extra += ` ${tf("You married {0}! They now live on the farm.", v.name)}`; audio.beep(1200, 0.5, "triangle");
   }
+  if (state.houseWork && state.day >= state.houseWork.ready) {                         // Oliver finishes the house upgrade
+    state.house = state.houseWork.to; state.houseWork = null; maps.house = makeHouse(state.house); state.energy = maxEnergy();
+    extra += ` ${tf("Your {0} is finished!", tr(HOUSE[state.house].name))}`; audio.beep(1000, 0.3, "triangle");
+  }
+  if (state.spouse && state.house >= 2) { addItem("friedegg"); extra += ` ${tf("{0} made you breakfast.", VILLAGERS[state.spouse].name)}`; }
+  ensureHouseMaps(); state.map = "house"; state.px = maps.house.spawn.x * T; state.py = maps.house.spawn.y * T; state.fx = 0; state.fy = 1; placePet();   // wake up in your own bed
   const s = seasonOf(state.day);
   if (s !== old) {
     let withered = 0;
@@ -1040,7 +1090,7 @@ function update(dt) {
     if (horiz) { state.fx = dx ? Math.sign(dx) : state.fx; state.fy = 0; } else { state.fy = dy ? Math.sign(dy) : state.fy; state.fx = 0; }
     const sp = (state.mounted ? 125 : 70) * dt;
     state.tut.dist += sp * mag;
-    if ((stepT -= dt * mag) <= 0 && !state.rain && state.map !== "mine" && state.map !== "greenhouse") { stepT = state.mounted ? 0.12 : 0.2; emit(seasonOf(state.day) === 3 ? "snow" : "dust", state.px + 6, state.py + 14); }
+    if ((stepT -= dt * mag) <= 0 && !state.rain && state.map !== "mine" && state.map !== "greenhouse" && !cur().indoor) { stepT = state.mounted ? 0.12 : 0.2; emit(seasonOf(state.day) === 3 ? "snow" : "dust", state.px + 6, state.py + 14); }
     for (const [mx, my] of [[dx * sp, 0], [0, dy * sp]]) {
       const nx = state.px + mx, ny = state.py + my;
       const corners = [[nx + 3, ny + 6], [nx + 9, ny + 6], [nx + 3, ny + 13], [nx + 9, ny + 13]];
@@ -1074,7 +1124,7 @@ function wrap(text, maxW) {
 let rec = null, uiLines = [];                                                      // text drawn by menus, kept for tap hit-testing
 const txt = (s, x, y, c = "#fff", align = "left") => { s = tr(s); ctx.fillStyle = c; ctx.textAlign = align; ctx.fillText(s, x, y); ctx.textAlign = "left"; if (rec) rec.push({ s, x, y, align }); };
 
-const CLS = { 0: "g", 1: "s", 2: "w", 3: "g", 4: "g", 5: "g", 6: "g", 7: "p", 8: "r", 10: "g", 11: "W", 12: "f", 13: "f", 14: "d", 15: "G", 16: "X" };
+const CLS = { 17: "H", 18: "X", 19: "H", 0: "g", 1: "s", 2: "w", 3: "g", 4: "g", 5: "g", 6: "g", 7: "p", 8: "r", 10: "g", 11: "W", 12: "f", 13: "f", 14: "d", 15: "G", 16: "X" };
 const logicalW = img => img.width - 2 * (img.ox || 0), logicalH = img => img.height - 2 * (img.oy || 0);
 function shadow(cx, cy, rx, ry, a = 0.26) {
   cx += sunShift(rx); rx *= sunStretch();                                           // shadows lean away from the sun
@@ -1097,15 +1147,16 @@ function timeTint(hr) {                                                         
 
 function drawWorld() {
   const m = cur(), season = seasonOf(state.day), frame = Math.floor(clock * 3) % 4, inMine = state.map === "mine";
-  const camX = Math.max(0, Math.min(m.w * T - W, Math.round(state.px + 6 - W / 2)));
-  const camY = Math.max(0, Math.min(m.h * T - H, Math.round(state.py + 10 - H / 2)));
+  const zoom = m.zoom || 1, VW = W / zoom, VH = H / zoom, indoor = !!m.indoor;           // house interiors are drawn at 2x and centred
+  const camAxis = (pos, size, view) => (size <= view ? -Math.floor((view - size) / 2) : Math.max(0, Math.min(size - view, Math.round(pos - view / 2))));
+  const camX = camAxis(state.px + 6, m.w * T, VW), camY = camAxis(state.py + 10, m.h * T, VH);
   ctx.fillStyle = "#0c0a10"; ctx.fillRect(0, 0, W, H);
-  ctx.save(); ctx.translate(-camX, -camY);
-  const x0 = Math.max(0, Math.floor(camX / T)), x1 = Math.min(m.w - 1, Math.ceil((camX + W) / T));
-  const y0 = Math.max(0, Math.floor(camY / T)), y1 = Math.min(m.h - 1, Math.ceil((camY + H) / T) + 1);
+  ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-camX, -camY);
+  const x0 = Math.max(0, Math.floor(camX / T)), x1 = Math.min(m.w - 1, Math.ceil((camX + VW) / T));
+  const y0 = Math.max(0, Math.floor(camY / T)), y1 = Math.min(m.h - 1, Math.ceil((camY + VH) / T) + 1);
   const biome = inMine ? (state.mineFloor < 10 ? "stone" : state.mineFloor < 20 ? "frost" : "magma") : null, sandBiome = state.map === "desert" ? "desert" : "beach";
   const things = [], decoMap = !inMine && (state.map === "farm" || state.map === "town" || state.map === "forest");
-  setSun(hourNow());
+  setSun(indoor ? 13 : hourNow());
   const cls = (xx, yy) => { const t = m.tiles[yy]?.[xx]; return t ? CLS[t.t] : null; };
   const m4 = (x, y, pred) => (pred(cls(x, y - 1), 1) ? 1 : 0) | (pred(cls(x + 1, y), 2) ? 2 : 0) | (pred(cls(x, y + 1), 4) ? 4 : 0) | (pred(cls(x - 1, y), 8) ? 8 : 0);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -1120,6 +1171,8 @@ function drawWorld() {
       case 12: case 13: base = S.tile("cfloor", 0, v4, m4(x, y, c => c === "W"), { biome }); break;
       case 14: base = S.tile("sand", 0, v4, m4(x, y, c => c === "w"), { biome: sandBiome }); break;
       case 15: base = S.ghfloor[v4]; break;
+      case 17: case 19: base = S.hfloor[m.style][v4]; break;
+      case 18: base = S.hwall[m.style][y === 0 ? "top" : y === 1 && x > 0 && x < m.w - 1 ? "base" : "side"]; break;
       case 16: base = S.ghwall; break;
       default: base = (state.map === "beach" || state.map === "desert" || state.map === "island") && tile.t === 10 ? S.tile("sand", 0, v4, 0, { biome: sandBiome }) : S.tile("grass", season, v8, m4(x, y, c => c === "w"));
     }
@@ -1146,10 +1199,12 @@ function drawWorld() {
     for (let x = x0; x <= x1; x++) { ctx.fillStyle = cols[x % 4]; ctx.fillRect(x * T + 3, 12 * T + 3, 8, 3); ctx.fillRect(x * T + 4, 12 * T + 6, 6, 2); ctx.fillRect(x * T + 6, 12 * T + 8, 2, 1); }
   }
   for (const o of m.objects) {
-    const img = S.bldg[o.sprite === "centre" && state.restored ? "centreOk" : o.sprite], ow = o.w || 3;
-    if (o.x * T > camX + W + 32 || (o.x + ow) * T < camX - 32) continue;
+    const key = o.sprite === "centre" && state.restored ? "centreOk" : o.sprite === "home" ? (state.houseWork ? "homeScaf" : state.house ? "home" + state.house : "home") : o.sprite;
+    const img = S.bldg[key], ow = o.w || 3;
+    if (o.x * T > camX + VW + 32 || (o.x + ow) * T < camX - 32) continue;
+    if (o.flat) { ctx.drawImage(img, o.x * T, o.y * T); continue; }                  // rugs and mats lie under everything
     const lw = logicalW(img), lh = logicalH(img), ox = o.x * T + ow * T / 2 - lw / 2, oy = (o.y + o.h) * T - lh;
-    things.push({ img, x: ox, y: oy, sort: (o.y + o.h) * T, sh: [o.x * T + ow * T / 2, (o.y + o.h) * T - 1, Math.min(lw / 2, ow * T / 2 + 2), 3], smoke: ["home", "shop", "h1", "h2", "h3"].includes(o.sprite) ? [ox + 42, oy + 3] : null });
+    things.push({ img, x: ox, y: oy, sort: (o.y + o.h) * T, sh: indoor ? null : [o.x * T + ow * T / 2, (o.y + o.h) * T - 1, Math.min(lw / 2, ow * T / 2 + 2), 3], flame: o.sprite === "hearth" ? [ox + 10, oy + 17] : null, smoke: ["home", "shop", "h1", "h2", "h3"].includes(o.sprite) ? [ox + 42, oy + 3] : null });
   }
   for (const [id, n] of Object.entries(npcs)) if (n.map === state.map) {
     const f = n.moving ? [1, 0, 2, 0][Math.floor(clock * 6) % 4] : 0;
@@ -1170,6 +1225,7 @@ function drawWorld() {
   for (const t of things) {
     if (t.hurt) ctx.globalAlpha = 0.55;
     if (t.sway) drawSwaying(ctx, t.img, t.x, t.y, clock, t.sway); else blit(t);
+    if (t.flame) { ctx.drawImage(S.flame[Math.floor(clock * 6) % 3], Math.round(t.flame[0]), Math.round(t.flame[1])); windowGlow(ctx, t.flame[0] + 6, t.flame[1] + 4, 46, 0.9, clock); }
     ctx.globalAlpha = 1;
     if (t.smoke && !state.rain) for (let i = 0; i < 4; i++) {                       // chimney smoke
       const p = (clock * 0.35 + i * 0.25) % 1, sx = t.smoke[0] + Math.sin(p * 5 + i) * 2 + p * 5, sy = t.smoke[1] - p * 16;
@@ -1195,7 +1251,8 @@ function drawWorld() {
   const { x, y } = targetTile();                                                    // target marker (corner brackets)
   ctx.strokeStyle = `rgba(255,255,255,${0.65 + 0.3 * Math.sin(clock * 6)})`;
   for (const [px0, py0, dx, dy] of [[x * T, y * T, 1, 1], [x * T + T, y * T, -1, 1], [x * T, y * T + T, 1, -1], [x * T + T, y * T + T, -1, -1]]) { ctx.beginPath(); ctx.moveTo(px0 + dx * 4, py0 + dy * .5); ctx.lineTo(px0 + dx * .5, py0 + dy * .5); ctx.lineTo(px0 + dx * .5, py0 + dy * 4); ctx.stroke(); }
-  if (state.rain && seasonOf(state.day) !== 3 && !inMine && Math.random() < 0.5) ripple(camX + Math.random() * W, camY + Math.random() * H);
+  if (state.houseWork && state.map === "farm" && Math.random() < 0.1) emit(Math.random() < 0.5 ? "chip" : "dust", 6 * T + Math.random() * 3 * T, 6 * T + 6);
+  if (state.rain && seasonOf(state.day) !== 3 && !inMine && !indoor && Math.random() < 0.5) ripple(camX + Math.random() * W, camY + Math.random() * H);
   drawFx(ctx);
   ctx.restore();
 
@@ -1203,7 +1260,7 @@ function drawWorld() {
     const lx = state.px + 6 - camX, ly = state.py + 8 - camY, g = ctx.createRadialGradient(lx, ly, 26, lx, ly, 118);
     g.addColorStop(0, "rgba(5,3,12,0)"); g.addColorStop(1, "rgba(5,3,12,.94)");
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  } else if (state.map !== "greenhouse") {
+  } else if (!indoor && state.map !== "greenhouse") {
     const hr = hourNow(), [tr, tg, tb, ta] = timeTint(hr);
     if (ta > 0.005) { ctx.fillStyle = `rgba(${Math.round(tr)},${Math.round(tg)},${Math.round(tb)},${ta})`; ctx.fillRect(0, 0, W, H); }
     sunGlow(ctx, W, H, state.rain ? 0 : hr);
@@ -1238,6 +1295,7 @@ function drawWorld() {
       }
     }
   }
+  if (indoor) { ctx.fillStyle = "rgba(255,190,110,.07)"; ctx.fillRect(0, 0, W, H); }
   if (!inMine) vignette(ctx, W, H, Math.max(0, Math.min(1, (hourNow() - 18) / 3)));
   if (state.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${state.fade / 0.4})`; ctx.fillRect(0, 0, W, H); }
   drawHud(hourNow(), x, y);
@@ -1285,14 +1343,14 @@ function drawHud(hr, tx, ty) {
     ctx.fillStyle = col[0]; ctx.fillRect(x + 4, H - 99 + bh - fh, 6, fh); ctx.fillStyle = col[1]; ctx.fillRect(x + 4, H - 99 + bh - fh, 2, fh);
     txt(label, x + 7, H - 106, "#ffe9b0", "center");
   };
-  bar(W - 20, "E", state.energy, 100, p => (p > 0.5 ? ["#4cc04a", "#8be07a"] : p > 0.25 ? ["#e0b030", "#f6d868"] : ["#d84a3a", "#f08a7a"]));
+  bar(W - 20, "E", state.energy, maxEnergy(), p => (p > 0.5 ? ["#4cc04a", "#8be07a"] : p > 0.25 ? ["#e0b030", "#f6d868"] : ["#d84a3a", "#f08a7a"]));
   if (state.hp < maxHp() || state.map === "mine") bar(W - 38, "HP", state.hp, maxHp(), p => (p > 0.3 ? ["#d83a3a", "#f07a7a"] : ["#ff7a2a", "#ffb070"]));
   if (invuln > 0.6) { ctx.fillStyle = "rgba(220,30,30,.25)"; ctx.fillRect(0, 0, W, H); }
 
   const items = invItems(), bag = items.slice(0, 5).map(([k, n]) => `${n} ${itemInfo(k).name}`).join(", ");
   if (bag) { const t = `${bag}${items.length > 5 ? "…" : ""}`; woodFrame(4, H - 56, Math.round(ctx.measureText(t).width) + 14, 16, "rgba(30,50,60,.92)"); txt(t, 11, H - 45, "#cfe8ff"); }
   const tile = inBounds(tx, ty) ? tileAt(tx, ty) : null, id = tile && npcNear(tx, ty);
-  const hint = !tile ? "" : petNear(tx, ty) && !id ? `E: pet ${state.pet.name}` : id ? `E: ${id === "zed" ? "trade with Zed" : "talk to " + VILLAGERS[id].name}` : tile.crop && tile.crop.age >= CROPS[tile.crop.type].days ? "Space: harvest" : tile.kind === "home" ? "E: sleep / cook" : tile.kind === "centre" ? "E: community centre" : tile.kind === "built" && tile.plot === "greenhouse" ? "E: enter greenhouse"
+  const hint = !tile ? "" : petNear(tx, ty) && !id ? `E: pet ${state.pet.name}` : id ? `E: ${id === "zed" ? "trade with Zed" : "talk to " + VILLAGERS[id].name}` : tile.crop && tile.crop.age >= CROPS[tile.crop.type].days ? "Space: harvest" : tile.kind === "home" ? "E: enter house" : HINTS[tile.kind] ? HINTS[tile.kind] : tile.kind === "centre" ? "E: community centre" : tile.kind === "built" && tile.plot === "greenhouse" ? "E: enter greenhouse"
     : tile.kind === "bin" ? "E: sell goods" : tile.kind === "shop" ? "E: shop" : tile.kind === "mine" ? "E: enter mine" : tile.kind === "ladder" ? "E: go down" : tile.kind === "mexit" ? "E: leave mine"
     : tile.t === 2 && TOOLS[state.sel] === "rod" ? "Space: fish" : tile.t === 13 && TOOLS[state.sel] === "pick" ? "Space: mine" : "";
   if (hint) { const w = Math.round(ctx.measureText(hint).width) + 14; woodFrame(W - 44 - w, H - 56, w, 16, "rgba(60,44,12,.95)"); txt(hint, W - 51, H - 45, "#ffe27a", "right"); }
@@ -1359,6 +1417,11 @@ function drawUiInner(ui) {
   ctx.font = "9px monospace";
   if (ui.type === "shop") {
     panel(40, 22, 400, 214, `SHOP: ${SHOP_PAGES[ui.page]} (page ${ui.page + 1}/${SHOP_PAGES.length})  $${state.money}  Tab: next  E: close`);
+    if (ui.page === 4) {                                                             // what each house upgrade gives
+      ctx.font = "9px monospace"; let dy = 98;
+      HOUSE.slice(1).forEach(h => { wrap(`${tr(h.name)}: ${tr(h.desc)}`, 380).forEach(l => { txt(l, 48, dy, state.house >= HOUSE.indexOf(h) ? "#8f8" : "#cfe8ff"); dy += 11; }); dy += 3; });
+      txt(tf("Every upgrade adds +{0} max energy. Oliver needs 2 days to build.", HOUSE_ENERGY), 48, dy + 4, "#ffd23f");
+    }
     SHOP(ui.page).forEach((it, i) => {
       const ok = it.cost !== Infinity && state.money >= it.cost && hasMats(it.mats);
       txt(`${i + 1}. ${it.label}${it.cost === Infinity ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
@@ -1420,6 +1483,14 @@ function drawUiInner(ui) {
   else if (ui.type === "pause") {
     panel(110, 62, 260, 140, "PAUSED");
     ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Settings", "6. Quit to title"].forEach((s, i) => txt(s, 130, 90 + i * 16));
+  } else if (ui.type === "chest") {
+    const chest = ui.which === "cellar" ? state.cellarChest : state.chest, cap = ui.which === "cellar" ? CELLAR_CAP : CHEST_CAP(state.house), used = Object.keys(chest).filter(x => chest[x] > 0).length;
+    const list = ui.mode === "store" ? invItems() : Object.entries(chest).filter(([, n]) => n > 0).sort((a, b) => itemInfo(a[0]).name.localeCompare(itemInfo(b[0]).name)), pages = Math.max(1, Math.ceil(list.length / 9));
+    panel(40, 22, 400, 214, tf("{0} ({1}/{2} stacks)  Tab: {3}  E: close", tr(ui.which === "cellar" ? "CELLAR CHEST" : "STORAGE CHEST"), used, cap, tr(ui.mode === "store" ? "take" : "store")));
+    txt(ui.mode === "store" ? "Press a number to store a stack from your bag." : "Press a number to take a stack from the chest.", 48, 56, "#ffd23f");
+    list.slice(ui.page * 9, ui.page * 9 + 9).forEach(([id, n], i) => { ctx.drawImage(S.icon[id], 48, 70 + i * 15 - 10, 12, 12); txt(`${i + 1}. ${n}x ${itemInfo(id).name}`, 66, 70 + i * 15, "#fff"); });
+    if (!list.length) txt(ui.mode === "store" ? "Your bag is empty." : "The chest is empty.", 48, 74, "#777");
+    if (pages > 1) txt(`< ${ui.page + 1}/${pages} >`, 432, 228, "#c9a56a", "right");
   } else if (ui.type === "talk") {
     const v = VILLAGERS[ui.id], hh = hearts(ui.id), fe = festHostFor(ui.id);
     panel(50, 112, 380, 126, `${v.name} — ${v.job}`);
@@ -1445,7 +1516,7 @@ const festHostFor = id => {
 
 function drawMap() {
   panel(30, 14, 420, 232, "WORLD MAP  (number = fast travel, 30 min; N / E: close)");
-  const here = state.map === "greenhouse" ? "farm" : state.map === "mine" ? "forest" : state.map;
+  const here = ["greenhouse", "house", "cellar"].includes(state.map) ? "farm" : state.map === "mine" ? "forest" : state.map;
   void 0;
   const box = { forest: [190, 36, 100, 38], town: [190, 98, 100, 38], farm: [58, 98, 100, 38], desert: [322, 98, 100, 38], beach: [190, 160, 100, 38], island: [322, 160, 100, 38] };
   ctx.strokeStyle = "#665f88"; ctx.lineWidth = 2;
@@ -1691,7 +1762,7 @@ const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, la
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();

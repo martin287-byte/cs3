@@ -216,6 +216,25 @@ const UI = {
   // greetings by name
   "Good morning, {0}! ": "Jó reggelt, {0}! ",
   "Hello, {0}.": "Üdv, {0}.", "Hey, {0}!": "Szia, {0}!", "{0}! Good to see you.": "{0}! De jó, hogy látlak.", "Hi, {0}, love.": "Szia, {0}, drágám.", "Well done, {0}!": "Szép munka, {0}!",
+  // house, upgrades and storage
+  "House": "Ház", "Cabin": "Faház", "Kitchen": "Konyha", "Bedroom": "Hálószoba", "Cellar": "Pince",
+  "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy.": "Rendes konyha tűzhellyel és hűtővel. A főtt ételek 25%-kal több energiát adnak.",
+  "A second bedroom with a double bed. If you are married, breakfast is waiting every morning.": "Egy második hálószoba franciaággyal. Ha házas vagy, minden reggel reggeli vár.",
+  "A cool cellar under the house with a huge storage chest.": "Hűvös pince a ház alatt, hatalmas tárolóládával.",
+  "{0} (built)": "{0} (megépült)", "{0} (under construction, ready day {1})": "{0} (építés alatt, kész: {1}. nap)", "{0} (wait for the builders)": "{0} (várj az építőkre)", "{0} (needs {1})": "{0} (kell hozzá: {1})",
+  "Upgrade: {0}": "Fejlesztés: {0}", "Oliver starts work on your {0}. Ready on day {1}!": "Oliver nekilát: {0}. Kész: {1}. nap!",
+  "Every upgrade adds +{0} max energy. Oliver needs 2 days to build.": "Minden fejlesztés +{0} max energiát ad. Oliver 2 nap alatt építi meg.",
+  "{0} ({1}/{2} stacks)  Tab: {3}  E: close": "{0} ({1}/{2} köteg)  Tab: {3}  E: bezár", "STORAGE CHEST": "TÁROLÓLÁDA", "CELLAR CHEST": "PINCELÁDA", "take": "kivesz", "store": "betesz",
+  "Press a number to store a stack from your bag.": "Nyomj egy számot, hogy betedd a köteget a táskádból.", "Press a number to take a stack from the chest.": "Nyomj egy számot, hogy kivedd a köteget a ládából.",
+  "Your bag is empty.": "A táskád üres.", "The chest is empty.": "A láda üres.", "The chest is full.": "A láda tele van.",
+  "A cosy table with fresh flowers.": "Hangulatos asztal friss virágokkal.", "Your plant looks happy.": "A növényed boldognak tűnik.", "A sturdy kitchen counter.": "Erős konyhapult.",
+  "A shelf full of books.": "Könyvekkel teli polc.", "A barrel. Empty for now.": "Egy hordó. Egyelőre üres.", "A crate. Empty for now.": "Egy láda. Egyelőre üres.",
+  "E: sleep": "E: alvás", "E: cook": "E: főzés", "E: storage": "E: tárolás", "E: wardrobe": "E: ruhatár", "E: enter house": "E: belépés a házba",
+  "The builders are busy — you sleep in a tent until day {0}.": "Az építők dolgoznak — a(z) {0}. napig sátorban alszol.",
+  "The bed ends the day, the hearth cooks, the chest stores items and the mirror changes your look. Upgrade the house at the shop (House page).": "Az ágy befejezi a napot, a kandalló főz, a láda tárol, a tükör megváltoztatja a kinézeted. A házat a boltban fejlesztheted (Ház oldal).",
+  "{0} made you breakfast.": "{0} reggelit készített neked.",
+  "Walk to your farmhouse door and tap E to go in, then tap E at the bed to sleep. Watered crops grow overnight!": "Menj a farmház ajtajához, koppints az E-re a belépéshez, majd az ágynál az E-re az alváshoz. Az öntözött növények éjjel nőnek!",
+  "Walk to your farmhouse door and press E to go in, then press E at the bed to sleep. Watered crops grow overnight!": "Menj a farmház ajtajához, nyomd meg az E-t a belépéshez, majd az ágynál az E-t az alváshoz. Az öntözött növények éjjel nőnek!",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons
