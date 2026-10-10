@@ -13,7 +13,8 @@ import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
 import { AXE_UPGRADES, MACHINES, machineRecipe } from "./data.js";
-import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS, FAMILY, FAMILY_LINES } from "./events.js";
+import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS, FAMILY, FAMILY_LINES, FINALE } from "./events.js";
+import { createCutscenes } from "./cutscene.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -242,6 +243,7 @@ addEventListener("keydown", e => {
     else if (scene === "title") titleKey(k);
     else if (scene === "intro") intro.key(k);
     else if (scene === "builder") builder.key(k);
+    else if (cuts.active) cuts.key(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
     else if (/^[0-9=-]$/.test(k)) selectSlot(state.row * COLS + (k === "0" ? 9 : k === "-" ? 10 : k === "=" ? 11 : Number(k) - 1));
@@ -652,7 +654,9 @@ function depositItem(b, id) {
   }
 }
 function restoreCentre() {
-  state.restored = true; state.money += RESTORE_PRIZE; state.ui = { type: "ending" }; audio.beep(1200, 0.6, "triangle");
+  state.restored = true; state.money += RESTORE_PRIZE; state.ui = null; audio.beep(1200, 0.6, "triangle");
+  const done = () => { state.ui = { type: "ending" }; };
+  if (state.map === "town" && !cuts.start(FINALE, done)) done(); else if (state.map !== "town") done();
 }
 
 // ---------------------------------------------------------------- tutorial, tips, map
@@ -1121,8 +1125,8 @@ function talkKey(k, num) {
   }
   if (ui.mode === "menu") {
     if (num === 0) {
-      const lv = [8, 4].find(l => hearts(ui.id) >= l && HEART_EVENTS[ui.id]?.[l] && !f["ev" + l]);
-      if (lv && state.spouse !== ui.id) { f["ev" + lv] = true; f.talked = true; ui.mode = "event"; ui.ev = HEART_EVENTS[ui.id][lv]; ui.i = 0; ui.text = tr(ui.ev.lines[0]); return; }
+      const lv = [10, 8, 6, 4].find(l => hearts(ui.id) >= l && HEART_EVENTS[ui.id]?.[l] && !f["ev" + l]);
+      if (lv && state.spouse !== ui.id) { f["ev" + lv] = true; f.talked = true; startEventScene(ui.id, lv); return; }
       const h = hearts(ui.id), tier = h < 3 ? v.low : h < 6 ? v.mid : v.high;
       const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier, ...(h >= 3 && FAMILY_LINES[ui.id] ? [FAMILY_LINES[ui.id]] : [])];
       const first = !f.talked, line = tr(pool[(state.day + ui.n++) % pool.length]);
@@ -1260,11 +1264,27 @@ function goMap(to, tx, ty) {
   say(maps[to].name, 1.5); audio.beep(440, 0.08, "triangle"); audio.startMusic(areaMood());
 }
 
+let camNow = { x: 0, y: 0, zoom: 1 }, camOverride = null, playerWalking = false;
+const cuts = createCutscenes({
+  ctx, W, H, T, S, state: () => state, npcs, VILLAGERS, tr, wrap, woodFrame, audio,
+  cam: () => camNow, getCam: () => camOverride, setCam: c => { camOverride = c; }, setMoving: v => { playerWalking = v; moving = v; },
+});
+function startEventScene(id, lv) {                                                  // heart events and stories play as cutscenes
+  const ev = HEART_EVENTS[id][lv], f = state.friend[id];
+  state.ui = null;
+  cuts.start([{ face: [id, "player"] }, { emote: [id, "!"] }, ...ev.lines, { emote: [id, "♥"] }], () => {
+    const r = ev.reward, g = [];
+    if (r.money) { state.money += r.money; g.push(`$${r.money}`); }
+    if (r.item) { addItem(r.item); g.push(tr(itemInfo(r.item).name)); }
+    addFriend(id, r.pts); say(tf("{0} gave you: {1}", VILLAGERS[id].name, g.join(", ")), 4); audio.beep(990, 0.2, "triangle");
+  });
+}
 function update(dt) {
   clock += dt;
   if (scene === "intro" && !setUi) intro.update(dt);
   if (scene === "builder" && !setUi) builder.update(dt);
   if (scene !== "game" || setUi) return;
+  if (cuts.active) { cuts.update(dt); walkT += dt; return; }
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
   if (state.map.startsWith("store_") && hourNow() >= STORES[state.map.slice(6)].open[1]) { const S0 = STORES[state.map.slice(6)]; goMap("town", S0.x + 1, S0.y + 2); say("It's closing time — you say goodbye and head out.", 3.5); }
   if (state.map.startsWith("home_") && hourNow() >= 22) { const H = HOMES[state.map.slice(5)]; goMap("town", H.x + 1, H.y + 2); say("It's late — you say goodnight and head out.", 3.5); }
@@ -1376,7 +1396,8 @@ function drawWorld() {
   const m = cur(), season = seasonOf(state.day), frame = Math.floor(clock * 3) % 4, inMine = state.map === "mine";
   const zoom = m.zoom || 1, VW = W / zoom, VH = H / zoom, indoor = !!m.indoor;           // house interiors are drawn at 2x and centred
   const camAxis = (pos, size, view) => (size <= view ? -Math.floor((view - size) / 2) : Math.max(0, Math.min(size - view, Math.round(pos - view / 2))));
-  const camX = camAxis(state.px + 6, m.w * T, VW), camY = camAxis(state.py + 10, m.h * T, VH);
+  const camX = camAxis(camOverride ? camOverride.x : state.px + 6, m.w * T, VW), camY = camAxis(camOverride ? camOverride.y : state.py + 10, m.h * T, VH);
+  camNow = { x: camX, y: camY, zoom };
   ctx.fillStyle = "#0c0a10"; ctx.fillRect(0, 0, W, H);
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-camX, -camY);
   const x0 = Math.max(0, Math.floor(camX / T)), x1 = Math.min(m.w - 1, Math.ceil((camX + VW) / T));
@@ -1529,7 +1550,7 @@ function drawWorld() {
   if (indoor) { ctx.fillStyle = "rgba(255,190,110,.07)"; ctx.fillRect(0, 0, W, H); }
   if (!inMine) vignette(ctx, W, H, Math.max(0, Math.min(1, (hourNow() - 18) / 3)));
   if (state.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${state.fade / 0.4})`; ctx.fillRect(0, 0, W, H); }
-  drawHud(hourNow(), x, y);
+  if (!cuts.active) drawHud(hourNow(), x, y);
 }
 
 function woodFrame(x, y, w, h, fill = "rgba(34,22,12,.93)") {
@@ -2131,6 +2152,7 @@ canvas.addEventListener("pointerdown", e => {
     if (i >= 0 && i < opts.length && cx > W / 2 - 70 && cx < W / 2 + 70) { titleSel = i; dispatchKey("enter"); }
     return;
   }
+  if (cuts.active) { cuts.key("enter"); return; }
   if (state.ui?.type === "inv" && invTap(cx, cy)) return;
   if (state.ui) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
   const tb0 = Math.round((W - (COLS * 28 - 2)) / 2);
@@ -2155,7 +2177,7 @@ const onHide = () => { if (document.visibilityState === "hidden" || document.vis
 document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
 let lastUiOpen = null, lastTitle = null, lastIntro = null, lastInv = null;
 function syncBodyClasses() {
-  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title", inIntro = (scene === "intro" || scene === "builder") && !setUi;
+  const uiOpen = (scene === "game" && (!!state?.ui || cuts.active)) || !!setUi, title = scene === "title", inIntro = (scene === "intro" || scene === "builder") && !setUi;
   if (uiOpen !== lastUiOpen) { document.body.classList.toggle("ui-open", uiOpen); lastUiOpen = uiOpen; }
   if (title !== lastTitle) { document.body.classList.toggle("scene-title", title); lastTitle = title; }
   const invOpen = scene === "game" && state?.ui?.type === "inv" && !setUi;
@@ -2169,14 +2191,14 @@ const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, la
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, makeAnimals,  travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, makeAnimals, restoreCentre, get cuts() { return cuts; },  travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
 (function frame(now) {
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
   ctx.font = "9px monospace";
-  if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else if (scene === "builder") builder.draw(); else { drawWorld(); drawGear(); }
+  if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else if (scene === "builder") builder.draw(); else { drawWorld(); cuts.draw(); if (!cuts.active) drawGear(); }
   if (slotUi) drawSlotUi();
   if (setUi) drawSettings();
   syncBodyClasses();
