@@ -980,7 +980,7 @@ function sleep() {
   if (state.fest) { const f = FESTIVALS.find(x => x.id === state.fest.id); extra += ` ${tf("Today: {0}! {1}.", tr(f.name), tr(f.desc))}`; }
   if (merchantHere()) extra += ` ${tf("Zed the merchant is in Town today.")}`;
   save();
-  say(`${tf("Day {0}", state.day)}${state.rain ? ` — ${tf(s === 3 ? "snowing" : "raining")}` : ""}.${state.chickens ? ` ${tf("{0} egg(s)", state.chickens)}` : ""}${state.cows ? ` ${tf("{0} milk", state.cows)}` : ""}${state.chickens || state.cows ? ` ${tf("collected.")}` : ""}${extra}`, extra ? 7 : 3);
+  say(`${state.name && state.day > 1 ? tf("Good morning, {0}! ", state.name) : ""}${tf("Day {0}", state.day)}${state.rain ? ` — ${tf(s === 3 ? "snowing" : "raining")}` : ""}.${state.chickens ? ` ${tf("{0} egg(s)", state.chickens)}` : ""}${state.cows ? ` ${tf("{0} milk", state.cows)}` : ""}${state.chickens || state.cows ? ` ${tf("collected.")}` : ""}${extra}`, extra ? 7 : 3);
 }
 
 // ---------------------------------------------------------------- update

@@ -214,6 +214,7 @@ const UI = {
   "Random": "Véletlen", "Start": "Kezdés", "Done": "Kész", "Cancel": "Mégse", "edit": "szerk.", "Your name": "A neved", "Space": "Szóköz", "Del": "Törlés", "OK": "OK",
   "Tap ◀ ▶ to change": "Koppints a ◀ ▶ gombokra", "↑↓ choose  ←→ change": "↑↓ választ  ←→ változtat", "Enter: select · R: random": "Enter: kiválaszt · R: véletlen", "3. Wardrobe": "3. Ruhatár",
   // greetings by name
+  "Good morning, {0}! ": "Jó reggelt, {0}! ",
   "Hello, {0}.": "Üdv, {0}.", "Hey, {0}!": "Szia, {0}!", "{0}! Good to see you.": "{0}! De jó, hogy látlak.", "Hi, {0}, love.": "Szia, {0}, drágám.", "Well done, {0}!": "Szép munka, {0}!",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
