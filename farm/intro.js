@@ -3,7 +3,7 @@
 import { hash } from "./px.js";
 
 const LETTER = [
-  "My dear grandchild,",
+  "",
   "",
   "Tiny Valley's old farm is yours now. The soil is rich, the neighbours are kind — but the community centre, where the whole valley once gathered, has fallen into ruin.",
   "",
@@ -104,7 +104,7 @@ export function makeIntro(h) {
 
   function layout() {
     const s = SLIDES[i]; ctx.font = "9px monospace";
-    if (s.letter) lines = LETTER.flatMap(p => (p ? wrap(p, 320) : [""]));
+    if (s.letter) lines = [h.tf("My dear {0},", h.name() || "grandchild"), ...LETTER.slice(1)].flatMap(p => (p ? wrap(p, 320) : [""]));
     else if (s.card) lines = [];
     else lines = wrap(s.text, 390);
     total = Math.max(1, s.card ? 1 : lines.join("").length);

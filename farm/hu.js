@@ -208,6 +208,11 @@ const UI = {
   "The fields were wild and the fences crooked — but smoke curled from the chimney. This was home now.": "A mezők vadak voltak, a kerítések görbék — de a kéményből füst kunkorodott. Mostantól ez volt az otthonod.",
   "Spring, Day 1": "Tavasz, 1. nap", "Restore the community centre.": "Állítsd helyre a közösségi házat.", "Welcome to Tiny Valley.": "Üdv Tiny Valley-ben.",
   "Skip ▶": "Kihagyás ▶", "Esc: skip": "Esc: kihagyás",
+  // character builder
+  "My dear {0},": "Drága {0}!", "CREATE YOUR FARMER": "KÉSZÍTSD EL A GAZDÁT", "Name": "Név", "Skin": "Bőrszín", "Hair style": "Frizura", "Hair colour": "Hajszín", "Eyes": "Szemszín",
+  "Shirt": "Póló", "Pants": "Nadrág", "Facial hair": "Arcszőrzet", "Short": "Rövid", "Long": "Hosszú", "Bun": "Konty", "Cap": "Sapka", "Bald": "Kopasz",
+  "Random": "Véletlen", "Start": "Kezdés", "Done": "Kész", "Cancel": "Mégse", "edit": "szerk.", "Your name": "A neved", "Space": "Szóköz", "Del": "Törlés", "OK": "OK",
+  "Tap ◀ ▶ to change": "Koppints a ◀ ▶ gombokra", "↑↓ choose  ←→ change": "↑↓ választ  ←→ változtat", "Enter: select · R: random": "Enter: kiválaszt · R: véletlen", "3. Wardrobe": "3. Ruhatár",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

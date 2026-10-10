@@ -11,6 +11,8 @@ import { initView, canvasPoint } from "./view.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
+import { makeBuilder, toSpriteLook } from "./builder.js";
+import { makePerson, PLAYER_LOOK } from "./art.js";
 import { setSun, sunShift, sunStretch, grassDeco, waterSparkle, drawSwaying, emit, ripple, clearFx, updateFx, drawFx, vignette, sunGlow, windowGlow, litWindows } from "./fx.js";
 import { settings, setSetting, onSetting, CTRL_SIZES } from "./settings.js";
 
@@ -94,6 +96,7 @@ function defaultState() {
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
+    name: "", look: { skin: PLAYER_LOOK.skin, hair: PLAYER_LOOK.hair, hairStyle: PLAYER_LOOK.hairStyle, eye: PLAYER_LOOK.eye, shirt: PLAYER_LOOK.shirt, pants: PLAYER_LOOK.pants },
   };
 }
 
@@ -142,12 +145,21 @@ function load() {
   } catch { return false; }
 }
 
+const applyLook = () => { S.player = makePerson(toSpriteLook(state.look)); };
 function startGame(cont, skipIntro) {
   const fresh = !(cont && load());
   if (fresh) newGame();
   fishing = null; monsters = []; placePet();
   if (state.map === "mine") spawnMonsters();
-  if (fresh && !skipIntro) { scene = "intro"; audio.startMusic("title"); intro.begin(() => { scene = "game"; audio.startMusic(areaMood()); }); return; }   // story intro on a new game
+  applyLook();
+  if (fresh && !skipIntro) {                                                          // new game: build your farmer, then the story intro
+    scene = "builder"; audio.startMusic("title");
+    builder.begin({ look: state.look, name: "" }, res => {
+      state.look = res.look; state.name = res.name; applyLook();
+      scene = "intro"; intro.begin(() => { scene = "game"; audio.startMusic(areaMood()); });
+    });
+    return;
+  }
   scene = "game";
   audio.startMusic(areaMood());
 }
@@ -158,11 +170,13 @@ addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "tab"].includes(k)) e.preventDefault();
   if (!keys.has(k)) {
-    if (setUi) settingsKey(k);
+    if (scene === "builder" && builder.editing && !setUi) builder.key(k);                 // typing a name: letters must not trigger shortcuts
+    else if (setUi) settingsKey(k);
     else if (k === "o") openSettings();
     else if (k === "m") audio.toggleMute();
     else if (scene === "title") titleKey(k);
     else if (scene === "intro") intro.key(k);
+    else if (scene === "builder") builder.key(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
     else if (/^[1-6]$/.test(k)) { const n = Number(k) - 1; if (n === SEED_SLOT && state.sel === SEED_SLOT) cycleSeed(); state.sel = n; }
@@ -831,6 +845,10 @@ function uiKey(k) {
   } else if (ui.type === "home") {
     if (close) return void (state.ui = null);
     if (num === 0) sleep(); else if (num === 1) state.ui = { type: "cook" };
+    else if (num === 2) {                                                          // wardrobe: change name and looks
+      state.ui = null; scene = "builder";
+      builder.begin({ look: state.look, name: state.name, mode: "edit" }, res => { if (res) { state.look = res.look; state.name = res.name; applyLook(); } scene = "game"; });
+    }
   } else if (ui.type === "cook") {
     if (close) return void (state.ui = null);
     const id = state.recipes[num];
@@ -974,6 +992,7 @@ function goMap(to, tx, ty) {
 function update(dt) {
   clock += dt;
   if (scene === "intro" && !setUi) intro.update(dt);
+  if (scene === "builder" && !setUi) builder.update(dt);
   if (scene !== "game" || setUi) return;
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
   const snow = seasonOf(state.day) === 3, amb = !state.rain, sea = seasonOf(state.day);
@@ -1385,8 +1404,8 @@ function drawUiInner(ui) {
     });
   } else if (ui.type === "dance") drawDance(ui);
   else if (ui.type === "home") {
-    panel(150, 80, 180, 70, "FARMHOUSE");
-    txt("1. Sleep (end the day)", 160, 106); txt("2. Cook", 160, 122); txt("E: cancel", 160, 138, "#777");
+    panel(150, 76, 180, 90, "FARMHOUSE");
+    txt("1. Sleep (end the day)", 160, 102); txt("2. Cook", 160, 118); txt("3. Wardrobe", 160, 134); txt("E: cancel", 160, 150, "#777");
   } else if (ui.type === "cook") {
     panel(40, 30, 400, 200, "KITCHEN  (number cooks, E to close)");
     state.recipes.slice(0, 9).forEach((id, i) => {
@@ -1630,6 +1649,7 @@ canvas.addEventListener("pointerdown", e => {
   const { x: cx, y: cy } = canvasPoint(e, canvas, W, H);
   if (setUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
   if (scene === "intro") return intro.tap(cx, cy);
+  if (scene === "builder") return builder.tap(cx, cy);
   if (!isTouch() && gearHit(cx, cy, scene === "title")) return openSettings();
   if (scene === "title") {
     const opts = titleOptions(), i = Math.floor((cy - 98) / 16);
@@ -1656,25 +1676,26 @@ const onHide = () => { if (document.visibilityState === "hidden" || document.vis
 document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
 let lastUiOpen = null, lastTitle = null, lastIntro = null;
 function syncBodyClasses() {
-  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title", inIntro = scene === "intro" && !setUi;
+  const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title", inIntro = (scene === "intro" || scene === "builder") && !setUi;
   if (uiOpen !== lastUiOpen) { document.body.classList.toggle("ui-open", uiOpen); lastUiOpen = uiOpen; }
   if (title !== lastTitle) { document.body.classList.toggle("scene-title", title); lastTitle = title; }
   if (inIntro !== lastIntro) { document.body.classList.toggle("scene-intro", inIntro); lastIntro = inIntro; }
 }
 
-const intro = makeIntro({ ctx, W, H, S, txt, wrap, woodFrame, tr, beep: audio.beep, isTouch });
+const intro = makeIntro({ ctx, W, H, S, txt, wrap, woodFrame, tr, tf, beep: audio.beep, isTouch, name: () => state?.name || "" });
+const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, lang, isTouch });
 
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
 (function frame(now) {
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
   ctx.font = "9px monospace";
-  if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else { drawWorld(); drawGear(); }
+  if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else if (scene === "builder") builder.draw(); else { drawWorld(); drawGear(); }
   if (setUi) drawSettings();
   syncBodyClasses();
   requestAnimationFrame(frame);
