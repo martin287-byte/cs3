@@ -842,7 +842,7 @@ function eat(id) {
 // ---------------------------------------------------------------- interaction & menus
 const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now.",
   fountain: "A stone fountain. The villagers love to meet here.", lamp: "A street lamp. It lights up at dusk.", stall: "A market stall. The stallholder is away today.",
-  library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
+  library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", hall: "Town hall. The mayor is away on valley business.", museum: "The museum is being restored. Bring relics from the island one day.", post: "The post office. No letters for you today.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
 const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
 function enterHouse() {
   state.mounted = false;
@@ -1447,12 +1447,12 @@ function drawWorld() {
     if (hr > 17.5 || hr < 6.5) {                                                    // lit windows: warm light pools around houses
       const st = hr < 6.5 ? 1 : Math.min(1, (hr - 17.5) / 2.5);
       for (const o of m.objects) {
-        if (!["home", "shop", "h1", "h2", "h3", "centre", "clinic", "inn", "library", "smithy", "lamp"].includes(o.sprite)) continue;
+        if (!["home", "shop", "h1", "h2", "h3", "centre", "clinic", "inn", "library", "smithy", "lamp", "townhall", "museum", "post"].includes(o.sprite)) continue;
         const img = S.bldg[o.sprite === "centre" && state.restored ? "centreOk" : o.sprite], ow = o.w || 3, lw = logicalW(img), lh = logicalH(img);
         const gx = o.x * T + ow * T / 2 - camX, gy = (o.y + o.h) * T - lh * 0.4 - camY;
         if (gx > -60 && gx < W + 60 && gy > -60 && gy < H + 60) {
           windowGlow(ctx, gx, gy, Math.max(40, lw * 0.9), st, clock);
-          if (["home", "shop", "h1", "h2", "h3", "clinic", "inn", "library"].includes(o.sprite)) litWindows(ctx, o.x * T + ow * T / 2 - lw / 2 - camX, (o.y + o.h) * T - lh - camY, st);
+          if (["home", "shop", "h1", "h2", "h3", "clinic", "inn", "library", "townhall", "museum", "post"].includes(o.sprite)) litWindows(ctx, o.x * T + ow * T / 2 - lw / 2 - camX, (o.y + o.h) * T - lh - camY, st);
         }
       }
     }

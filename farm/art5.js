@@ -16,6 +16,16 @@ const library = () => onHouse({ wall: "#c8d4e0", roof: "#5a4a8a", trim: "#ffffff
 const smithy = () => onHouse({ wall: "#8a8a92", roof: "#3a3a44", trim: "#b8b8c0", shutter: "#c86a2a", label: "SMITH" }, g => {
   R(g, "#3b2814", 40, 36, 14, 14); R(g, "#2a2a30", 41, 37, 12, 12); R(g, "#ff8a2a", 43, 43, 8, 5); R(g, "#ffd23f", 45, 45, 4, 3); R(g, "#6a6a74", 42, 40, 10, 2);
 });
+const townhall = () => onHouse({ wall: "#ddd4c0", roof: "#8a3a3a", trim: "#ffffff", shutter: "#3a5a8a", chimney: false, label: "HALL" }, g => {
+  R(g, "#3b2814", 21, 8, 14, 3); R(g, "#f4e8c8", 22, 9, 12, 1); R(g, "#d84a4a", 27, 0, 1, 8); R(g, "#d84a4a", 28, 1, 5, 3); R(g, "#fff", 28, 2, 3, 1);
+  for (const x of [8, 40]) { R(g, "#f4efe6", x, 28, 3, 24); R(g, "#c8c0b0", x + 2, 28, 1, 24); }
+});
+const museum = () => onHouse({ wall: "#c8c0d8", roof: "#4a6a8a", trim: "#f4f0ff", shutter: "#6a4a8a", chimney: false, label: "MUSEUM" }, g => {
+  R(g, "#3b2814", 40, 29, 12, 11); R(g, "#f0e0a0", 41, 30, 10, 9); R(g, "#8a6a30", 44, 33, 4, 5); R(g, "#d8b84a", 45, 31, 2, 2); R(g, "#fff", 45, 31, 1, 1);
+});
+const post = () => onHouse({ wall: "#e0b080", roof: "#c84a3a", trim: "#fff4d8", shutter: "#3a6aa8", label: "POST" }, g => {
+  R(g, "#3b2814", 40, 36, 10, 14); R(g, "#3a6aa8", 41, 37, 8, 12); R(g, "#1a3a68", 42, 40, 6, 2); R(g, "#fff", 43, 44, 4, 2);
+});
 const fountain = () => mk(34, 34, g => {
   R(g, "#4a4a56", 2, 12, 30, 20); R(g, "#8a8a98", 3, 12, 28, 18); R(g, "#b8b8c6", 3, 12, 28, 3); R(g, "#6a6a78", 3, 28, 28, 3);
   R(g, "#4a8ac8", 6, 16, 22, 10); R(g, "#7ac0f0", 6, 16, 22, 3); R(g, "#a8e0ff", 9, 21, 6, 1); R(g, "#a8e0ff", 18, 18, 7, 1);
@@ -32,4 +42,4 @@ const stall = () => mk(34, 30, g => {
   R(g, "#8a5a30", 2, 18, 30, 10); R(g, "#a8743c", 2, 18, 30, 2); R(g, "#6a4020", 2, 27, 30, 1);
   for (const [x, c] of [[6, "#e84a4a"], [11, "#ffd23f"], [16, "#7ac07a"], [21, "#e8884a"], [26, "#a85aa8"]]) { R(g, c, x, 15, 4, 4); R(g, shade(c, 0.3), x, 15, 1, 2); }
 });
-export function buildTownArt(S) { Object.assign(S.bldg, { clinic: clinic(), inn: inn(), library: library(), smithy: smithy(), fountain: fountain(), lamp: lamp(), stall: stall() }); }
+export function buildTownArt(S) { Object.assign(S.bldg, { clinic: clinic(), inn: inn(), library: library(), smithy: smithy(), townhall: townhall(), museum: museum(), post: post(), fountain: fountain(), lamp: lamp(), stall: stall() }); }

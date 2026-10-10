@@ -352,6 +352,9 @@ const UI = {
   "The nurse patches you up. (-$60, health restored, +40 energy)": "A nővér összefoltoz. (-60$, életerő helyreállt, +40 energia)",
   "pink dots = villagers": "rózsaszín pont = falusi",
   "1. Farm  2. Town  3. Forest  4. Beach  5. Desert  6. Island ($50)": "1. Farm  2. Város  3. Erdő  4. Part  5. Sivatag  6. Sziget (50$)",
+  "Town hall. The mayor is away on valley business.": "Városháza. A polgármester a völgy ügyeiben távol van.",
+  "The museum is being restored. Bring relics from the island one day.": "A múzeum felújítás alatt áll. Egyszer hozz majd régiségeket a szigetről.",
+  "The post office. No letters for you today.": "A posta. Ma nincs leveled.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

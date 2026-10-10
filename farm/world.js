@@ -72,10 +72,10 @@ export function upgradeTown(m) {
   stamp("stall", 23, 16, 2, 1, "stall"); stamp("stall", 26, 16, 2, 1, "stall");
 }
 
-function makeTown(rnd) {
-  const m = blank(44, 28, "Town");
-  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 27, x1: 23, y1: 27 }, { x0: 43, y0: 12, x1: 43, y1: 15 }]);
-  fill(m, 0, 13, 43, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8); fill(m, 20, 15, 21, 27, 8);
+function makeTown(rnd) {                                                            // 64x44: the original centre (top-left) plus an east district, a river and a south bank
+  const m = blank(64, 44, "Town");
+  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 43, x1: 23, y1: 43 }, { x0: 63, y0: 12, x1: 63, y1: 15 }]);
+  fill(m, 0, 13, 63, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8); fill(m, 20, 15, 21, 43, 8);
   put(m, 22, 12, 10, { kind: "board" }); m.objects.push({ sprite: "board", x: 22, y: 12, h: 1, w: 1 });          // quest bulletin board
   building(m, "shop", 17, 5, 6, "shop");
   building(m, "h1", 6, 4, 10, "house"); building(m, "h2", 26, 4, 10, "house");
@@ -83,10 +83,25 @@ function makeTown(rnd) {
   building(m, "centre", 12, 18, 10, "centre");                                     // community centre
   pond(m, 38, 21, 4, 3, "pond");
   upgradeTown(m);
+  // east district: a north-south avenue, more homes, the town hall and the post office
+  fill(m, 50, 2, 51, 27, 8);
+  const lot = (sprite, x, y, kind, doorX) => { fill(m, x - 1, y, x + 3, y + 1, 0); building(m, sprite, x, y, 10, kind); fill(m, doorX, y + 2, doorX + 1, y < 13 ? 12 : y + 3, 8); };
+  lot("h2", 45, 4, "house", 46); lot("townhall", 55, 4, "hall", 56);
+  for (const [sprite, x, kind] of [["post", 45, "post"], ["h3", 55, "house"]]) { fill(m, x - 1, 18, x + 3, 19, 0); building(m, sprite, x, 18, 10, kind); }
+  fill(m, 45, 20, 57, 21, 8);
+  // the river and a bridge, then the south bank with the museum and more homes
+  for (let x = 1; x < 63; x++) for (const y of [30, 31]) put(m, x, y, 2, { water: "pond" });
+  fill(m, 20, 30, 21, 31, 8);
+  fill(m, 6, 36, 58, 37, 8);
+  for (const [sprite, x, kind] of [["h1", 8, "house"], ["museum", 28, "museum"], ["h2", 40, "house"], ["h3", 50, "house"]]) { fill(m, x - 1, 34, x + 3, 35, 0); building(m, sprite, x, 34, 10, kind); }
+  pond(m, 14, 41, 3, 2, "pond"); pond(m, 57, 41, 3, 2, "pond");
+  for (const [x, y] of [[45, 12], [53, 12], [60, 12], [45, 15], [53, 15], [60, 15], [19, 29], [22, 29], [19, 32], [22, 32], [30, 38], [46, 38]]) if (m.tiles[y][x].t === 0) { fill(m, x, y, x, y, 10, { kind: "lamp" }); m.objects.push({ sprite: "lamp", x, y, w: 1, h: 1 }); }
+  const keep = (x, y) => (y >= 11 && y <= 15) || (y >= 29 && y <= 32) || (y >= 35 && y <= 38) || (x >= 19 && x <= 22) || (x >= 49 && x <= 52 && y <= 28);
   scatter(m, rnd, 45, (x, y) => !(y >= 11 && y <= 15) && !(x >= 19 && x <= 22 && y >= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
-    && !(x >= 4 && x <= 16 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
+    && !(x >= 4 && x <= 16 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && x < 44 && y < 28);
+  scatter(m, rnd, 60, (x, y) => (x >= 44 || y >= 28) && !keep(x, y) && !(x >= 44 && x <= 58 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
   m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 },
-    { x: 20, y: 27, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 43, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
+    { x: 20, y: 43, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 63, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
   return m;
 }
 
@@ -122,7 +137,7 @@ function makeBeach(rnd) {
   for (let y = 15; y <= 16; y++) for (let x = 37; x <= 39; x++) m.tiles[y][x].dest = "island";
   scatterDeco(m, rnd, 26, "palm", (x, y) => y < 17 && !(x >= 19 && x <= 24 && y <= 9) && !(x >= 20 && x <= 24 && y >= 14 && y <= 18) && !(x >= 35 && x <= 41 && y >= 12));
   for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "palm";
-  m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 25 });
+  m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 41 });
   return m;
 }
 
@@ -134,7 +149,7 @@ function makeDesert(rnd) {
   scatterDeco(m, rnd, 55, "cactus", (x, y) => !(x <= 5 && y >= 12 && y <= 19) && !(((x - 34) / 7) ** 2 + ((y - 20) / 5) ** 2 < 1) && !(x >= 22 && x <= 30 && y >= 9 && y <= 13));
   fill(m, 1, 15, 14, 16, 8);                                                        // trail from town
   for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "cactus";
-  m.warps.push({ x: 0, y: 14, w: 1, h: 4, to: "town", tx: 41, ty: 13 });
+  m.warps.push({ x: 0, y: 14, w: 1, h: 4, to: "town", tx: 61, ty: 13 });
   return m;
 }
 
