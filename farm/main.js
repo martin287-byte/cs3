@@ -875,8 +875,10 @@ function talkKey(k, num) {
     if (num === 0) {
       const h = hearts(ui.id), tier = h < 3 ? v.low : h < 6 ? v.mid : v.high;
       const pool = state.spouse === ui.id ? SPOUSE_LINES : [v.season[seasonOf(state.day)], ...tier];
-      ui.text = `${v.name}: ${pool[(state.day + ui.n++) % pool.length]}`;
-      if (!f.talked) { f.talked = true; addFriend(ui.id, 20); }
+      const first = !f.talked, line = tr(pool[(state.day + ui.n++) % pool.length]);
+      const greet = !first || !state.name ? "" : state.spouse === ui.id ? tf("Hi, {0}, love.", state.name) : tf(h < 3 ? "Hello, {0}." : h < 6 ? "Hey, {0}!" : "{0}! Good to see you.", state.name);
+      ui.text = `${v.name}: ${greet ? greet + " " : ""}${line}`;
+      if (first) { f.talked = true; addFriend(ui.id, 20); }
     } else if (num === 1) { ui.mode = "gift"; ui.text = ""; }
     else if (num === 2 && festHostFor(ui.id)) { const r = festEntry(); if (r !== "") ui.text = r ?? `${v.name}: No festival entries today.`; }
   } else if (ui.mode === "gift") {
@@ -1484,10 +1486,11 @@ function drawCentre(ui) {
 }
 function drawEnding() {
   panel(50, 30, 380, 200, "THE COMMUNITY CENTRE IS RESTORED!");
-  const lines = [`The whole valley gathers to celebrate what you've built.`, ``, `Days played: ${state.day}   Money: $${state.money}   Fish caught: ${state.caught}`,
-    `Skills: ${Object.keys(SKILLS).map(k => `${SKILLS[k].name} ${skillLevel(k)}`).join(", ")}`, `Married: ${state.spouse ? VILLAGERS[state.spouse].name : "no"}   Pet: ${state.pet ? state.pet.name : "none"}   Horse: ${state.horse ? "yes" : "no"}`, ``,
+  const lines = [state.name ? tf("Well done, {0}!", state.name) : "", `The whole valley gathers to celebrate what you've built.`, ``, `Days played: ${state.day}   Money: $${state.money}   Fish caught: ${state.caught}`,
+    `Skills: ${Object.keys(SKILLS).map(k => `${tr(SKILLS[k].name)} ${skillLevel(k)}`).join(", ")}`, `Married: ${state.spouse ? VILLAGERS[state.spouse].name : tr("no")}   Pet: ${state.pet ? state.pet.name : tr("none")}   Horse: ${tr(state.horse ? "yes" : "no")}`, ``,
     `You received $${RESTORE_PRIZE} as a thank-you.`, `Thanks for playing Tiny Valley! Keep farming as long as you like.`, ``, `(press any key)`];
-  lines.forEach((l, i) => wrap(l, 360).forEach(w => txt(w, 60, 54 + i * 14, i === 7 ? "#ffd23f" : "#fff")));
+  let ey = 58;                                                                       // each wrapped row gets its own line
+  lines.forEach((l, i) => { const rows = l ? wrap(l, 360) : [""]; rows.forEach(w => { txt(w, 60, ey, i === 7 ? "#ffd23f" : i === 0 ? "#ffe9b0" : "#fff"); ey += 13; }); });
 }
 function drawArrow(dir, cx, cy, size, color) {
   const rot = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[dir];

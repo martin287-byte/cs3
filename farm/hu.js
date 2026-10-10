@@ -191,7 +191,7 @@ const UI = {
   // settings
   "SETTINGS": "BEÁLLÍTÁSOK", "Language: {0}": "Nyelv: {0}", "Music: {0}": "Zene: {0}", "Sound effects: {0}": "Hangeffektek: {0}",
   "Tutorial hints: {0}": "Oktatási tippek: {0}", "Touch controls: {0}": "Érintőgombok: {0}", "Vibration: {0}": "Rezgés: {0}", "E / O: close": "E / O: bezár",
-  "on": "be", "off": "ki", "Small": "Kicsi", "Medium": "Közepes", "Large": "Nagy",
+  "on": "be", "off": "ki", "no": "nincs", "none": "nincs", "yes": "van", "Small": "Kicsi", "Medium": "Közepes", "Large": "Nagy",
   // maps
   "Town": "Város", "Beach": "Part", "Desert": "Sivatag", "Island": "Sziget", "Mine {0}F": "Bánya {0}. szint",
   "Tap ⟳ to rotate the game for a bigger view • Add to Home Screen to install": "Koppints a ⟳ gombra a nagyobb képért (játék elforgatása) • Add hozzá a kezdőképernyőhöz",
@@ -213,6 +213,8 @@ const UI = {
   "Shirt": "Póló", "Pants": "Nadrág", "Facial hair": "Arcszőrzet", "Short": "Rövid", "Long": "Hosszú", "Bun": "Konty", "Cap": "Sapka", "Bald": "Kopasz",
   "Random": "Véletlen", "Start": "Kezdés", "Done": "Kész", "Cancel": "Mégse", "edit": "szerk.", "Your name": "A neved", "Space": "Szóköz", "Del": "Törlés", "OK": "OK",
   "Tap ◀ ▶ to change": "Koppints a ◀ ▶ gombokra", "↑↓ choose  ←→ change": "↑↓ választ  ←→ változtat", "Enter: select · R: random": "Enter: kiválaszt · R: véletlen", "3. Wardrobe": "3. Ruhatár",
+  // greetings by name
+  "Hello, {0}.": "Üdv, {0}.", "Hey, {0}!": "Szia, {0}!", "{0}! Good to see you.": "{0}! De jó, hogy látlak.", "Hi, {0}, love.": "Szia, {0}, drágám.", "Well done, {0}!": "Szép munka, {0}!",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons
