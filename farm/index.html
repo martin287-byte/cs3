@@ -23,7 +23,7 @@
     body.touch { touch-action: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; }
     body.touch #help { display: none; }
     body.touch #controls { display: block; }
-    body.touch #stage { width: 100vw; }
+    body.touch #stage { width: calc(100 * var(--vw, 1vw)); }
     #controls button { font: bold 14px monospace; color: #fff; background: rgba(40, 34, 70, .72); border: 2px solid rgba(255, 255, 255, .45); border-radius: 12px; touch-action: none; padding: 0; }
     #controls button.down { background: rgba(255, 210, 63, .85); color: #000; transform: scale(.94); }
     #zone { position: absolute; touch-action: none; }
@@ -41,45 +41,54 @@
     #keypad { position: absolute; display: none; gap: 6px; flex-wrap: wrap; justify-content: center; }
     #keypad button { width: 46px; height: 40px; font-size: 13px; }
     #keypad button.wide { width: 64px; }
-    #fs, #gear { position: absolute; width: 36px; height: 36px; font-size: 17px; }
+    #fs, #gear, #rot { position: absolute; width: 36px; height: 36px; font-size: 17px; }
     #rotate { display: none; }
     body.ui-open #stick, body.ui-open #zone, body.ui-open #actions, body.scene-title #stick, body.scene-title #zone, body.scene-title #actions { display: none; }
     body.ui-open #keypad, body.scene-title #keypad { display: flex; }
     body.scene-intro #stick, body.scene-intro #zone, body.scene-intro #actions, body.scene-intro #keypad { display: none; }
 
-    @media (orientation: landscape) {
-      body.touch #stage { width: min(100vw, calc(100dvh * 16 / 9)); }
-      body.touch #controls { position: fixed; inset: 0; pointer-events: none; }
-      body.touch #controls > * { pointer-events: auto; }
-      body.touch #stick { pointer-events: none; }
-      body.touch { --hb: calc(min(100dvh, 56.25vw) * 0.14); }                     /* keep controls above the in-game hotbar */
-      body.touch #zone { left: 0; top: 14%; width: 46%; bottom: var(--hb); }
-      body.touch #stick { left: calc(18px + env(safe-area-inset-left)); bottom: calc(var(--hb) + 10px); }
-      body.touch #actions { right: calc(46px + env(safe-area-inset-right)); bottom: calc(var(--hb) + 4px); }
-      body.touch #extras { display: none; }
-      body.touch.more-open #extras { display: grid; }
-      body.touch #fs { right: 8px; top: 8px; opacity: .6; }
-      body.touch #gear { right: 8px; top: 52px; opacity: .6; }
-      body.touch #keypad { left: 50%; transform: translateX(-50%); bottom: calc(var(--hb) + 2px); width: min(560px, 80vw); }
+    @media all {                                                                  /* "landscape" = the effective layout frame, real or rotated (body.land) */
+      body.touch.land #stage { width: min(calc(100 * var(--vw, 1vw)), calc(100 * var(--vh, 1dvh) * 16 / 9)); }
+      body.touch.land #controls { position: fixed; inset: 0; pointer-events: none; }
+      body.touch.land #controls > * { pointer-events: auto; }
+      body.touch.land #stick { pointer-events: none; }
+      body.touch.land { --hb: calc(min(calc(100 * var(--vh, 1dvh)), calc(56.25 * var(--vw, 1vw))) * 0.14); }                     /* keep controls above the in-game hotbar */
+      body.touch.land #zone { left: 0; top: 14%; width: 46%; bottom: var(--hb); }
+      body.touch.land #stick { left: calc(18px + env(safe-area-inset-left)); bottom: calc(var(--hb) + 10px); }
+      body.touch.land #actions { right: calc(46px + env(safe-area-inset-right)); bottom: calc(var(--hb) + 4px); }
+      body.touch.land #extras { display: none; }
+      body.touch.land.more-open #extras { display: grid; }
+      body.touch.land #fs { right: 8px; top: 8px; opacity: .6; }
+      body.touch.land #gear { right: 8px; top: 52px; opacity: .6; }
+      body.touch.land #keypad { left: 50%; transform: translateX(-50%); bottom: calc(var(--hb) + 2px); width: min(560px, calc(80 * var(--vw, 1vw))); }
     }
-    @media (orientation: portrait) {
-      body.touch { justify-content: flex-start; }
-      body.touch #controls { position: relative; flex: 1; width: 100%; }
-      body.touch #zone { left: 0; top: 112px; bottom: 0; width: 60%; }
-      body.touch #stick { left: 22px; top: calc(env(safe-area-inset-top) + 56.25vw + 190px); width: 140px; height: 140px; }
-      body.touch #actions { display: contents; }
-      body.touch #extras { position: absolute; left: 12px; right: 12px; top: 10px; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-      body.touch #extras button { height: 48px; font-size: 13px; }
-      body.touch #more { display: none; }
-      body.touch #actions .big { position: absolute; right: 16px; top: 190px; }
-      body.touch.ui-open #actions, body.touch.scene-title #actions, body.touch.scene-intro #actions { display: none; }          /* menus and the title use the keypad instead */
-      body.touch #actions .big button { width: calc(76px * var(--cs, 1)); height: calc(76px * var(--cs, 1)); }
-      body.touch #keypad { left: 0; right: 0; top: 16px; padding: 0 8px; }
-      body.touch #keypad button { height: 46px; }
-      body.touch #fs { right: 8px; bottom: 8px; }
-      body.touch #gear { right: 52px; bottom: 8px; }
-      body.touch #rotate { display: block; position: absolute; left: 12px; right: 100px; bottom: 6px; text-align: left; font-size: 11px; opacity: .55; }
+    @media all {
+      body.touch.port { justify-content: flex-start; }
+      body.touch.port #controls { position: relative; flex: 1; width: 100%; }
+      body.touch.port #zone { left: 0; top: 112px; bottom: 0; width: 60%; }
+      body.touch.port #stick { left: 22px; top: calc(env(safe-area-inset-top) + calc(56.25 * var(--vw, 1vw)) + 190px); width: 140px; height: 140px; }
+      body.touch.port #actions { display: contents; }
+      body.touch.port #extras { position: absolute; left: 12px; right: 12px; top: 10px; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      body.touch.port #extras button { height: 48px; font-size: 13px; }
+      body.touch.port #more { display: none; }
+      body.touch.port #actions .big { position: absolute; right: 16px; top: 190px; }
+      body.touch.port.ui-open #actions, body.touch.port.scene-title #actions, body.touch.port.scene-intro #actions { display: none; }          /* menus and the title use the keypad instead */
+      body.touch.port #actions .big button { width: calc(76px * var(--cs, 1)); height: calc(76px * var(--cs, 1)); }
+      body.touch.port #keypad { left: 0; right: 0; top: 16px; padding: 0 8px; }
+      body.touch.port #keypad button { height: 46px; }
+      body.touch.port #fs { right: 8px; bottom: 8px; }
+      body.touch.port #gear { right: 52px; bottom: 8px; }
+      body.touch.port #rotate { display: block; position: absolute; left: 12px; right: 100px; bottom: 6px; text-align: left; font-size: 11px; opacity: .55; }
     }
+
+    /* ---------- rotated page (phone held upright, game turned 90 degrees) ---------- */
+    body.rot-cw, body.rot-ccw { position: fixed; top: 0; left: 0; width: var(--lw); height: var(--lh); transform-origin: 0 0; margin: 0; }
+    body.rot-cw { transform: translateX(var(--sw)) rotate(90deg); padding: env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) env(safe-area-inset-top); }
+    body.rot-ccw { transform: translateY(var(--sh)) rotate(-90deg); padding: env(safe-area-inset-left) env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom); }
+    #rot { display: none; }
+    body.touch #rot { display: block; position: absolute; width: 36px; height: 36px; font-size: 17px; opacity: .6; }
+    body.touch.land #rot { right: 8px; top: 96px; }
+    body.touch.port #rot { right: 96px; bottom: 8px; }
   </style>
 </head>
 <body>
@@ -102,7 +111,8 @@
     </div>
     <button id="fs" aria-label="Fullscreen">&#9974;</button>
     <button id="gear" aria-label="Settings">&#9881;</button>
-    <div id="rotate">Landscape gives a bigger view &#8226; Add to Home Screen to install</div>
+    <button id="rot" aria-label="Rotate screen">&#10227;</button>
+    <div id="rotate">Tap &#10227; to rotate the game for a bigger view &#8226; Add to Home Screen to install</div>
   </div>
   <script type="module" src="main.js"></script>
   <script>

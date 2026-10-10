@@ -194,7 +194,8 @@ const UI = {
   "on": "be", "off": "ki", "Small": "Kicsi", "Medium": "Közepes", "Large": "Nagy",
   // maps
   "Town": "Város", "Beach": "Part", "Desert": "Sivatag", "Island": "Sziget", "Mine {0}F": "Bánya {0}. szint",
-  "Landscape gives a bigger view • Add to Home Screen to install": "Fekvő nézetben nagyobb a kép • Add hozzá a kezdőképernyőhöz a telepítéshez",
+  "Tap ⟳ to rotate the game for a bigger view • Add to Home Screen to install": "Koppints a ⟳ gombra a nagyobb képért (játék elforgatása) • Add hozzá a kezdőképernyőhöz",
+  "Phone screen: {0}": "Telefon képernyő: {0}", "Upright": "Álló", "Rotated right": "Elforgatva jobbra", "Rotated left": "Elforgatva balra",
   "{0} seeds": "{0} mag", "en": "e", "forage": "vadon termő", "BUY": "VÉTEL", "SELL": "ELADÁS", "English": "English", "Magyar": "Magyar", "TAB": "TAB",
   // story intro
   "Gray towers. Gray mornings. Another year of numbers on a screen, and the sky never changed.": "Szürke tornyok. Szürke reggelek. Újabb év számok között egy képernyő előtt, és az égbolt sosem változott.",

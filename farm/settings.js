@@ -1,6 +1,6 @@
 // Player settings that must work before a game exists (title screen), kept apart from the save file.
 const KEY = "tinyvalley-settings";
-const defaults = () => ({ lang: /^hu\b/i.test(navigator.language || "") ? "hu" : "en", sfx: true, haptics: true, ctrl: 1 });
+const defaults = () => ({ lang: /^hu\b/i.test(navigator.language || "") ? "hu" : "en", sfx: true, haptics: true, ctrl: 1, screen: "cw" });
 let cfg = defaults();
 try { Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch {}
 const listeners = [];

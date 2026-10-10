@@ -1,4 +1,5 @@
 import { settings, onSetting } from "./settings.js";
+import { toLocal, localSize } from "./view.js";
 // Touch controls: a floating joystick and buttons that dispatch ordinary keyboard events, so the game code stays input-agnostic.
 const send = (type, key) => window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }));
 export const dispatchKey = (key, hold = 60) => { send("keydown", key); setTimeout(() => send("keyup", key), hold); };
@@ -29,13 +30,13 @@ export function initTouch() {
   const DEAD = 0.14, CURVE = 1.3;                                                   // small deadzone; gentle curve for fine control near the centre
   const place = () => {
     const R = stickEl.offsetWidth / 2;
-    cx = Math.max(R, Math.min(innerWidth - R, cx)); cy = Math.max(R, Math.min(innerHeight - R, cy));
+    const { w, h } = localSize(); cx = Math.max(R, Math.min(w - R, cx)); cy = Math.max(R, Math.min(h - R, cy));
     stickEl.style.left = `${cx - R}px`; stickEl.style.top = `${cy - R}px`; stickEl.style.bottom = "auto";
   };
   const move = e => {
-    const R = stickEl.offsetWidth / 2;
-    let dx = e.clientX - cx, dy = e.clientY - cy, d = Math.hypot(dx, dy);
-    if (d > R) { const k = (d - R) / d; cx += dx * k; cy += dy * k; place(); dx = e.clientX - cx; dy = e.clientY - cy; d = Math.hypot(dx, dy); }
+    const R = stickEl.offsetWidth / 2, p = toLocal(e.clientX, e.clientY);
+    let dx = p.x - cx, dy = p.y - cy, d = Math.hypot(dx, dy);
+    if (d > R) { const k = (d - R) / d; cx += dx * k; cy += dy * k; place(); dx = p.x - cx; dy = p.y - cy; d = Math.hypot(dx, dy); }
     const lim = Math.min(d, R * 0.75);
     knob.style.transform = d ? `translate(${dx / d * lim}px, ${dy / d * lim}px)` : "";
     let m = Math.min(1, d / (R * 0.85));
@@ -49,7 +50,7 @@ export function initTouch() {
   zone.addEventListener("pointerdown", e => {
     e.preventDefault(); body.classList.remove("more-open");
     pointer = e.pointerId; zone.setPointerCapture(e.pointerId);
-    cx = e.clientX; cy = e.clientY; place(); stickEl.classList.add("on");
+    ({ x: cx, y: cy } = toLocal(e.clientX, e.clientY)); place(); stickEl.classList.add("on");
     move(e);
   });
   zone.addEventListener("pointermove", e => { if (e.pointerId === pointer) move(e); });
@@ -61,7 +62,7 @@ export function initTouch() {
 
   document.getElementById("fs")?.addEventListener("click", () => {
     const el = document.documentElement;
-    if (document.fullscreenElement) document.exitFullscreen?.(); else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+    if (document.fullscreenElement) document.exitFullscreen?.(); else Promise.resolve((el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)).then(() => screen.orientation?.lock?.("landscape")).catch(() => {});
   });
   for (const ev of ["contextmenu", "gesturestart"]) document.addEventListener(ev, e => e.preventDefault());
 

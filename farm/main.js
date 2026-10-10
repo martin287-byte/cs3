@@ -7,6 +7,7 @@ import { SEASONS, buildSprites, hash } from "./sprites.js";
 import { generateWorld, makeMine, PLOTS } from "./world.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
+import { initView, canvasPoint } from "./view.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
@@ -1573,6 +1574,7 @@ function settingsRows() {
     { id: "sfx", label: `Sound effects: ${c.sfx ? "on" : "off"}`, go: () => setSetting("sfx", !c.sfx) },
   ];
   if (scene === "game" && state) rows.push({ id: "tut", label: `Tutorial hints: ${state.tut.on ? "on" : "off"}`, go: () => { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; } });
+  rows.push({ id: "screen", label: `Phone screen: ${{ normal: "Upright", cw: "Rotated right", ccw: "Rotated left" }[c.screen] ?? "Upright"}`, go: () => setSetting("screen", { normal: "cw", cw: "ccw", ccw: "normal" }[c.screen] ?? "cw") });
   rows.push({ id: "ctrl", label: `Touch controls: ${SIZE_NAMES[CTRL_SIZES.indexOf(c.ctrl)] ?? "Medium"}`, go: () => setSetting("ctrl", CTRL_SIZES[(Math.max(0, CTRL_SIZES.indexOf(c.ctrl)) + 1) % CTRL_SIZES.length]) });
   rows.push({ id: "haptics", label: `Vibration: ${c.haptics ? "on" : "off"}`, go: () => setSetting("haptics", !c.haptics) });
   return rows;
@@ -1625,7 +1627,7 @@ function hitUi(cx, cy) {
   return null;
 }
 canvas.addEventListener("pointerdown", e => {
-  const r = canvas.getBoundingClientRect(), cx = (e.clientX - r.left) * W / r.width, cy = (e.clientY - r.top) * H / r.height;
+  const { x: cx, y: cy } = canvasPoint(e, canvas, W, H);
   if (setUi) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
   if (scene === "intro") return intro.tap(cx, cy);
   if (!isTouch() && gearHit(cx, cy, scene === "title")) return openSettings();
@@ -1638,7 +1640,7 @@ canvas.addEventListener("pointerdown", e => {
   const tb0 = Math.round((W - (TOOLS.length * 28 - 2)) / 2);
   if (cy >= H - 34) { const i = Math.floor((cx - tb0) / 28); if (i >= 0 && i < TOOLS.length) dispatchKey(String(i + 1)); }
 });
-initTouch();
+initTouch(); initView();
 // Static page labels follow the language setting.
 const domText = [...document.querySelectorAll("#controls button[data-key], #rotate")].filter(el => el.id !== "more" && el.id !== "gear");
 for (const el of domText) if (/[A-Za-z]{2,}/.test(el.textContent)) el.dataset.en = el.textContent;
