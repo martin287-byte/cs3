@@ -12,6 +12,7 @@ import { initView, canvasPoint } from "./view.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
+import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
 import { setSun, sunShift, sunStretch, grassDeco, waterSparkle, drawSwaying, emit, ripple, clearFx, updateFx, drawFx, vignette, sunGlow, windowGlow, litWindows } from "./fx.js";
@@ -22,8 +23,7 @@ const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
 const SAVE_KEY = "tinyvalley-save-v10";
-const TOOLS = ["hoe", "can", "rod", "pick", "sword", "seeds"];
-const SEED_SLOT = TOOLS.indexOf("seeds");
+const TOOL_NAMES = { hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" };
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
 const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12, island: 12 };
@@ -37,7 +37,7 @@ const S = buildSprites({
   npcs: { ...Object.fromEntries(Object.entries(VILLAGERS).map(([k, v]) => [k, v.look ?? { hair: v.pal.h, shirt: v.pal.r, pants: v.pal.b }])), zed: MERCHANT.look ?? { hair: MERCHANT.pal.h, shirt: MERCHANT.pal.r, pants: MERCHANT.pal.b } },
 });
 
-let stepT = 0, actAnim = null, petObj = null, scene = "title", titleSel = 0, maps, state, animals = [], monsters = [], slash = null, slashCool = 0, invuln = 0, npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
+let fullMsgT = 0, stepT = 0, actAnim = null, petObj = null, scene = "title", titleSel = 0, maps, state, animals = [], monsters = [], slash = null, slashCool = 0, invuln = 0, npcs = {}, clock = 0, walkT = 0, moving = false, particles = [], fishing = null;
 
 const seasonOf = day => Math.floor((day - 1) / SEASON_LEN) % 4;
 const dayOfSeason = day => ((day - 1) % SEASON_LEN) + 1;
@@ -83,7 +83,15 @@ function sellMult(id) {
 }
 const sellPrice = id => Math.round(itemInfo(id).price * sellMult(id));
 const merchantHere = () => state.day % MERCHANT.every === 0;
-const curSeed = () => CROP_IDS[state.seedSel];
+const curSlot = () => state.slots[state.sel] || null;
+const curTool = () => { const sl = curSlot(); return !sl ? "none" : sl.k === "tool" ? sl.id : sl.k === "seed" ? "seeds" : "item"; };
+const curSeed = () => { const sl = curSlot(); return sl?.k === "seed" ? sl.id : CROP_IDS[state.seedSel]; };
+function selectSlot(i) {
+  if (i < 0 || i >= state.slots.length) return;
+  state.sel = i; state.row = Math.floor(i / COLS); const sl = state.slots[i];
+  if (sl?.k === "seed") state.seedSel = Math.max(0, CROP_IDS.indexOf(sl.id));
+}
+const cycleRow = () => { const rows = state.pack / COLS; if (rows > 1) selectSlot(((state.row + 1) % rows) * COLS + (state.sel % COLS)); };
 
 function defaultState() {
   return {
@@ -98,14 +106,14 @@ function defaultState() {
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
-    house: 0, houseWork: null, chest: {}, cellarChest: {},
+    house: 0, houseWork: null, chest: {}, cellarChest: {}, pack: 12, slots: null, row: 0,
     name: "", look: { skin: PLAYER_LOOK.skin, hair: PLAYER_LOOK.hair, hairStyle: PLAYER_LOOK.hairStyle, eye: PLAYER_LOOK.eye, shirt: PLAYER_LOOK.shirt, pants: PLAYER_LOOK.pants },
   };
 }
 
 function newGame() {
   maps = generateWorld();
-  state = defaultState();
+  state = defaultState(); state.slots = defaultSlots(state.pack); syncSlots(state, overflowDrop);
   refreshBoard(); spawnForage(); makeAnimals();
 }
 
@@ -148,8 +156,10 @@ function load() {
     const d = defaultState();
     maps = s.maps;
     state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, tut: { ...d.tut, ...s.state.tut }, visited: { ...d.visited, ...s.state.visited }, tips: { ...s.state.tips }, perks: { ...s.state.perks }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
-    ensureHouseMaps(); makeAnimals(); return true;
-  } catch { return false; }
+    if (!Array.isArray(s.state.slots)) { state.pack = 36; state.slots = defaultSlots(36); }      // saves from before backpack slots keep a full-size bag
+    state.sel = Math.max(0, Math.min(state.pack - 1, state.sel | 0)); state.row = Math.floor(state.sel / COLS);
+    syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
+  } catch (e) { console.warn("Could not load the save:", e); return false; }
 }
 
 const applyLook = () => { S.player = makePerson(toSpriteLook(state.look)); };
@@ -186,8 +196,9 @@ addEventListener("keydown", e => {
     else if (scene === "builder") builder.key(k);
     else if (state.ui) uiKey(k);
     else if (fishing && (k === " " || k === "escape")) fishKey(k);
-    else if (/^[1-6]$/.test(k)) { const n = Number(k) - 1; if (n === SEED_SLOT && state.sel === SEED_SLOT) cycleSeed(); state.sel = n; }
-    else if (k === "q") { state.sel = SEED_SLOT; cycleSeed(); }
+    else if (/^[0-9=-]$/.test(k)) selectSlot(state.row * COLS + (k === "0" ? 9 : k === "-" ? 10 : k === "=" ? 11 : Number(k) - 1));
+    else if (k === "tab") cycleRow();
+    else if (k === "q") cycleSeed();
     else if (k === " ") useTool();
     else if (k === "e") interact();
     else if (k === "i") state.ui = { type: "inv", tab: 0 };
@@ -201,7 +212,11 @@ addEventListener("keydown", e => {
 });
 addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 
-function cycleSeed() { state.seedSel = (state.seedSel + 1) % CROP_IDS.length; }
+function cycleSeed() {                                                              // Q: jump to the next seed packet in the backpack
+  const at = state.slots.map((sl, i) => (sl?.k === "seed" ? i : -1)).filter(i => i >= 0);
+  if (!at.length) return say("No seeds — buy some at the shop.");
+  selectSlot(at.find(i => i > state.sel) ?? at[0]);
+}
 
 const titleOptions = () => [...(hasSave() ? ["Continue"] : []), "New Game", "Settings"];
 function titleKey(k) {
@@ -220,7 +235,28 @@ function titleKey(k) {
 
 const say = (m, t = 2.5) => { state.msg = tr(m); state.msgT = t; };
 const later = (m, delay, t = 4) => setTimeout(() => { if (state) say(m, t); }, delay);
-const addItem = (id, n = 1) => { state.inv[id] = (state.inv[id] || 0) + n; };
+const addItem = (id, n = 1) => {
+  if (!ensureSlot(state, "item", id)) { dropItem("item", id, n); return false; }                 // backpack full: it falls on the ground
+  state.inv[id] = (state.inv[id] || 0) + n; return true;
+};
+const addSeeds = (k, n) => {
+  if (!ensureSlot(state, "seed", k)) { dropItem("seed", k, n); return false; }
+  state.seeds[k] += n; return true;
+};
+function dropItem(k, id, n) {                                                       // put a stack on a free tile next to the player
+  const m = cur(), px = Math.floor((state.px + 6) / T), py = Math.floor((state.py + 10) / T);
+  for (let r = 1; r <= 4; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+    const x = px + dx, y = py + dy, t = inBounds(x, y) ? m.tiles[y][x] : null;
+    if (t && !BLOCKING.includes(t.t) && !t.drop && !t.forage && !t.crop && !t.kind && !t.sprinkler && !m.warps.some(w => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h)) {
+      t.drop = { k, id, n }; say("Your inventory is full! It fell on the ground.", 3.5); return true;
+    }
+  }
+  say("Your inventory is full — something was lost!", 3.5); return false;
+}
+const overflowDrop = (k, id, n) => { (k === "seed" ? state.seeds : state.inv)[id] = 0; dropItem(k, id, n); };
+const holds = (k, id) => canHold(state, k, id);
+const full = () => say("Your inventory is full!");
 const invItems = () => Object.entries(state.inv).filter(([, n]) => n > 0).sort((a, b) => itemInfo(a[0]).name.localeCompare(itemInfo(b[0]).name));
 const matsText = mats => Object.entries(mats || {}).map(([id, n]) => `${n} ${tr(itemInfo(id).name)}`).join(", ");
 const hasMats = mats => Object.entries(mats || {}).every(([id, n]) => (state.inv[id] || 0) >= n);
@@ -262,10 +298,14 @@ function updateNpcs(dt) {
 }
 
 // ---------------------------------------------------------------- tools
+function useSlotItem(id) {                                                          // Space on a food slot eats it
+  if (edibleEnergy(id)) return eat(id);
+  say(`${tr(itemInfo(id).name)}: ${tf("Sells for ${0}", sellPrice(id))}`, 2.5);
+}
 function useTool() {
   const { x, y } = targetTile();
   if (!inBounds(x, y)) return;
-  const tile = tileAt(x, y), tool = TOOLS[state.sel];
+  const tile = tileAt(x, y), tool = curTool();
 
   if (tile.crop && tile.crop.age >= CROPS[tile.crop.type].days) {          // harvest with any tool
     const c = CROPS[tile.crop.type];
@@ -277,6 +317,8 @@ function useTool() {
     return;
   }
   if (state.mounted) return say("Dismount first (press H).");
+  if (tool === "none") return;
+  if (tool === "item") return useSlotItem(curSlot().id);
   if (tool === "hoe" || tool === "can" || tool === "pick") {
     actAnim = { t: 0.2, tool, fx: state.fx, fy: state.fy };
     if (!(tool === "can" && state.water <= 0)) emit(tool === "hoe" ? "dirt" : tool === "can" ? "water" : "chip", x * T + 8, y * T + 9);
@@ -474,7 +516,7 @@ function petDigs() {                                                            
   const r = Math.random(), season = seasonOf(state.day);
   if (r < 0.4) { addItem("copper"); return ` ${p.name} dug up a Copper Ore!`; }
   if (r < 0.7) { const ids = Object.keys(FORAGE).filter(k => !FORAGE[k].area && FORAGE[k].seasons.includes(season)), id = pick(ids); addItem(id); return ` ${p.name} found a ${FORAGE[id].name}!`; }
-  const ok = CROP_IDS.filter(k => CROPS[k].seasons.includes(season)), k = pick(ok); state.seeds[k] += 3; return ` ${p.name} dug up 3 ${k} seeds!`;
+  const ok = CROP_IDS.filter(k => CROPS[k].seasons.includes(season)), k = pick(ok); addSeeds(k, 3); return ` ${p.name} dug up 3 ${k} seeds!`;
 }
 function toggleMount() {
   if (!state.horse) return say("You don't have a horse. (Shop → Farm page; needs a barn)");
@@ -702,9 +744,7 @@ function cook(id) {
   addItem(id); say(`Cooked ${DISHES[id].name}!`); audio.beep(520, 0.1, "triangle"); audio.beep(660, 0.15, "triangle");
 }
 function eat(id) {
-  let e = edibleEnergy(id);
-  if (e && DISHES[id] && state.house >= 1) e = Math.round(e * 1.25);                    // kitchen upgrade: dishes restore 25% more
-  if (e && hasPerk("naturalist") && (CROPS[id] || FORAGE[id])) e *= 3;
+  const e = eatValue(id);
   if (!e || !state.inv[id]) return;
   if (state.energy >= maxEnergy() && state.hp >= maxHp()) return say("You're not hungry.");
   state.inv[id]--; state.energy = Math.min(maxEnergy(), state.energy + e); state.hp = Math.min(maxHp(), state.hp + e); say(`Ate ${itemInfo(id).name}: +${e} energy & health`); audio.beep(440, 0.1, "sine");
@@ -774,6 +814,11 @@ const buildItem = id => {
     : st === "pending" ? { label: `${b.name} (under construction)`, cost: Infinity }
     : { label: `Build ${b.name}`, cost: b.cost, mats: b.mats, buy: () => { state.build[id] = "pending"; say(`${b.name} will be ready tomorrow!`); } };
 };
+const packItem = () => {                                                            // backpack: 12 -> 24 -> 36 slots
+  const next = { 12: [24, 1000], 24: [36, 4000] }[state.pack];
+  return next ? { label: `Backpack (${next[0]} slots)`, cost: next[1], buy: () => { state.slots.push(...Array(12).fill(null)); state.pack = next[0]; say(tf("Backpack upgraded: {0} slots!", next[0]), 3.5); } }
+    : { label: `Backpack maxed (${state.pack} slots)`, cost: Infinity };
+};
 const houseShop = () => HOUSE.slice(1).map((h, i) => {
   const lvl = i + 1;
   if (state.house >= lvl) return { label: `${h.name} (built)`, cost: Infinity };
@@ -782,26 +827,27 @@ const houseShop = () => HOUSE.slice(1).map((h, i) => {
   return { label: `Upgrade: ${h.name}`, cost: h.cost, mats: h.mats, buy: () => { state.houseWork = { to: lvl, ready: state.day + HOUSE_BUILD_DAYS }; say(tf("Oliver starts work on your {0}. Ready on day {1}!", tr(h.name), state.houseWork.ready), 4); } };
 });
 const SHOP = page => page === 4 ? houseShop() : page === 0
-  ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, buy: () => { state.seeds[k] += 5; } }))
+  ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, slot: ["seed", k], buy: () => { addSeeds(k, 5); } }))
   : page === 1 ? [
     upgrade("Hoe", HOE_UPGRADES, state.hoeLevel, () => { state.hoeLevel++; }),
     upgrade("Watering can", CAN_UPGRADES, state.canLevel, () => { state.canLevel++; state.water = maxWater(); }),
     upgrade("Pickaxe", PICK_UPGRADES, state.pickLevel, () => { state.pickLevel++; }),
     upgrade("Sword", SWORD_UPGRADES, state.swordLevel, () => { state.swordLevel++; }),
+    packItem(),
   ] : page === 2 ? [
     buildItem("coop"), buildItem("barn"), buildItem("silo"), buildItem("greenhouse"),
     state.build.coop !== "built" ? { label: "Chicken (build a coop first)", cost: Infinity }
       : state.chickens < MAX_CHICKENS ? { label: `Chicken (${state.chickens}/${MAX_CHICKENS})`, cost: CHICKEN_COST, buy: () => { state.chickens++; makeAnimals(); } } : { label: "Coop full", cost: Infinity },
     state.build.barn !== "built" ? { label: "Cow (build a barn first)", cost: Infinity }
       : state.cows < MAX_COWS ? { label: `Cow (${state.cows}/${MAX_COWS}) — gives milk daily`, cost: COW_COST, buy: () => { state.cows++; makeAnimals(); } } : { label: "Barn full", cost: Infinity },
-    ...SPRINKLER_SHOP.map(sp => ({ label: `${itemInfo(sp.id).name} (${sp.id === "qsprinkler" ? "8" : "4"} tiles; P to place)`, cost: sp.cost, mats: sp.mats, buy: () => addItem(sp.id) })),
+    ...SPRINKLER_SHOP.map(sp => ({ label: `${itemInfo(sp.id).name} (${sp.id === "qsprinkler" ? "8" : "4"} tiles; P to place)`, cost: sp.cost, mats: sp.mats, slot: ["item", sp.id], buy: () => addItem(sp.id) })),
     state.horse ? { label: "Horse (owned — H to ride)", cost: Infinity }
       : state.build.barn !== "built" ? { label: "Horse (build a barn first)", cost: Infinity }
       : { label: "Horse (ride with H, 1.8x speed)", cost: HORSE_COST, buy: () => { state.horse = true; say("You got a horse! Press H to ride."); } },
   ] : [
-    { label: "Bouquet (give to someone at 8+ hearts to start dating)", cost: 200, buy: () => addItem("bouquet") },
-    { label: "Wedding Pendant (give to your partner at 10 hearts)", cost: 1500, buy: () => addItem("pendant") },
-    { label: "Energy Tonic (+60 energy)", cost: 60, buy: () => addItem("tonic") },
+    { label: "Bouquet (give to someone at 8+ hearts to start dating)", cost: 200, slot: ["item", "bouquet"], buy: () => addItem("bouquet") },
+    { label: "Wedding Pendant (give to your partner at 10 hearts)", cost: 1500, slot: ["item", "pendant"], buy: () => addItem("pendant") },
+    { label: "Energy Tonic (+60 energy)", cost: 60, slot: ["item", "tonic"], buy: () => addItem("tonic") },
     ...(state.pet ? [{ label: `${state.pet.name} is your pet`, cost: Infinity }]
       : Object.entries(PETS).map(([kind, p]) => ({ label: `Adopt a ${kind} (${p.name})`, cost: PET_COST, buy: () => { state.pet = { kind, name: p.name, pts: 0, petted: false }; placePet(); say(`${p.name} joins your farm!`); } }))),
   ];
@@ -812,7 +858,7 @@ function merchantBuy(i) {
     { label: "Energy Tonic (+60 energy)", cost: 60, buy: () => addItem("tonic") },
     { label: "Mystery seeds (5, in season)", cost: 90, buy: () => {
       const ok = CROP_IDS.filter(k => CROPS[k].seasons.includes(seasonOf(state.day))), k = ok[Math.floor(Math.random() * ok.length)];
-      state.seeds[k] += 5; say(`Got 5 ${k} seeds!`);
+      addSeeds(k, 5); say(`Got 5 ${k} seeds!`);
     } },
     unknown.length
       ? { label: "Recipe scroll (random recipe)", cost: 300, buy: () => { const r = unknown[Math.floor(Math.random() * unknown.length)]; state.recipes.push(r); say(`Learned ${DISHES[r].name}!`, 4); } }
@@ -833,7 +879,7 @@ function chestKey(ui, k, num, close) {
   if (ui.mode === "store") {
     if (!(id in chest) && Object.keys(chest).filter(x => chest[x] > 0).length >= cap) return say("The chest is full.");
     chest[id] = (chest[id] || 0) + n; state.inv[id] = 0; audio.beep(520, 0.05);
-  } else { addItem(id, n); delete chest[id]; audio.beep(620, 0.05); }
+  } else { if (!holds("item", id)) return full(); addItem(id, n); delete chest[id]; audio.beep(620, 0.05); }
 }
 function uiKey(k) {
   const ui = state.ui, num = /^[1-9]$/.test(k) ? Number(k) - 1 : -1, close = k === "escape" || k === "e";
@@ -843,6 +889,7 @@ function uiKey(k) {
     if (k === "tab") return void (ui.page = (ui.page + 1) % SHOP_PAGES.length);
     const item = SHOP(ui.page)[num];
     if (!item || item.cost === Infinity) return;
+    if (item.slot && !holds(...item.slot)) return full();
     if (state.money < item.cost || !hasMats(item.mats)) return say(!hasMats(item.mats) ? `Needs ${matsText(item.mats)}` : "Not enough money!") ?? audio.beep(120, 0.15, "sawtooth");
     state.money -= item.cost; for (const [id, n] of Object.entries(item.mats || {})) state.inv[id] -= n;
     item.buy(); audio.beep(700, 0.1, "triangle");
@@ -858,6 +905,7 @@ function uiKey(k) {
       const item = merchantBuy(num);
       if (!item || item.cost === Infinity) return;
       if (state.money < item.cost) return audio.beep(120, 0.15, "sawtooth");
+      if (num === 0 && !holds("item", "tonic")) return full();
       state.money -= item.cost; item.buy(); audio.beep(700, 0.1, "triangle");
     } else {
       const items = invItems();
@@ -898,10 +946,7 @@ function uiKey(k) {
     const id = state.recipes[num];
     if (id) cook(id);
   } else if (ui.type === "inv") {
-    if (["i", "escape"].includes(k) || (k === "e")) state.ui = null;
-    else if (["tab", "arrowright"].includes(k)) ui.tab = (ui.tab + 1) % 3;
-    else if (k === "arrowleft") ui.tab = (ui.tab + 2) % 3;
-    else if (ui.tab === 0 && num >= 0 && invItems()[num]) eat(invItems()[num][0]);
+    invKey(ui, k);
   } else if (ui.type === "pause") {
     if (k === "escape" || k === "1") state.ui = null;
     else if (k === "2") { save(); state.ui = null; say("Game saved."); }
@@ -1055,6 +1100,7 @@ function update(dt) {
     if (p.x < 0) p.x += W;
     if (p.x > W) p.x -= W;
   }
+  syncSlots(state, overflowDrop);
   updateNpcs(dt); updateFishing(dt); updatePet(dt); updateFx(dt);
   if (state.tip && (state.tip.t -= dt) <= 0) state.tip = null;
   updateTutorial(dt);
@@ -1102,6 +1148,11 @@ function update(dt) {
     tip("forage", "Wild forage respawns every morning. Walk over it to pick it up, and sell or gift it.");
     const dbl = Math.random() < 0.04 * (skillLevel("foraging") - 1) + (hasPerk("gatherer") ? 0.2 : 0);
     addItem(here.forage, dbl ? 2 : 1); gainXp("foraging", 4); say(`Found ${FORAGE[here.forage].name}!${dbl ? " (x2!)" : ""}`); audio.beep(760, 0.1, "triangle"); delete here.forage;
+  }
+  if (here?.drop) {                                                                // dropped items are picked up by walking over them
+    const d = here.drop;
+    if (holds(d.k, d.id)) { delete here.drop; if (d.k === "seed") addSeeds(d.id, d.n); else addItem(d.id, d.n); say(tf("Picked up {0}.", d.k === "seed" ? tf("{0} seeds", tr(itemInfo(d.id).name)) : tr(itemInfo(d.id).name)), 2); audio.beep(760, 0.08, "triangle"); }
+    else if (clock > fullMsgT) { fullMsgT = clock + 2.5; full(); }
   }
   if (here?.fegg) { delete here.fegg; audio.beep(900, 0.08, "triangle"); festProgress("egghunt"); }
   for (const w of cur().warps) if (fx >= w.x && fx < w.x + w.w && fy >= w.y && fy < w.y + w.h) { goMap(w.to, w.tx, w.ty); break; }
@@ -1185,6 +1236,7 @@ function drawWorld() {
     if (tile.sprinkler) ctx.drawImage(S.icon[tile.sprinkler === 2 ? "qsprinkler" : "sprinkler"], x * T, y * T);
     if (tile.crop) { const ci = S.crop[tile.crop.type][cropStage(tile.crop)]; shadow(x * T + 8, y * T + 14, 5, 1.5, 0.2); ctx.drawImage(ci, x * T - ci.ox, (y + 1) * T - 24 - ci.oy); }
     if (tile.forage) ctx.drawImage(S.icon[tile.forage], x * T, y * T + Math.round(Math.sin(clock * 3 + x) * 0.6));
+    if (tile.drop) ctx.drawImage(S.icon[tile.drop.id], x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
     if (tile.dig) ctx.drawImage(S.icon.dig, x * T, y * T + (Math.sin(clock * 4 + x) > 0.8 ? -1 : 0));
     if (tile.fegg) ctx.drawImage(S.icon.fegg, x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
     if (tile.t === 3) {
@@ -1347,31 +1399,23 @@ function drawHud(hr, tx, ty) {
   if (state.hp < maxHp() || state.map === "mine") bar(W - 38, "HP", state.hp, maxHp(), p => (p > 0.3 ? ["#d83a3a", "#f07a7a"] : ["#ff7a2a", "#ffb070"]));
   if (invuln > 0.6) { ctx.fillStyle = "rgba(220,30,30,.25)"; ctx.fillRect(0, 0, W, H); }
 
-  const items = invItems(), bag = items.slice(0, 5).map(([k, n]) => `${n} ${itemInfo(k).name}`).join(", ");
-  if (bag) { const t = `${bag}${items.length > 5 ? "…" : ""}`; woodFrame(4, H - 56, Math.round(ctx.measureText(t).width) + 14, 16, "rgba(30,50,60,.92)"); txt(t, 11, H - 45, "#cfe8ff"); }
   const tile = inBounds(tx, ty) ? tileAt(tx, ty) : null, id = tile && npcNear(tx, ty);
   const hint = !tile ? "" : petNear(tx, ty) && !id ? `E: pet ${state.pet.name}` : id ? `E: ${id === "zed" ? "trade with Zed" : "talk to " + VILLAGERS[id].name}` : tile.crop && tile.crop.age >= CROPS[tile.crop.type].days ? "Space: harvest" : tile.kind === "home" ? "E: enter house" : HINTS[tile.kind] ? HINTS[tile.kind] : tile.kind === "centre" ? "E: community centre" : tile.kind === "built" && tile.plot === "greenhouse" ? "E: enter greenhouse"
     : tile.kind === "bin" ? "E: sell goods" : tile.kind === "shop" ? "E: shop" : tile.kind === "mine" ? "E: enter mine" : tile.kind === "ladder" ? "E: go down" : tile.kind === "mexit" ? "E: leave mine"
-    : tile.t === 2 && TOOLS[state.sel] === "rod" ? "Space: fish" : tile.t === 13 && TOOLS[state.sel] === "pick" ? "Space: mine" : "";
+    : tile.t === 2 && curTool() === "rod" ? "Space: fish" : tile.t === 13 && curTool() === "pick" ? "Space: mine" : "";
   if (hint) { const w = Math.round(ctx.measureText(hint).width) + 14; woodFrame(W - 44 - w, H - 56, w, 16, "rgba(60,44,12,.95)"); txt(hint, W - 51, H - 45, "#ffe27a", "right"); }
 
-  const sw = 28, tx0 = Math.round((W - (TOOLS.length * sw - 2)) / 2), ty0 = H - 32;   // toolbar
-  woodFrame(tx0 - 5, ty0 - 5, TOOLS.length * sw + 8, 36);
-  TOOLS.forEach((t, i) => {
-    const x = tx0 + i * sw, sel = i === state.sel;
-    ctx.fillStyle = sel ? "#ffffff" : "#6a4420"; ctx.fillRect(x - 1, ty0 - 1, 28, 28);
-    ctx.fillStyle = sel ? "#f4d68a" : "#b98d52"; ctx.fillRect(x, ty0, 26, 26); ctx.fillStyle = sel ? "#ffe9a8" : "#d2ab72"; ctx.fillRect(x + 1, ty0 + 1, 24, 24);
-    ctx.drawImage(t === "seeds" ? S.icon[curSeed()] : S.icon[t], x + 5, ty0 + 5);
-    ctx.font = "7px monospace"; txt(String(i + 1), x + 3, ty0 + 8, sel ? "#7a4a10" : "#7a5a30");
-    const lvl = t === "hoe" ? state.hoeLevel : t === "can" ? state.canLevel : t === "pick" ? state.pickLevel : t === "sword" ? state.swordLevel : 0;
-    const badge = t === "seeds" ? String(state.seeds[curSeed()]) : lvl > 0 ? `L${lvl + 1}` : "";
-    if (badge) { txt(badge, x + 25, ty0 + 24, "#000", "right"); txt(badge, x + 24, ty0 + 23, "#fff", "right"); }
-    if (t === "can") { ctx.fillStyle = "#2a3a58"; ctx.fillRect(x + 3, ty0 + 22, 20, 3); ctx.fillStyle = "#5aa8f0"; ctx.fillRect(x + 3, ty0 + 22, Math.round(20 * state.water / maxWater()), 3); }
-    ctx.font = "9px monospace";
-  });
+  const sw = 28, tx0 = Math.round((W - (COLS * sw - 2)) / 2), ty0 = H - 32, rows = state.pack / COLS;   // toolbar = one row of the backpack
+  woodFrame(tx0 - 5, ty0 - 5, COLS * sw + 8, 36);
+  for (let i = 0; i < COLS; i++) {
+    const gi = state.row * COLS + i, slot = state.slots[gi], x = tx0 + i * sw, sel = gi === state.sel;
+    slotBox(x, ty0, sel); if (slot) slotContent(slot, x, ty0);
+    ctx.font = "7px monospace"; txt(i < 9 ? String(i + 1) : i === 9 ? "0" : i === 10 ? "-" : "=", x + 3, ty0 + 8, sel ? "#7a4a10" : "#7a5a30"); ctx.font = "9px monospace";
+  }
+  if (rows > 1) { woodFrame(tx0 - 30, ty0 - 2, 22, 30); ctx.font = "7px monospace"; txt("\u25b2\u25bc", tx0 - 19, ty0 + 10, "#ffe9b0", "center"); txt(`${state.row + 1}/${rows}`, tx0 - 19, ty0 + 21, "#c9a56a", "center"); ctx.font = "9px monospace"; }
   if (state.sel !== capSel) { capSel = state.sel; capUntil = clock + 1.8; }
-  if (clock < capUntil && !state.ui) {
-    const t = TOOLS[state.sel], nm = t === "seeds" ? `${curSeed()} seeds` : { hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" }[t], w = Math.round(ctx.measureText(nm).width) + 12;
+  if (clock < capUntil && !state.ui && curSlot()) {
+    const nm = slotName(curSlot()), w = Math.round(ctx.measureText(nm).width) + 12;
     woodFrame(Math.round(W / 2 - w / 2), ty0 - 24, w, 15, "rgba(40,26,14,.95)"); txt(nm, W / 2, ty0 - 13, "#fff", "center");
   }
 
@@ -1584,31 +1628,146 @@ function drawDance(ui) {
   if (ui.done) txt("Press any key", 240, 212, "#9aa", "center");
 }
 
+// ---------------------------------------------------------------- backpack: slots, hotbar and the inventory screen
+function slotBox(x, y, sel, size = 26, tint = false) {
+  ctx.fillStyle = sel ? "#ffffff" : "#6a4420"; ctx.fillRect(x - 1, y - 1, size + 2, size + 2);
+  ctx.fillStyle = sel ? "#f4d68a" : tint ? "#c8a064" : "#b98d52"; ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = sel ? "#ffe9a8" : tint ? "#dcb67c" : "#d2ab72"; ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+}
+function slotContent(slot, x, y, off = 5, nums = true) {                           // icon plus level / count badge
+  ctx.drawImage(S.icon[slot.id], x + off, y + off);
+  let badge = "";
+  if (slot.k === "tool") { const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel }[slot.id] || 0; if (lvl > 0) badge = `L${lvl + 1}`; }
+  else { const n = slotCount(state, slot); if (n > 1) badge = n > 999 ? "999+" : String(n); }
+  if (slot.k === "seed") {                                                         // seed packets get a little paper packet so they differ from the crop
+    const px = off === 5 ? x + 17 : x + 13, py = off === 5 ? y + 3 : y + 1;
+    ctx.fillStyle = "#5a3a1c"; ctx.fillRect(px, py, 8, 11); ctx.fillStyle = "#ead6a2"; ctx.fillRect(px + 1, py + 1, 6, 9); ctx.fillStyle = "#c8a868"; ctx.fillRect(px + 1, py + 1, 6, 2);
+    ctx.fillStyle = "#4aa84a"; ctx.fillRect(px + 3, py + 5, 2, 3); ctx.fillStyle = "#8ad87a"; ctx.fillRect(px + 2, py + 4, 1, 1); ctx.fillRect(px + 5, py + 4, 1, 1);
+  }
+  const r = off === 5 ? 25 : 21, b = off === 5 ? 24 : 20;
+  if (badge && nums) { ctx.font = "7px monospace"; txt(badge, x + r, y + b, "#000", "right"); txt(badge, x + r - 1, y + b - 1, "#fff", "right"); ctx.font = "9px monospace"; }
+  if (slot.k === "tool" && slot.id === "can") { const w = off === 5 ? 20 : 16; ctx.fillStyle = "#2a3a58"; ctx.fillRect(x + off - 2, y + (off === 5 ? 22 : 18), w, 3); ctx.fillStyle = "#5aa8f0"; ctx.fillRect(x + off - 2, y + (off === 5 ? 22 : 18), Math.round(w * state.water / maxWater()), 3); }
+}
+const slotName = slot => (slot.k === "tool" ? tr(TOOL_NAMES[slot.id]) : slot.k === "seed" ? tf("{0} seeds", tr(itemInfo(slot.id).name)) : tr(itemInfo(slot.id).name));
+function eatValue(id) {
+  let e = edibleEnergy(id);
+  if (e && hasPerk("naturalist") && (CROPS[id] || FORAGE[id])) e *= 3;
+  if (e && DISHES[id] && state.house >= 1) e = Math.round(e * 1.25);                 // kitchen upgrade
+  return e;
+}
+const TOOL_DESC = { hoe: "Tills the soil so you can plant seeds. Upgrade it at the shop to till several tiles at once.", rod: "Fish in ponds, the lake and the ocean. Press Space to cast, and again to hook the fish.", pick: "Breaks rocks and ore nodes. Upgrade it to mine harder ore.", sword: "Swing it at monsters in the mine." };
+const ITEM_DESC = { milk: "Fresh from your cows.", egg: "Fresh from your chickens.", tonic: "A strong drink that perks you right up.", bouquet: "Give it to someone you like a lot.", pendant: "A proposal gift for the one you love.", sprinkler: "Place it on your farm (press P). It waters nearby soil every night.", qsprinkler: "Place it on your farm (press P). It waters a wider area every night.", slime: "Dropped by monsters in the mine.", batwing: "Dropped by monsters in the mine.", bone: "Dropped by monsters in the mine.", pearl: "A rare treasure.", coin: "A rare treasure.", relic: "A rare treasure." };
+function slotInfo(slot) {
+  if (slot.k === "tool") {
+    const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel }[slot.id] || 0;
+    return { name: slotName(slot) + (lvl ? ` L${lvl + 1}` : ""), desc: slot.id === "can" ? tf("Waters your crops. Holds {0} water. Refill it at any pond.", maxWater()) : tr(TOOL_DESC[slot.id]) };
+  }
+  const id = slot.id;
+  if (slot.k === "seed") return { name: slotName(slot), desc: tf("Plant on tilled soil. Grows in {0} days. Season: {1}.", CROPS[id].days, seasonTag(id)) + (CROPS[id].regrow ? " " + tr("Keeps producing.") : ""), count: slotCount(state, slot) };
+  const desc = ITEM_DESC[id] ? tr(ITEM_DESC[id]) : CROPS[id] ? tr("A crop grown on your farm. Sell it, cook with it or give it as a gift.") : FORAGE[id] ? tr("Found growing wild. Sell it, cook with it or give it as a gift.")
+    : FISH[id] ? tr("Caught with a fishing rod. Great for cooking or selling.") : ORES[id] ? tr("Mined from rocks and ore nodes. Used for upgrades and building.") : DISHES[id] ? tr("A hearty cooked meal.") : tr("A curious find.");
+  return { name: slotName(slot), desc, price: sellPrice(id), energy: eatValue(id), count: slotCount(state, slot) };
+}
+
+let invHits = [];
+function invSlotTap(ui, i) {                                                        // pick an item up, then tap another slot to swap
+  ui.cur = i; ui.trashAsk = null;
+  if (ui.held == null) { if (state.slots[i]) { ui.held = i; audio.beep(520, 0.04, "triangle"); } return; }
+  if (ui.held !== i) { const a = state.slots; [a[ui.held], a[i]] = [a[i], a[ui.held]]; audio.beep(640, 0.05, "triangle"); }
+  ui.held = null;
+}
+function invUse(ui) {
+  const sl = state.slots[ui.cur]; if (!sl) return;
+  if (sl.k === "item") { if (eatValue(sl.id)) eat(sl.id); else say(`${slotName(sl)}: ${tf("Sells for ${0}", sellPrice(sl.id))}`, 2.5); }
+  else { selectSlot(ui.cur); say(tf("{0} selected.", slotName(sl)), 2); }
+}
+function invTrash(ui) {
+  const sl = state.slots[ui.cur]; if (!sl) return;
+  if (sl.k === "tool") return say("Tools can't be trashed.", 2.5);
+  if (ui.trashAsk !== ui.cur) { ui.trashAsk = ui.cur; return say(tf("Trash {0}? Press Trash again to confirm.", slotName(sl)), 3); }
+  (sl.k === "seed" ? state.seeds : state.inv)[sl.id] = 0; ui.trashAsk = null; say(tf("Trashed {0}.", slotName(sl)), 2); audio.beep(200, 0.1, "sawtooth");
+}
+function invKey(ui, k) {
+  const n = state.slots.length;
+  if (k === "escape" || k === "e" || k === "i") { if (ui.held != null) { ui.held = null; return; } return void (state.ui = null); }
+  if (k === "tab") { ui.tab = (ui.tab + 1) % 3; return; }
+  if (ui.tab !== 0) { if (k === "arrowright") ui.tab = (ui.tab + 1) % 3; else if (k === "arrowleft") ui.tab = (ui.tab + 2) % 3; return; }
+  ui.cur ??= state.sel;
+  const move = d => { ui.cur = (ui.cur + d + n) % n; ui.trashAsk = null; };
+  if (k === "arrowleft" || k === "a") move(-1);
+  else if (k === "arrowright" || k === "d") move(1);
+  else if (k === "arrowup" || k === "w") move(-COLS);
+  else if (k === "arrowdown" || k === "s") move(COLS);
+  else if (k === "enter" || k === " ") invSlotTap(ui, ui.cur);
+  else if (k === "u") invUse(ui);
+  else if (k === "t") invTrash(ui);
+  else if (k === "r") { sortSlots(state); ui.held = null; audio.beep(600, 0.05, "triangle"); }
+}
+function invTap(cx, cy) {
+  for (let i = invHits.length - 1; i >= 0; i--) { const r = invHits[i]; if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) { r.fn(); return true; } }
+  return false;
+}
+const rawText = (s, x, y, c = "#fff", a = "left") => { ctx.fillStyle = c; ctx.textAlign = a; ctx.fillText(s, x, y); ctx.textAlign = "left"; };   // player-typed text is never translated
+function invButton(x, y, w, label, hot, fn) {
+  woodFrame(x, y, w, 16, hot ? "rgba(120,50,30,.97)" : "rgba(34,22,12,.95)"); txt(label, x + w / 2, y + 12, hot ? "#ffb0a0" : "#ffe9b0", "center"); invHits.push({ x, y, w, h: 16, fn });
+}
 function drawInventory(ui) {
-  panel(30, 14, 420, 230, `${["[ITEMS]  friends  skills", " items  [FRIENDS]  skills", " items  friends  [SKILLS]"][ui.tab]}   (Tab: switch, I/E: close)`);
-  let y = 40;
-  if (ui.tab === 0) {
-    const row = (t, c = "#fff") => { txt(t, 40, y, c); y += 12; };
-    row(`Hoe L${state.hoeLevel + 1}  Can L${state.canLevel + 1} (${maxWater()})  Pick L${state.pickLevel + 1}  Sword L${state.swordLevel + 1}`, "#cfe8ff");
-    row(`Fish caught ${state.caught}  Mine best ${state.mineBest}F`, "#cfe8ff");
-    y += 2; row("Seeds (Q switches)        Season  Sell", "#ffd23f");
-    CROP_IDS.forEach((k, i) => {
-      ctx.drawImage(S.icon[k], 40, y - 10, 12, 12);
-      const c = i === state.seedSel ? "#ffd23f" : state.seeds[k] ? "#fff" : "#777";
-      txt(`${k} x${state.seeds[k]}`, 56, y, c); txt(seasonTag(k), 140, y, c); txt(`$${CROPS[k].price}`, 190, y, c); y += 12;
-    });
-    let ry = 40;
-    const items = invItems(); let total = 0;
-    for (const [id, n] of items) total += n * sellPrice(id);
-    txt("Bag (number = eat)", 250, ry, "#ffd23f"); ry += 12;
-    if (!items.length) txt("(empty)", 250, ry, "#777");
-    items.slice(0, 11).forEach(([id, n], i) => {
-      ctx.drawImage(S.icon[id], 250, ry - 10, 12, 12);
-      txt(tr(`${i < 9 ? i + 1 + "." : "  "} ${n}x ${itemInfo(id).name}`).slice(0, 26), 266, ry, edibleEnergy(id) ? "#fff" : "#aab"); ry += 12;
-    });
-    if (items.length > 11) { txt(`…and ${items.length - 11} more`, 250, ry, "#777"); ry += 12; }
-    if (items.length) txt(`Worth $${total}`, 250, ry + 2, "#8f8");
-  } else if (ui.tab === 2) {
+  invHits = [];
+  woodFrame(26, 6, 428, 258, "rgba(34,22,12,.95)");
+  ["Items", "Friends", "Skills"].forEach((t, i) => {                                // tab bar
+    const x = 36 + i * 78, on = ui.tab === i;
+    ctx.fillStyle = on ? "#f4d68a" : "#8a5a30"; ctx.fillRect(x, on ? 8 : 11, 74, on ? 20 : 17); ctx.fillStyle = on ? "#ffe9a8" : "#a8743c"; ctx.fillRect(x + 1, on ? 9 : 12, 72, 3);
+    txt(t, x + 37, 22, on ? "#5a3410" : "#ffe9b0", "center"); invHits.push({ x, y: 8, w: 74, h: 20, fn: () => { ui.tab = i; } });
+  });
+  ctx.fillStyle = "#ffd23f"; ctx.fillRect(360, 15, 7, 7); txt(`${state.money}`, 414, 22, "#fff", "right");
+  woodFrame(424, 9, 24, 19, "rgba(120,50,30,.97)"); txt("X", 436, 22, "#ffd0c0", "center"); invHits.push({ x: 424, y: 9, w: 24, h: 19, fn: () => { if (ui.held != null) ui.held = null; else state.ui = null; } });   // close
+  if (ui.tab === 0) drawPackTab(ui); else drawInvOther(ui);
+}
+function drawPackTab(ui) {
+  const n = state.slots.length, rows = n / COLS, GX = 138, GY = 36, P = 25, SZ = 22;
+  ui.cur = Math.max(0, Math.min(n - 1, ui.cur ?? state.sel));
+  // character card
+  woodFrame(32, 32, 100, 106, "rgba(90,130,60,.9)");
+  ctx.fillStyle = "#9fcf6a"; ctx.fillRect(36, 36, 92, 98); ctx.fillStyle = "#86bd56"; for (let i = 0; i < 12; i++) ctx.fillRect(38 + (i * 37) % 86, 40 + (i * 53) % 90, 2, 1);
+  ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.fillRect(56, 120, 52, 6);
+  const pimg = S.player[0][Math.floor(clock * 2) % 4 === 3 ? 1 : 0]; ctx.drawImage(pimg, 82 - 27 - (pimg.ox || 0) * 3, 124 - 72 - (pimg.oy || 0) * 3, pimg.width * 3, pimg.height * 3);
+  ctx.font = "bold 10px monospace"; rawText(state.name || "Farmer", 82, 152, "#ffe9b0", "center"); ctx.font = "9px monospace";
+  const se = seasonOf(state.day);
+  txt(`${tr(SEASONS[se].name)} ${dayOfSeason(state.day)}, Y${yearOf(state.day)}`, 82, 165, "#cfe8ff", "center");
+  txt(tf("Energy {0}/{1}", Math.round(state.energy), maxEnergy()), 82, 178, "#8be07a", "center"); txt(tf("Health {0}/{1}", Math.round(state.hp), maxHp()), 82, 190, "#f07a7a", "center");
+  invButton(34, 198, 30, "Use", false, () => invUse(ui)); invButton(66, 198, 30, "Sort", false, () => { sortSlots(state); ui.held = null; audio.beep(600, 0.05, "triangle"); }); invButton(98, 198, 32, "Trash", ui.trashAsk === ui.cur, () => invTrash(ui));
+  txt(tf("Bag {0}/{1}", usedSlots(state), n), 82, 228, usedSlots(state) >= n ? "#ff9a8a" : "#c9a56a", "center");
+  if (state.pack < 36) txt("Bigger bag: shop", 82, 240, "#a98a5a", "center");
+  // slot grid (the first row is the hotbar; Tab changes which row it shows)
+  for (let i = 0; i < n; i++) {
+    const x = GX + (i % COLS) * P, y = GY + Math.floor(i / COLS) * P, sl = state.slots[i], on = i === ui.cur;
+    slotBox(x, y, on, SZ, i >= state.row * COLS && i < state.row * COLS + COLS);
+    if (sl) { if (ui.held === i) ctx.globalAlpha = 0.4; slotContent(sl, x, y, 3); ctx.globalAlpha = 1; }
+    if (i === state.sel) { ctx.strokeStyle = "#e84a3a"; ctx.strokeRect(x - 1.5, y - 1.5, SZ + 3, SZ + 3); }
+    invHits.push({ x, y, w: P, h: P, fn: () => invSlotTap(ui, i) });
+  }
+  if (ui.held != null && state.slots[ui.held]) { const x = GX + (ui.cur % COLS) * P + 8, y = GY + Math.floor(ui.cur / COLS) * P + 8; slotContent(state.slots[ui.held], x, y, 0, false); }
+  // details
+  const DY = GY + rows * P + 8;
+  woodFrame(GX - 3, DY, 318, 258 - DY - 22, "rgba(26,17,9,.96)");
+  const sl = state.slots[ui.cur];
+  if (ui.held != null && state.slots[ui.held]) {
+    txt(tf("Holding {0}.", slotName(state.slots[ui.held])), GX + 6, DY + 16, "#ffd23f");
+    wrap("Pick a slot and press Enter to put it there (items swap places).", 296).forEach((l, i) => txt(l, GX + 6, DY + 30 + i * 11, "#cfe8ff"));
+  } else if (sl) {
+    const info = slotInfo(sl); ctx.font = "bold 10px monospace"; txt(info.name, GX + 6, DY + 16, "#ffe9b0"); ctx.font = "9px monospace";
+    if (info.count > 1) txt(`x${info.count}`, GX + 306, DY + 16, "#fff", "right");
+    let ty = DY + 30; wrap(info.desc, 296).forEach(l => { txt(l, GX + 6, ty, "#fff"); ty += 11; });
+    ty += 4;
+    if (info.energy) { txt(tf("Restores {0} energy and health.", info.energy), GX + 6, ty, "#8be07a"); ty += 11; }
+    if (info.price) txt(tf("Sells for ${0}", info.price), GX + 6, ty, "#ffd23f");
+  } else txt("Empty slot", GX + 6, DY + 16, "#8a7a5a");
+  const hint = state.msgT > 0 && state.msg ? state.msg : isTouch() ? "Tap an item, then another slot to swap." : "Enter: pick up / place · U: use · T: trash · R: sort";
+  txt(hint, GX - 3, 258, state.msgT > 0 ? "#ffe9a8" : "#a98a5a");
+}
+function drawInvOther(ui) {
+  let y = 44;
+  if (ui.tab === 2) {
     for (const [id, sk] of Object.entries(SKILLS)) {
       const lv = skillLevel(id), xp = state.xp[id], lo = XP_TABLE[lv - 1], hi = XP_TABLE[lv] ?? lo + 1, frac = lv >= 10 ? 1 : (xp - lo) / (hi - lo);
       txt(`${sk.name}  Lv ${lv}${lv >= 10 ? " (max)" : `  (${xp}/${hi} xp)`}`, 40, y, "#fff");
@@ -1730,9 +1889,13 @@ canvas.addEventListener("pointerdown", e => {
     if (i >= 0 && i < opts.length && cx > W / 2 - 70 && cx < W / 2 + 70) { titleSel = i; dispatchKey("enter"); }
     return;
   }
+  if (state.ui?.type === "inv" && invTap(cx, cy)) return;
   if (state.ui) { const k = hitUi(cx, cy); if (k) dispatchKey(k); return; }
-  const tb0 = Math.round((W - (TOOLS.length * 28 - 2)) / 2);
-  if (cy >= H - 34) { const i = Math.floor((cx - tb0) / 28); if (i >= 0 && i < TOOLS.length) dispatchKey(String(i + 1)); }
+  const tb0 = Math.round((W - (COLS * 28 - 2)) / 2);
+  if (cy >= H - 36) {
+    if (state.pack > COLS && cx >= tb0 - 30 && cx < tb0 - 6) return cycleRow();
+    const i = Math.floor((cx - tb0) / 28); if (i >= 0 && i < COLS) selectSlot(state.row * COLS + i);
+  }
 });
 initTouch(); initView();
 // Static page labels follow the language setting.
@@ -1748,11 +1911,13 @@ onSetting(k => { if (k === "lang") applyDom(); }); applyDom();
 // Phones kill backgrounded tabs: save and silence audio whenever the page is hidden.
 const onHide = () => { if (document.visibilityState === "hidden" || document.visibilityState === undefined) { if (scene === "game" && state) save(); audio.setPaused(true); } else audio.setPaused(false); };
 document.addEventListener("visibilitychange", onHide); addEventListener("pagehide", () => { if (scene === "game" && state) save(); });
-let lastUiOpen = null, lastTitle = null, lastIntro = null;
+let lastUiOpen = null, lastTitle = null, lastIntro = null, lastInv = null;
 function syncBodyClasses() {
   const uiOpen = (scene === "game" && !!state?.ui) || !!setUi, title = scene === "title", inIntro = (scene === "intro" || scene === "builder") && !setUi;
   if (uiOpen !== lastUiOpen) { document.body.classList.toggle("ui-open", uiOpen); lastUiOpen = uiOpen; }
   if (title !== lastTitle) { document.body.classList.toggle("scene-title", title); lastTitle = title; }
+  const invOpen = scene === "game" && state?.ui?.type === "inv" && !setUi;
+  if (invOpen !== lastInv) { document.body.classList.toggle("inv-open", invOpen); lastInv = invOpen; }
   if (inIntro !== lastIntro) { document.body.classList.toggle("scene-intro", inIntro); lastIntro = inIntro; }
 }
 
@@ -1762,7 +1927,7 @@ const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, la
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
