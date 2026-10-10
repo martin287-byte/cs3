@@ -2,6 +2,10 @@
 export const BIRTHDAYS = {
   rosa: { s: 0, d: 3 }, oliver: { s: 0, d: 8 }, mina: { s: 1, d: 2 }, ben: { s: 1, d: 7 },
   marlo: { s: 2, d: 1 }, dune: { s: 2, d: 6 }, iris: { s: 3, d: 4 }, quill: { s: 3, d: 9 },
+  nora: { s: 0, d: 6 },
+  hugo: { s: 1, d: 4 },
+  lena: { s: 2, d: 3 },
+  theo: { s: 3, d: 1 },
 };
 export const BIRTHDAY_MULT = 3;
 // 4-heart and 8-heart scenes: three lines each, then a reward ({ pts, money, item }).
@@ -37,5 +41,21 @@ export const HEART_EVENTS = {
   quill: {
     4: { lines: ["Quill has crumpled pages scattered around the bench.", "Quill: The hero walks into the tavern and then — nothing. I'm stuck on the same page.", "Quill: Talking helped. Take this, a stolen coin from chapter two."], reward: { pts: 30, item: "coin" } },
     8: { lines: ["Quill reads aloud from a new page, voice trembling.", "Quill: 'The farmer woke before dawn and the valley woke with them.' Do you like it?", "Quill: I wrote you into the book. Take this — you've earned your own chapter."], reward: { pts: 50, money: 350 } },
+  },
+  nora: {
+    4: { lines: ["Nora is sorting bandages and humming a lullaby.", "Nora: Oh! A long shift. Everyone seems to trip over their own boots today.", "Nora: Here, a free tonic from the clinic. Don't tell the others."], reward: { pts: 30, item: "tonic" } },
+    8: { lines: ["Nora sits on the clinic steps at dusk, staring at the sky.", "Nora: I became a nurse because my family needed one. I never asked if I wanted it. But I do.", "Nora: Thank you for listening. Take this, you deserve it."], reward: { pts: 50, money: 300 } },
+  },
+  hugo: {
+    4: { lines: ["Hugo hammers a glowing blade and stops when he sees you.", "Hugo: Eh, don't stand so close. Sparks.", "Hugo: Take this. It's a scrap of gold from a failed project."], reward: { pts: 30, item: "gold" } },
+    8: { lines: ["Hugo shows you a dusty anvil in the back room.", "Hugo: My father's. I haven't lit this fire in years. It felt wrong to do it alone.", "Hugo: You made it feel right. Take this, and thank you."], reward: { pts: 50, money: 400 } },
+  },
+  lena: {
+    4: { lines: ["Lena is balancing a tower of books and a cup of tea.", "Lena: Oh, don't mind the mess. I'm reorganising by mood now.", "Lena: A bookmark for you. It's hand-painted. Please treat it kindly."], reward: { pts: 30, item: "coin" } },
+    8: { lines: ["Lena closes the library early and lights a small lantern.", "Lena: There's a poem in the margins of the oldest book here. I think it was left for whoever needed it.", "Lena: It's yours now. Take this, as a thank-you."], reward: { pts: 50, item: "amethyst" } },
+  },
+  theo: {
+    4: { lines: ["Theo is dusting a clay pot with a tiny brush.", "Theo: This is eight hundred years old. And I broke it. Twice.", "Theo: Take this coin, it's from the same dig. It's lucky."], reward: { pts: 30, item: "coin" } },
+    8: { lines: ["Theo unrolls an old map across the museum floor.", "Theo: The island holds more than a few buried coins. Someone once lived there, you know.", "Theo: Take this. And promise to bring me every strange thing you find."], reward: { pts: 50, item: "pearl" } },
   },
 };

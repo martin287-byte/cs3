@@ -203,7 +203,7 @@ function load(n = lastSave()) {
     state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, tut: { ...d.tut, ...s.state.tut }, visited: { ...d.visited, ...s.state.visited }, tips: { ...s.state.tips }, perks: { ...s.state.perks }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
     if (!Array.isArray(s.state.slots)) { state.pack = 36; state.slots = defaultSlots(36); }      // saves from before backpack slots keep a full-size bag
     state.sel = Math.max(0, Math.min(state.pack - 1, state.sel | 0)); state.row = Math.floor(state.sel / COLS);
-    state.slot = n === 0 ? state.slot || 1 : n; ensureAxe(); syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
+    state.slot = n === 0 ? state.slot || 1 : n; ensureAxe(); for (const id of Object.keys(VILLAGERS)) state.friend[id] ??= { pts: 0, talked: false, gifted: false, rewards: 0 }; syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
   } catch (e) { console.warn("Could not load the save:", e); return false; }
 }
 
@@ -319,10 +319,12 @@ const cropStage = c => (c.age >= CROPS[c.type].days ? 4 : Math.min(3, Math.floor
 const npcOverlap = (nx, ny) => Object.values(npcs).some(n => n.map === state.map && Math.abs(n.x - nx) < 9 && Math.abs(n.y - ny) < 9);
 const npcNear = (tx, ty) => Object.entries(npcs).find(([, n]) => n.map === state.map && Math.abs(n.x + 8 - (tx * T + 8)) < 10 && Math.abs(n.y + 8 - (ty * T + 8)) < 10)?.[0];
 
+const NEWCOMERS = ["nora", "hugo", "lena", "theo"];
 function scheduleFor(id) {
   const h = hourNow();
   if (id === "zed") return merchantHere() && h >= 8 && h < 22 ? { map: "town", x: MERCHANT.x, y: MERCHANT.y } : { map: null };
   if (state.spouse === id) return { map: "farm", x: 9, y: 8 };                                // lives on the farm
+  if (NEWCOMERS.includes(id) && maps.town.w < 64) return { map: null };                  // they live in the enlarged town (older saves keep the small one)
   const v = VILLAGERS[id], sched = v.sched;
   if (h < sched[0].h) return { map: null };
   const fh = state.fest && FESTIVALS.find(x => x.id === state.fest.id)?.host;
@@ -1925,13 +1927,13 @@ function drawInvOther(ui) {
     txt(tr(`Perks: ${chosen.length ? chosen.join(", ") : "none yet (levels 5 and 10)"}`).slice(0, 70), 40, y + 12, "#ffd23f");
   } else {
     Object.entries(VILLAGERS).forEach(([id, v], i) => {
-      const cx = 40 + (i % 2) * 205, cy = y + Math.floor(i / 2) * 31;
+      const cx = 40 + (i % 2) * 205, cy = y + Math.floor(i / 2) * 28;
       ctx.drawImage(S.npc[id][0][0], cx - 1, cy - 12);
       txt(tr(`${v.name} (${v.job})`).slice(0, 24), cx + 22, cy - 2); txt(`${"*".repeat(hearts(id))}${".".repeat(10 - hearts(id))} ${hearts(id)}/10`, cx + 22, cy + 8, "#ff7a9c");
       { const b = BIRTHDAYS[id]; txt(`${birthdayOf(id) ? "* " : ""}${tr(SEASONS[b.s].name).slice(0, 3)} ${b.d}`, cx + 150, cy + 8, birthdayOf(id) ? "#ffd23f" : "#9aa"); }
       txt(tr(`Loves: ${v.loves.slice(0, 2).map(i => itemInfo(i).name).join(", ")}`).slice(0, 30), cx + 22, cy + 17, "#8f8");
     });
-    y += 4 * 31 - 4;
+    y += Math.ceil(Object.keys(VILLAGERS).length / 2) * 28 - 2;
     y += 2;
     const rel = state.spouse ? `Married to ${VILLAGERS[state.spouse].name}` : state.engaged ? `Engaged to ${VILLAGERS[state.engaged.id].name} — wedding on day ${state.engaged.day}` : state.dating ? `Dating ${VILLAGERS[state.dating].name}` : "Single (8 hearts + bouquet to date, 10 + pendant to marry)";
     txt(rel, 40, y, "#ff7a9c");
