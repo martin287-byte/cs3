@@ -269,6 +269,16 @@ const UI = {
   "Axe": "Fejsze", "Wood": "Fa", "Hay": "Széna", "Axe Lv{0} -> Lv{1}": "Fejsze Sz{0} -> Sz{1}", "Axe maxed": "Fejsze kész",
   "Tap 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.": "Koppints a 7-esre a magokért (SEED: következő magzacskó), majd használd őket a szántott földön.",
   "Press 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.": "Nyomd meg a 7-et a magokért (Q: következő magzacskó), majd használd őket a szántott földön.",
+  // artisan machines
+  "Preserves Jar": "Befőttes üveg", "Keg": "Hordó", "Cheese Press": "Sajtprés", "Mayonnaise Machine": "Majonézgép", "Cheese": "Sajt", "Mayonnaise": "Majonéz", "Workshop": "Műhely",
+  "Turns crops and fruit into pickles and jam in 3 days.": "A terményeket savanyúsággá, a gyümölcsöt lekvárrá alakítja 3 nap alatt.",
+  "Turns crops into juice (4 days) and fruit into wine (6 days).": "A terményből levet (4 nap), a gyümölcsből bort (6 nap) készít.",
+  "Turns milk into cheese in 3 days.": "A tejet 3 nap alatt sajttá alakítja.", "Turns eggs into mayonnaise in 2 days.": "A tojást 2 nap alatt majonézzé alakítja.",
+  "{0} Jam": "{0} lekvár", "{0} Juice": "{0} lé", "{0} Wine": "{0} bor", "Pickled {0}": "Savanyított {0}",
+  "Place machines on your farm.": "Gépeket csak a farmodon helyezhetsz le.", "Can't place that here.": "Ide nem teheted.",
+  "{0} placed. Press E next to it to load it.": "{0} lerakva. Állj mellé és nyomd az E-t a megtöltéséhez.",
+  "Collected {0}!": "{0} összegyűjtve!", "{0}: {1} ready in {2} day(s).": "{0}: {1} {2} nap múlva kész.", "{0}: {1}": "{0}: {1}",
+  "Loaded {0}. Ready in {1} days.": "{0} betöltve. {1} nap múlva kész.", "Empty it first — it is still working.": "Még dolgozik, előbb ürítsd ki.", "Picked up the machine.": "A gépet felvetted.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

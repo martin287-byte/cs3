@@ -12,7 +12,7 @@ import { initView, canvasPoint } from "./view.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
-import { AXE_UPGRADES } from "./data.js";
+import { AXE_UPGRADES, MACHINES, machineRecipe } from "./data.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -29,7 +29,7 @@ const TOOL_NAMES = { axe: "Axe", hoe: "Hoe", can: "Watering Can", rod: "Fishing 
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
 const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12, island: 12 };
-const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts", "House"];
+const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts", "House", "Workshop"];
 
 const S = buildSprites({
   crops: CROP_IDS, forage: Object.keys(FORAGE),
@@ -271,7 +271,7 @@ function dropItem(k, id, n) {                                                   
   for (let r = 1; r <= 4; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
     const x = px + dx, y = py + dy, t = inBounds(x, y) ? m.tiles[y][x] : null;
-    if (t && !BLOCKING.includes(t.t) && !t.drop && !t.forage && !t.crop && !t.kind && !t.sprinkler && !m.warps.some(w => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h)) {
+    if (t && !BLOCKING.includes(t.t) && !t.drop && !t.forage && !t.crop && !t.kind && !t.sprinkler && !t.machine && !m.warps.some(w => x >= w.x && x < w.x + w.w && y >= w.y && y < w.y + w.h)) {
       t.drop = { k, id, n }; say("Your inventory is full! It fell on the ground.", 3.5); return true;
     }
   }
@@ -290,7 +290,7 @@ const lineTiles = n => {
   const { x, y } = targetTile();
   return Array.from({ length: n }, (_, i) => [x + state.fx * i, y + state.fy * i]).filter(([a, b]) => inBounds(a, b));
 };
-const blocked = (tx, ty) => !inBounds(tx, ty) || BLOCKING.includes(tileAt(tx, ty).t);
+const blocked = (tx, ty) => !inBounds(tx, ty) || BLOCKING.includes(tileAt(tx, ty).t) || !!tileAt(tx, ty).machine;
 const cropStage = c => (c.age >= CROPS[c.type].days ? 4 : Math.min(3, Math.floor(c.age / CROPS[c.type].days * 4)));
 const npcOverlap = (nx, ny) => Object.values(npcs).some(n => n.map === state.map && Math.abs(n.x - nx) < 9 && Math.abs(n.y - ny) < 9);
 const npcNear = (tx, ty) => Object.entries(npcs).find(([, n]) => n.map === state.map && Math.abs(n.x + 8 - (tx * T + 8)) < 10 && Math.abs(n.y + 8 - (ty * T + 8)) < 10)?.[0];
@@ -336,7 +336,32 @@ function chop(tile, x, y) {
   const wood = 8 + Math.floor(Math.random() * 5) + Math.floor((skillLevel("foraging") - 1) / 3);
   addItem("wood", wood); gainXp("foraging", 7); emit("wood", x * T + 8, y * T + 4); emit("wood", x * T + 8, y * T + 8); say(tf("Timber! +{0} wood.", wood)); audio.beep(120, 0.2, "sawtooth");
 }
+function placeMachine(id) {
+  const { x, y } = targetTile();
+  if (!inBounds(x, y)) return;
+  const tile = tileAt(x, y);
+  if (state.map !== "farm") return say("Place machines on your farm.");
+  if (tile.t !== 0 && tile.t !== 1 || tile.crop || tile.forage || tile.drop || tile.kind || tile.sprinkler || tile.machine || tile.sapling) return say("Can't place that here.");
+  tile.machine = { type: id.slice(2) }; state.inv[id]--; audio.beep(420, 0.1, "square"); say(tf("{0} placed. Press E next to it to load it.", tr(MACHINES[id.slice(2)].name)), 3);
+}
+function machineUse(tile) {                                                         // E on a machine: collect, check or load
+  const m = tile.machine, def = MACHINES[m.type];
+  if (m.out && state.day >= m.ready) {
+    if (!holds("item", m.out)) return full();
+    addItem(m.out); say(tf("Collected {0}!", tr(itemInfo(m.out).name)), 3); gainXp("farming", 4); audio.beep(700, 0.1, "triangle"); delete m.out; return;
+  }
+  if (m.out) return say(tf("{0}: {1} ready in {2} day(s).", tr(def.name), tr(itemInfo(m.out).name), m.ready - state.day), 3);
+  const pick = invItems().map(([id]) => [id, machineRecipe(m.type, id)]).filter(([, r]) => r).sort((a, b) => itemInfo(b[0]).price - itemInfo(a[0]).price)[0];
+  if (!pick) return say(tf("{0}: {1}", tr(def.name), tr(def.desc)), 4);
+  const [id, r] = pick; state.inv[id]--; m.out = r.out; m.ready = state.day + r.days; audio.beep(360, 0.1, "square");
+  say(tf("Loaded {0}. Ready in {1} days.", tr(itemInfo(id).name), r.days), 3);
+}
+function pickupMachine(tile) {
+  if (tile.machine.out) return say("Empty it first — it is still working.");
+  addItem("m_" + tile.machine.type); delete tile.machine; say("Picked up the machine.");
+}
 function useSlotItem(id) {                                                          // Space on a food slot eats it
+  if (id.startsWith("m_")) return placeMachine(id);
   if (edibleEnergy(id)) return eat(id);
   say(`${tr(itemInfo(id).name)}: ${tf("Sells for ${0}", sellPrice(id))}`, 2.5);
 }
@@ -356,6 +381,7 @@ function useTool() {
   }
   if (state.mounted) return say("Dismount first (press H).");
   if (tool === "none") return;
+  if (tile.machine && (tool === "axe" || tool === "pick")) return pickupMachine(tile);
   if (tool === "axe") return chop(tile, x, y);
   if (tool === "item") return useSlotItem(curSlot().id);
   if (tool === "hoe" || tool === "can" || tool === "pick") {
@@ -809,6 +835,7 @@ function interact() {
   if (petNear(x, y) && !id) return petPet();
   if (id === "zed") { state.ui = { type: "merchant", mode: "buy" }; audio.beep(520, 0.05); }
   else if (id) { tip("talk", "Talk once a day and give gifts (option 2) to raise friendship. Check what people like in the inventory's Friends tab."); state.ui = { type: "talk", id, mode: "menu", text: "", n: 0 }; audio.beep(520, 0.05); }
+  else if (tile.machine) machineUse(tile);
   else if (tile.kind === "bin") state.ui = { type: "bin" };
   else if (tile.kind === "home") enterHouse();
   else if (tile.kind === "bed") state.ui = { type: "home" };
@@ -865,7 +892,8 @@ const houseShop = () => HOUSE.slice(1).map((h, i) => {
   if (state.houseWork || lvl > state.house + 1) return { label: `${h.name} (${state.houseWork ? "wait for the builders" : "needs " + HOUSE[lvl - 1].name})`, cost: Infinity };
   return { label: `Upgrade: ${h.name}`, cost: h.cost, mats: h.mats, buy: () => { state.houseWork = { to: lvl, ready: state.day + HOUSE_BUILD_DAYS }; say(tf("Oliver starts work on your {0}. Ready on day {1}!", tr(h.name), state.houseWork.ready), 4); } };
 });
-const SHOP = page => page === 4 ? houseShop() : page === 0
+const workshop = () => Object.entries(MACHINES).map(([t, m]) => ({ label: `${m.name} — ${m.desc}`, cost: 0, mats: m.cost, slot: ["item", "m_" + t], buy: () => addItem("m_" + t) }));
+const SHOP = page => page === 5 ? workshop() : page === 4 ? houseShop() : page === 0
   ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, slot: ["seed", k], buy: () => { addSeeds(k, 5); } }))
   : page === 1 ? [
     upgrade("Hoe", HOE_UPGRADES, state.hoeLevel, () => { state.hoeLevel++; }),
@@ -1276,6 +1304,7 @@ function drawWorld() {
     if (tile.t === 13) ctx.drawImage(S.node[tile.ore], x * T, y * T);
     if (tile.kind === "ladder") ctx.drawImage(S.ladder, x * T, y * T);
     if (tile.kind === "mexit") ctx.drawImage(S.mexit, x * T, y * T);
+    if (tile.machine) { shadow(x * T + 8, y * T + 14, 6, 1.6, 0.25); ctx.drawImage(S.machine[tile.machine.type], x * T, y * T); if (tile.machine.out) { const rd = state.day >= tile.machine.ready; ctx.fillStyle = rd ? "#ffd23f" : "#8ac"; ctx.fillRect(x * T + 6, y * T - 2 + (rd ? Math.round(Math.sin(clock * 5)) : 0), 4, 3); } }
     if (tile.sprinkler) ctx.drawImage(S.icon[tile.sprinkler === 2 ? "qsprinkler" : "sprinkler"], x * T, y * T);
     if (tile.crop) { const ci = S.crop[tile.crop.type][cropStage(tile.crop)]; shadow(x * T + 8, y * T + 14, 5, 1.5, 0.2); ctx.drawImage(ci, x * T - ci.ox, (y + 1) * T - 24 - ci.oy); }
     if (tile.forage) ctx.drawImage(S.icon[tile.forage], x * T, y * T + Math.round(Math.sin(clock * 3 + x) * 0.6));
@@ -1512,7 +1541,7 @@ function drawUiInner(ui) {
     }
     SHOP(ui.page).forEach((it, i) => {
       const ok = it.cost !== Infinity && state.money >= it.cost && hasMats(it.mats);
-      txt(`${i + 1}. ${it.label}${it.cost === Infinity ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
+      txt(`${i + 1}. ${it.label}${it.cost === Infinity || !it.cost ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
     });
     txt(`Now: ${SEASONS[seasonOf(state.day)].name}. Out-of-season crops wither when the season changes. Ore and stone come from the mine.`, 48, 228, "#9aa");
   } else if (ui.type === "bin") {

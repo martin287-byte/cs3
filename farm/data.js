@@ -125,11 +125,41 @@ export const DISHES = {
 export const START_RECIPES = ["friedegg", "stew"];
 
 export const EGG = { name: "Egg", price: EGG_PRICE };
+// ---- artisan machines: craft them, place them, put ingredients in, collect the goods days later ----------------
+export const MACHINES = {
+  jar:   { name: "Preserves Jar",      cost: { wood: 20, stone: 30 },             desc: "Turns crops and fruit into pickles and jam in 3 days." },
+  keg:   { name: "Keg",                cost: { wood: 30, copper: 3, iron: 1 },    desc: "Turns crops into juice (4 days) and fruit into wine (6 days)." },
+  press: { name: "Cheese Press",       cost: { wood: 45, stone: 45 },             desc: "Turns milk into cheese in 3 days." },
+  mayo:  { name: "Mayonnaise Machine", cost: { wood: 15, stone: 15, copper: 1 },  desc: "Turns eggs into mayonnaise in 2 days." },
+};
+export const FRUIT = ["berry", "grape", "blackberry", "starfruit", "cactusfruit", "coconut"];
+// Product ids are generated: "pickle:turnip", "jam:grape", "juice:corn", "wine:grape", plus "cheese" and "mayo".
+export const ARTISAN = {
+  pickle: { fmt: n => `Pickled ${n}`, price: p => 2 * p + 50, energy: 8 },
+  jam:    { fmt: n => `${n} Jam`,     price: p => 2 * p + 50, energy: 10 },
+  juice:  { fmt: n => `${n} Juice`,   price: p => Math.round(2.25 * p), energy: 12 },
+  wine:   { fmt: n => `${n} Wine`,    price: p => 3 * p, energy: 0 },
+};
+export const isArtisan = id => id === "cheese" || id === "mayo" || (typeof id === "string" && id.includes(":") && !!ARTISAN[id.split(":")[0]]);
+export function machineRecipe(type, id) {                                           // -> { out, days } or null
+  if (type === "jar") return CROPS[id] || id === "mushroom" ? { out: `pickle:${id}`, days: 3 } : FRUIT.includes(id) ? { out: `jam:${id}`, days: 3 } : null;
+  if (type === "keg") return CROPS[id] ? { out: `juice:${id}`, days: 4 } : FRUIT.includes(id) ? { out: `wine:${id}`, days: 6 } : null;
+  if (type === "press") return id === "milk" ? { out: "cheese", days: 3 } : null;
+  if (type === "mayo") return id === "egg" ? { out: "mayo", days: 2 } : null;
+  return null;
+}
 export function itemInfo(id) {
+  if (typeof id === "string" && id.startsWith("m_") && MACHINES[id.slice(2)]) return { name: MACHINES[id.slice(2)].name, price: 0 };
+  if (id === "cheese") return { name: "Cheese", price: 200 };
+  if (id === "mayo") return { name: "Mayonnaise", price: 190 };
+  if (isArtisan(id)) { const [k, base] = id.split(":"), b = itemInfo(base); return { name: ARTISAN[k].fmt(b.name), price: ARTISAN[k].price(b.price) }; }
   if (CROPS[id]) return { name: id[0].toUpperCase() + id.slice(1), price: CROPS[id].price };
   return FORAGE[id] || FISH[id] || ORES[id] || DISHES[id] || MISC[id] || (id === "egg" ? EGG : { name: id, price: 0 });
 }
 export function edibleEnergy(id) {
+  if (id === "cheese") return 25;
+  if (id === "mayo") return 5;
+  if (isArtisan(id)) return ARTISAN[id.split(":")[0]].energy;
   if (DISHES[id]) return DISHES[id].energy;
   if (id === "tonic") return 60;
   if (id === "milk") return 15;
