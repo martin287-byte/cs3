@@ -279,6 +279,13 @@ const UI = {
   "{0} placed. Press E next to it to load it.": "{0} lerakva. Állj mellé és nyomd az E-t a megtöltéséhez.",
   "Collected {0}!": "{0} összegyűjtve!", "{0}: {1} ready in {2} day(s).": "{0}: {1} {2} nap múlva kész.", "{0}: {1}": "{0}: {1}",
   "Loaded {0}. Ready in {1} days.": "{0} betöltve. {1} nap múlva kész.", "Empty it first — it is still working.": "Még dolgozik, előbb ürítsd ki.", "Picked up the machine.": "A gépet felvetted.",
+  // animal care
+  "chickens": "tyúkokat", "cows": "teheneket", "chicken": "tyúkot", "cow": "tehenet", "10x Hay (feed for animals)": "10 db széna (állatok etetéséhez)",
+  "The coop is empty. Buy chickens at the shop.": "A tyúkól üres. Vegyél tyúkot a boltban.", "The barn is empty. Buy cows at the shop.": "Az istálló üres. Vegyél tehenet a boltban.",
+  "{0} hearts — they are fed for today.": "{0} szív — mára jóllaktak.", "You need {0} hay to feed them (buy hay at the shop's Farm page).": "{0} széna kell az etetéshez (a bolt Farm oldalán kapható).",
+  "You fed the {0}. They look happy!": "Megetetted a(z) {0}. Elégedettnek tűnnek!", "The {0} enjoys it. (hearts: {1})": "Tetszik neki. ({0}, szív: {1})", "You pet the {0}. ({1} hearts)": "Megsimogattad: {0}. ({1} szív)",
+  "Happy {0}: +{1} extra.": "Boldog állatok: +{1} extra ({0}).", "Your {0} were hungry and gave nothing.": "A(z) {0} éhesek voltak, és nem adtak semmit.",
+  "Feed your animals hay every day: fed and happy animals give more eggs and milk.": "Etesd az állataidat naponta szénával: a jóllakott, boldog állatok több tojást és tejet adnak.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

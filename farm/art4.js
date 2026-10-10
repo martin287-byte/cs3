@@ -46,6 +46,7 @@ const mayoJar = () => mk(16, 16, g => { R(g, "#e8eef4", 4, 4, 8, 10); R(g, "#f6f
 
 export function buildMachineArt(S) {
   S.machine = {};
+  S.bubble = outline(mk(7, 9, g => { R(g, "#fff8d8", 1, 1, 5, 6); R(g, "#d84a4a", 3, 2, 1, 3); R(g, "#d84a4a", 3, 6, 1, 1); R(g, "#fff8d8", 2, 7, 2, 1); }));
   for (const t of Object.keys(MACHINES)) { const a = ART[t](); S.icon["m_" + t] = a; S.machine[t] = outline(a); }
   const base = S.icon;
   S.icon = new Proxy(base, {                                                        // product icons are made on first use

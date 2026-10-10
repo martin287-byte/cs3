@@ -114,7 +114,7 @@ function defaultState() {
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
-    axeLevel: 0, house: 0, houseWork: null, chest: {}, cellarChest: {}, pack: 12, slots: null, row: 0,
+    axeLevel: 0, care: { coop: { fed: 0, pts: 0 }, barn: { fed: 0, pts: 0 } }, petted: { day: 0, n: 0 }, house: 0, houseWork: null, chest: {}, cellarChest: {}, pack: 12, slots: null, row: 0,
     name: "", look: { skin: PLAYER_LOOK.skin, hair: PLAYER_LOOK.hair, hairStyle: PLAYER_LOOK.hairStyle, eye: PLAYER_LOOK.eye, shirt: PLAYER_LOOK.shirt, pants: PLAYER_LOOK.pants },
   };
 }
@@ -125,6 +125,26 @@ function newGame() {
   refreshBoard(); spawnForage(); makeAnimals();
 }
 
+const careOf = b => (state.care ??= { coop: { fed: 0, pts: 0 }, barn: { fed: 0, pts: 0 } })[b];
+const animalHearts = b => Math.min(10, Math.floor(careOf(b).pts / 100));
+const hungry = b => (b === "coop" ? state.chickens : state.cows) > 0 && careOf(b).fed !== state.day;
+function feedAnimals(b) {                                                           // E on the coop / barn: put out hay
+  const n = b === "coop" ? state.chickens : state.cows, c = careOf(b);
+  if (!n) return say(b === "coop" ? "The coop is empty. Buy chickens at the shop." : "The barn is empty. Buy cows at the shop.", 3);
+  if (c.fed === state.day) return say(tf("{0} hearts — they are fed for today.", animalHearts(b)), 3);
+  if ((state.inv.hay || 0) < n) return say(tf("You need {0} hay to feed them (buy hay at the shop's Farm page).", n), 4);
+  state.inv.hay -= n; c.fed = state.day; c.pts = Math.min(1000, c.pts + 15); tip("hay", "Feed your animals hay every day: fed and happy animals give more eggs and milk.");
+  audio.beep(480, 0.1, "triangle"); say(tf("You fed the {0}. They look happy!", tr(b === "coop" ? "chickens" : "cows")), 3);
+}
+function petAnimal(x, y) {                                                          // pet the animal under the cursor (5 per day)
+  const a = animals.find(c => Math.abs(c.x + (c.kind === "cow" ? 10 : 6) - (x * T + 8)) < 14 && Math.abs(c.y + (c.kind === "cow" ? 8 : 5) - (y * T + 8)) < 12);
+  if (!a) return false;
+  const b = a.kind === "cow" ? "barn" : "coop", pd = state.petted ??= { day: 0, n: 0 };
+  if (pd.day !== state.day) { pd.day = state.day; pd.n = 0; }
+  emit("star", a.x + 8, a.y);
+  if (pd.n >= 5) { say(tf("The {0} enjoys it. (hearts: {1})", tr(a.kind), animalHearts(b)), 2.5); return true; }
+  pd.n++; careOf(b).pts = Math.min(1000, careOf(b).pts + 8); audio.beep(700, 0.06, "sine"); say(tf("You pet the {0}. ({1} hearts)", tr(a.kind), animalHearts(b)), 2.5); return true;
+}
 function makeAnimals() {
   const spawn = (kind, n, r) => Array.from({ length: n }, () => ({
     kind, r, x: (r.x0 + Math.random() * (r.x1 - r.x0)) * T, y: (r.y0 + Math.random() * (r.y1 - r.y0)) * T, vx: 0, vy: 0, t: 0,
@@ -833,6 +853,7 @@ function interact() {
   if (!inBounds(x, y)) return;
   const id = npcNear(x, y), tile = tileAt(x, y);
   if (petNear(x, y) && !id) return petPet();
+  if (!id && state.map === "farm" && petAnimal(x, y)) return;
   if (id === "zed") { state.ui = { type: "merchant", mode: "buy" }; audio.beep(520, 0.05); }
   else if (id) { tip("talk", "Talk once a day and give gifts (option 2) to raise friendship. Check what people like in the inventory's Friends tab."); state.ui = { type: "talk", id, mode: "menu", text: "", n: 0 }; audio.beep(520, 0.05); }
   else if (tile.machine) machineUse(tile);
@@ -847,6 +868,7 @@ function interact() {
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — buy a ${BUILDINGS[tile.plot].name} at the shop (Farm page).`, 3.5);
   else if (tile.kind === "centre") { state.ui = { type: "centre", bundle: null }; audio.beep(480, 0.05); }
   else if (tile.kind === "built" && tile.plot === "greenhouse") enterGreenhouse();
+  else if (tile.kind === "built" && (tile.plot === "coop" || tile.plot === "barn")) feedAnimals(tile.plot);
   else if (tile.kind === "built") say(tile.plot === "coop" ? `Coop: ${state.chickens}/${MAX_CHICKENS} chickens.` : tile.plot === "barn" ? `Barn: ${state.cows}/${MAX_COWS} cows.` : "Silo: 25% chance of a bonus crop at harvest.", 3);
   else if (tile.kind === "boat") rowBoat(tile.dest);
   else if (tile.kind === "mine") enterMine(state.mineBest);
@@ -909,6 +931,7 @@ const SHOP = page => page === 5 ? workshop() : page === 4 ? houseShop() : page =
     state.build.barn !== "built" ? { label: "Cow (build a barn first)", cost: Infinity }
       : state.cows < MAX_COWS ? { label: `Cow (${state.cows}/${MAX_COWS}) — gives milk daily`, cost: COW_COST, buy: () => { state.cows++; makeAnimals(); } } : { label: "Barn full", cost: Infinity },
     ...SPRINKLER_SHOP.map(sp => ({ label: `${itemInfo(sp.id).name} (${sp.id === "qsprinkler" ? "8" : "4"} tiles; P to place)`, cost: sp.cost, mats: sp.mats, slot: ["item", sp.id], buy: () => addItem(sp.id) })),
+    { label: "10x Hay (feed for animals)", cost: 40, slot: ["item", "hay"], buy: () => addItem("hay", 10) },
     state.horse ? { label: "Horse (owned — H to ride)", cost: Infinity }
       : state.build.barn !== "built" ? { label: "Horse (build a barn first)", cost: Infinity }
       : { label: "Horse (ride with H, 1.8x speed)", cost: HORSE_COST, buy: () => { state.horse = true; say("You got a horse! Press H to ride."); } },
@@ -1114,7 +1137,12 @@ function sleep() {
   if (expired.length) { state.quests = state.quests.filter(q => q.deadline >= state.day); extra += ` ${expired.length} quest(s) expired.`; }
   refreshBoard();
   state.mounted = false; extra += petDigs();
-  addItem("egg", state.chickens); addItem("milk", state.cows);
+  for (const [b, n, item] of [["coop", state.chickens, "egg"], ["barn", state.cows, "milk"]]) if (n) {                 // care decides the harvest
+    const c = careOf(b), fed = c.fed === state.day - 1;
+    if (fed) { let out = n; for (let i = 0; i < n; i++) if (Math.random() < animalHearts(b) * 0.05) out++; addItem(item, out); if (out > n) extra += ` ${tf("Happy {0}: +{1} extra.", tr(item), out - n)}`; }
+    else { c.pts = Math.max(0, c.pts - 20); extra += ` ${tf("Your {0} were hungry and gave nothing.", tr(b === "coop" ? "chickens" : "cows"))}`; }
+  }
+  if (state.build.silo === "built") { addItem("hay", 3); }
   for (const [id] of PLOTS) if (state.build[id] === "pending") {                      // buildings finish overnight
     state.build[id] = "built";
     const o = maps.farm.objects.find(x => x.plot === id); if (o) o.sprite = id;
@@ -1335,6 +1363,7 @@ function drawWorld() {
     const f = n.moving ? [1, 0, 2, 0][Math.floor(clock * 6) % 4] : 0;
     things.push({ img: S.npc[id][n.dir][f], x: n.x, y: n.y + 14 - 24, sort: n.y + 14, sh: [n.x + 8, n.y + 14, 5, 2] });
   }
+  if (state.map === "farm") for (const c of animals) if (hungry(c.kind === "cow" ? "barn" : "coop")) things.push({ img: S.bubble, x: c.x + (c.kind === "cow" ? 8 : 3), y: c.y - 8, sort: c.y + 40 });
   if (state.map === "farm") for (const c of animals) things.push({ img: c.kind === "cow" ? S.cow[Math.abs(c.vx) + Math.abs(c.vy) > 1 ? Math.floor(clock * 3 + c.x) % 2 : 0] : S.chicken[Math.floor(clock * 1.5 + c.x * 0.3) % 5 === 0 ? 1 : 0], x: c.x, y: c.y, sort: c.y + (c.kind === "cow" ? 14 : 10), flip: c.vx < 0, sh: [c.x + (c.kind === "cow" ? 10 : 6), c.y + (c.kind === "cow" ? 13 : 9), c.kind === "cow" ? 8 : 5, 2] });
   if (state.map === "mine") for (const mon of monsters) things.push({ img: (S.monB[biome]?.[mon.type] ?? S.mon[mon.type])[Math.floor(clock * 4) % 2], x: mon.x, y: mon.y, sort: mon.y + 14, hurt: mon.hurt > 0, sh: [mon.x + 7, mon.y + 12, 5, 2] });
   const dir = state.fy > 0 ? 0 : state.fy < 0 ? 1 : state.fx > 0 ? 2 : 3;
@@ -2041,7 +2070,7 @@ const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, la
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, makeAnimals,  travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
