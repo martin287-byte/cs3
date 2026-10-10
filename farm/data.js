@@ -5,10 +5,10 @@ export const PASTURE = { x0: 26, y0: 7, x1: 36, y1: 12 };                       
 export const MAX_CHICKENS = 6, MAX_COWS = 3, COW_COST = 500;
 // Farm buildings stand on pre-marked plots; they are finished the morning after you pay.
 export const BUILDINGS = {
-  coop: { name: "Coop", cost: 300, mats: { stone: 20 } },
-  barn: { name: "Barn", cost: 600, mats: { stone: 40, copper: 5 } },
-  silo: { name: "Silo", cost: 250, mats: { stone: 15 } },
-  greenhouse: { name: "Greenhouse", cost: 1500, mats: { stone: 50, copper: 15, iron: 10 } },   // grows crops all year, auto-watered
+  coop: { name: "Coop", cost: 300, mats: { wood: 30, stone: 20 } },
+  barn: { name: "Barn", cost: 600, mats: { wood: 60, stone: 40, copper: 5 } },
+  silo: { name: "Silo", cost: 250, mats: { wood: 20, stone: 15 } },
+  greenhouse: { name: "Greenhouse", cost: 1500, mats: { wood: 80, stone: 50, copper: 15, iron: 10 } },   // grows crops all year, auto-watered
 };
 export const SPRINKLER_SHOP = [
   { id: "sprinkler", cost: 200, mats: { iron: 2 } },       // waters the 4 tiles around it each night
@@ -25,6 +25,8 @@ export const MONSTERS = {
 };
 export const MISC = {
   milk:    { name: "Milk",            price: 50 },
+  wood:    { name: "Wood",            price: 3 },
+  hay:     { name: "Hay",             price: 5 },
   slime:   { name: "Slime",           price: 8 },
   batwing: { name: "Bat Wing",        price: 15 },
   bone:    { name: "Bone",            price: 30 },
@@ -42,6 +44,7 @@ export const HEART_REWARDS = [{ hearts: 3, money: 75 }, { hearts: 6, money: 200 
 // Tool upgrades: each level reaches one more tile (hoe/can) or breaks harder rock (pickaxe); materials come from the mine.
 export const HOE_UPGRADES = [{ cost: 200, mats: { copper: 5 } }, { cost: 500, mats: { iron: 5 } }];
 export const CAN_UPGRADES = [{ cap: 40, cost: 150, mats: { copper: 5 } }, { cap: 80, cost: 400, mats: { iron: 5 } }];
+export const AXE_UPGRADES = [{ cost: 200, mats: { copper: 5 } }, { cost: 500, mats: { iron: 5 } }];
 export const PICK_UPGRADES = [{ cost: 150, mats: { copper: 6 } }, { cost: 350, mats: { iron: 6 } }];
 
 export const CROPS = {
@@ -287,9 +290,9 @@ export const TRAVEL = { farm: [7, 8], town: [21, 13], forest: [30, 28], beach: [
 // House upgrades (Oliver builds them overnight, ready in 2 days). Every level adds a room and +10 max energy.
 export const HOUSE = [
   { name: "Cabin" },
-  { id: "kitchen", name: "Kitchen", cost: 2000, mats: { stone: 20, copper: 8 }, desc: "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy." },
-  { id: "bedroom", name: "Bedroom", cost: 5000, mats: { stone: 30, iron: 10 }, desc: "A second bedroom with a double bed. If you are married, breakfast is waiting every morning." },
-  { id: "cellar", name: "Cellar", cost: 9000, mats: { stone: 40, gold: 8 }, desc: "A cool cellar under the house with a huge storage chest." },
+  { id: "kitchen", name: "Kitchen", cost: 2000, mats: { wood: 50, stone: 20, copper: 8 }, desc: "A proper kitchen with a stove and a fridge. Cooked dishes restore 25% more energy." },
+  { id: "bedroom", name: "Bedroom", cost: 5000, mats: { wood: 100, stone: 20, iron: 10 }, desc: "A second bedroom with a double bed. If you are married, breakfast is waiting every morning." },
+  { id: "cellar", name: "Cellar", cost: 9000, mats: { wood: 150, stone: 40, gold: 8 }, desc: "A cool cellar under the house with a huge storage chest." },
 ];
 export const HOUSE_ENERGY = 10;                                                     // max energy per house level
 export const HOUSE_BUILD_DAYS = 2;

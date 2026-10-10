@@ -12,6 +12,7 @@ import { initView, canvasPoint } from "./view.js";
 import { tr, tf, lang, untranslated } from "./i18n.js";
 import { HELP_HU } from "./hu.js";
 import { makeIntro } from "./intro.js";
+import { AXE_UPGRADES } from "./data.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -24,7 +25,7 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
 const SLOT_KEYS = { 1: "tinyvalley-save-v10", 2: "tinyvalley-save-slot2", 3: "tinyvalley-save-slot3", 0: "tinyvalley-save-auto" };   // slot 1 keeps the original key
 const META_KEY = "tinyvalley-save-meta";
-const TOOL_NAMES = { hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" };
+const TOOL_NAMES = { axe: "Axe", hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" };
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
 const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12, island: 12 };
@@ -113,7 +114,7 @@ function defaultState() {
     mineBest: 1, mineFloor: 1, fest: null,
     friend: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { pts: 0, talked: false, gifted: false, rewards: 0 }])),
     won: false, ui: null, msg: "", msgT: 0, fade: 0, caught: 0,
-    house: 0, houseWork: null, chest: {}, cellarChest: {}, pack: 12, slots: null, row: 0,
+    axeLevel: 0, house: 0, houseWork: null, chest: {}, cellarChest: {}, pack: 12, slots: null, row: 0,
     name: "", look: { skin: PLAYER_LOOK.skin, hair: PLAYER_LOOK.hair, hairStyle: PLAYER_LOOK.hairStyle, eye: PLAYER_LOOK.eye, shirt: PLAYER_LOOK.shirt, pants: PLAYER_LOOK.pants },
   };
 }
@@ -159,6 +160,12 @@ function writeSave(n) {
   } catch { return false; }
 }
 const save = () => writeSave(state.slot || 1);
+function ensureAxe() {                                                               // saves from before the axe existed get one
+  if (state.slots.some(s => s?.k === "tool" && s.id === "axe")) return;
+  let i = state.slots.indexOf(null);
+  if (i < 0) { i = state.slots.map((s, j) => (s && s.k !== "tool" ? j : -1)).filter(j => j >= 0).pop(); const s = state.slots[i]; overflowDrop(s.k, s.id, slotCount(state, s)); }
+  state.slots[i] = { k: "tool", id: "axe" };
+}
 function ensureHouseMaps() {                                                         // saves from before the interiors existed (or after an upgrade)
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
@@ -172,7 +179,7 @@ function load(n = lastSave()) {
     state = { ...d, ...s.state, seeds: { ...d.seeds, ...s.state.seeds }, xp: { ...d.xp, ...s.state.xp }, tut: { ...d.tut, ...s.state.tut }, visited: { ...d.visited, ...s.state.visited }, tips: { ...s.state.tips }, perks: { ...s.state.perks }, build: { ...s.state.build }, friend: { ...d.friend, ...s.state.friend }, ui: null };
     if (!Array.isArray(s.state.slots)) { state.pack = 36; state.slots = defaultSlots(36); }      // saves from before backpack slots keep a full-size bag
     state.sel = Math.max(0, Math.min(state.pack - 1, state.sel | 0)); state.row = Math.floor(state.sel / COLS);
-    state.slot = n === 0 ? state.slot || 1 : n; syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
+    state.slot = n === 0 ? state.slot || 1 : n; ensureAxe(); syncSlots(state, overflowDrop); ensureHouseMaps(); makeAnimals(); return true;
   } catch (e) { console.warn("Could not load the save:", e); return false; }
 }
 
@@ -314,6 +321,21 @@ function updateNpcs(dt) {
 }
 
 // ---------------------------------------------------------------- tools
+const treeHit = {};                                                                  // when each tree was last hit (for the shake)
+const shakeOff = (x, y) => { const t = treeHit[`${state.map}:${x},${y}`]; return t && clock - t < 0.25 ? Math.round(Math.sin(clock * 70) * 1.5) : 0; };
+function chop(tile, x, y) {
+  if (tile.sapling) return say("A young tree is growing here.");
+  if (!(tile.t === 3 && !tile.rock && tile.deco !== "cactus")) return say(tile.deco === "cactus" ? "Ouch! Cacti are too prickly to chop." : tile.rock ? "Use the pickaxe on rocks." : "Nothing to chop here.");
+  if (state.energy < 2) return say("Too tired to chop!");
+  state.energy -= 2; actAnim = { t: 0.2, tool: "axe", fx: state.fx, fy: state.fy };
+  tile.hp = (tile.hp ?? 6) - (1 + state.axeLevel);
+  treeHit[`${state.map}:${x},${y}`] = clock; emit("wood", x * T + 8, y * T + 10); audio.beep(170, 0.06, "square");
+  if (tile.hp > 0) return;
+  const palm = tile.deco === "palm"; delete tile.hp; delete tile.deco; tile.t = palm ? 14 : 0;
+  tile.sapling = { day: state.day + 6 + Math.floor(Math.random() * 3), deco: palm ? "palm" : undefined };   // trees grow back
+  const wood = 8 + Math.floor(Math.random() * 5) + Math.floor((skillLevel("foraging") - 1) / 3);
+  addItem("wood", wood); gainXp("foraging", 7); emit("wood", x * T + 8, y * T + 4); emit("wood", x * T + 8, y * T + 8); say(tf("Timber! +{0} wood.", wood)); audio.beep(120, 0.2, "sawtooth");
+}
 function useSlotItem(id) {                                                          // Space on a food slot eats it
   if (edibleEnergy(id)) return eat(id);
   say(`${tr(itemInfo(id).name)}: ${tf("Sells for ${0}", sellPrice(id))}`, 2.5);
@@ -334,6 +356,7 @@ function useTool() {
   }
   if (state.mounted) return say("Dismount first (press H).");
   if (tool === "none") return;
+  if (tool === "axe") return chop(tile, x, y);
   if (tool === "item") return useSlotItem(curSlot().id);
   if (tool === "hoe" || tool === "can" || tool === "pick") {
     actAnim = { t: 0.2, tool, fx: state.fx, fy: state.fy };
@@ -577,7 +600,7 @@ const TUT_STEPS = () => {
   return t ? [
     "Drag the left joystick to walk. The white square shows the tile you are facing.",
     "Tap 1 to take the hoe, face some grass and tap A to till the soil.",
-    "Tap 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
+    "Tap 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.",
     "Tap 2 for the watering can and water your seeds. Refill it at any pond.",
     "Walk to your farmhouse door and tap E to go in, then tap E at the bed to sleep. Watered crops grow overnight!",
     "Tap A on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
@@ -585,7 +608,7 @@ const TUT_STEPS = () => {
   ] : [
     "Walk with WASD or the arrow keys. The white square shows the tile you are facing.",
     "Press 1 to take the hoe, face some grass and press Space to till the soil.",
-    "Press 6 for seeds (Q switches the seed type), then use them on the tilled soil.",
+    "Press 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.",
     "Press 2 for the watering can and water your seeds. Refill it at any pond.",
     "Walk to your farmhouse door and press E to go in, then press E at the bed to sleep. Watered crops grow overnight!",
     "Press Space on ripe crops to harvest them, then sell them at the shipping bin next to your house (E).",
@@ -849,6 +872,7 @@ const SHOP = page => page === 4 ? houseShop() : page === 0
     upgrade("Watering can", CAN_UPGRADES, state.canLevel, () => { state.canLevel++; state.water = maxWater(); }),
     upgrade("Pickaxe", PICK_UPGRADES, state.pickLevel, () => { state.pickLevel++; }),
     upgrade("Sword", SWORD_UPGRADES, state.swordLevel, () => { state.swordLevel++; }),
+    upgrade("Axe", AXE_UPGRADES, state.axeLevel, () => { state.axeLevel++; }),
     packItem(),
   ] : page === 2 ? [
     buildItem("coop"), buildItem("barn"), buildItem("silo"), buildItem("greenhouse"),
@@ -1052,6 +1076,9 @@ function sleep() {
     tile.wet = false;
   }
   state.day++; state.minutes = 6 * 60; state.energy = maxEnergy();
+  for (const m of Object.values(maps)) for (const row of m.tiles) for (const tile of row) {                 // felled trees grow back
+    if (tile.sapling && state.day >= tile.sapling.day && !tile.crop && !tile.forage && !tile.drop) { tile.t = 3; if (tile.sapling.deco) tile.deco = tile.sapling.deco; delete tile.sapling; }
+  }
   state.map = "farm"; state.px = 7 * T; state.py = 7 * T; state.fx = 0; state.fy = 1; fishing = null; state.ui = null;
   for (const id in state.friend) { state.friend[id].talked = false; state.friend[id].gifted = false; }
   state.hp = maxHp(); invuln = 0; monsters = [];
@@ -1252,13 +1279,14 @@ function drawWorld() {
     if (tile.sprinkler) ctx.drawImage(S.icon[tile.sprinkler === 2 ? "qsprinkler" : "sprinkler"], x * T, y * T);
     if (tile.crop) { const ci = S.crop[tile.crop.type][cropStage(tile.crop)]; shadow(x * T + 8, y * T + 14, 5, 1.5, 0.2); ctx.drawImage(ci, x * T - ci.ox, (y + 1) * T - 24 - ci.oy); }
     if (tile.forage) ctx.drawImage(S.icon[tile.forage], x * T, y * T + Math.round(Math.sin(clock * 3 + x) * 0.6));
+    if (tile.sapling) ctx.drawImage(S.icon.sapling, x * T, y * T);
     if (tile.drop) ctx.drawImage(S.icon[tile.drop.id], x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
     if (tile.dig) ctx.drawImage(S.icon.dig, x * T, y * T + (Math.sin(clock * 4 + x) > 0.8 ? -1 : 0));
     if (tile.fegg) ctx.drawImage(S.icon.fegg, x * T, y * T + Math.round(Math.sin(clock * 4 + x) * 0.8));
     if (tile.t === 3) {
       const img = tile.deco === "palm" ? S.palm : tile.deco === "cactus" ? S.cactus : tile.rock ? S.rock[Math.floor(hash(x, y, 2) * 2)] : S.tree[season][Math.floor(hash(x, y, 5) * 3)];
       const lw = logicalW(img), lh = logicalH(img), isTree = !tile.rock && !tile.deco;
-      things.push({ img, x: x * T + 8 - lw / 2, y: (y + 1) * T - lh, sort: (y + 1) * T, sway: isTree ? 1 : tile.deco === "palm" ? 1.3 : 0, sh: [x * T + 8, (y + 1) * T - 2, tile.rock ? 6 : lw * 0.36, isTree ? 4 : 3] });
+      things.push({ img, x: x * T + 8 - lw / 2 + shakeOff(x, y), y: (y + 1) * T - lh, sort: (y + 1) * T, sway: isTree ? 1 : tile.deco === "palm" ? 1.3 : 0, sh: [x * T + 8, (y + 1) * T - 2, tile.rock ? 6 : lw * 0.36, isTree ? 4 : 3] });
     }
   }
   if (state.map === "town" && festivalToday()) {                                    // festival pennants
@@ -1418,7 +1446,7 @@ function drawHud(hr, tx, ty) {
   const tile = inBounds(tx, ty) ? tileAt(tx, ty) : null, id = tile && npcNear(tx, ty);
   const hint = !tile ? "" : petNear(tx, ty) && !id ? `E: pet ${state.pet.name}` : id ? `E: ${id === "zed" ? "trade with Zed" : "talk to " + VILLAGERS[id].name}` : tile.crop && tile.crop.age >= CROPS[tile.crop.type].days ? "Space: harvest" : tile.kind === "home" ? "E: enter house" : HINTS[tile.kind] ? HINTS[tile.kind] : tile.kind === "centre" ? "E: community centre" : tile.kind === "built" && tile.plot === "greenhouse" ? "E: enter greenhouse"
     : tile.kind === "bin" ? "E: sell goods" : tile.kind === "shop" ? "E: shop" : tile.kind === "mine" ? "E: enter mine" : tile.kind === "ladder" ? "E: go down" : tile.kind === "mexit" ? "E: leave mine"
-    : tile.t === 2 && curTool() === "rod" ? "Space: fish" : tile.t === 13 && curTool() === "pick" ? "Space: mine" : "";
+    : tile.t === 2 && curTool() === "rod" ? "Space: fish" : tile.t === 13 && curTool() === "pick" ? "Space: mine" : tile.t === 3 && !tile.rock && tile.deco !== "cactus" && curTool() === "axe" ? "Space: chop" : "";
   if (hint) { const w = Math.round(ctx.measureText(hint).width) + 14; woodFrame(W - 44 - w, H - 56, w, 16, "rgba(60,44,12,.95)"); txt(hint, W - 51, H - 45, "#ffe27a", "right"); }
 
   const sw = 28, tx0 = Math.round((W - (COLS * sw - 2)) / 2), ty0 = H - 32, rows = state.pack / COLS;   // toolbar = one row of the backpack
@@ -1653,7 +1681,7 @@ function slotBox(x, y, sel, size = 26, tint = false) {
 function slotContent(slot, x, y, off = 5, nums = true) {                           // icon plus level / count badge
   ctx.drawImage(S.icon[slot.id], x + off, y + off);
   let badge = "";
-  if (slot.k === "tool") { const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel }[slot.id] || 0; if (lvl > 0) badge = `L${lvl + 1}`; }
+  if (slot.k === "tool") { const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel, axe: state.axeLevel }[slot.id] || 0; if (lvl > 0) badge = `L${lvl + 1}`; }
   else { const n = slotCount(state, slot); if (n > 1) badge = n > 999 ? "999+" : String(n); }
   if (slot.k === "seed") {                                                         // seed packets get a little paper packet so they differ from the crop
     const px = off === 5 ? x + 17 : x + 13, py = off === 5 ? y + 3 : y + 1;
@@ -1671,11 +1699,11 @@ function eatValue(id) {
   if (e && DISHES[id] && state.house >= 1) e = Math.round(e * 1.25);                 // kitchen upgrade
   return e;
 }
-const TOOL_DESC = { hoe: "Tills the soil so you can plant seeds. Upgrade it at the shop to till several tiles at once.", rod: "Fish in ponds, the lake and the ocean. Press Space to cast, and again to hook the fish.", pick: "Breaks rocks and ore nodes. Upgrade it to mine harder ore.", sword: "Swing it at monsters in the mine." };
-const ITEM_DESC = { milk: "Fresh from your cows.", egg: "Fresh from your chickens.", tonic: "A strong drink that perks you right up.", bouquet: "Give it to someone you like a lot.", pendant: "A proposal gift for the one you love.", sprinkler: "Place it on your farm (press P). It waters nearby soil every night.", qsprinkler: "Place it on your farm (press P). It waters a wider area every night.", slime: "Dropped by monsters in the mine.", batwing: "Dropped by monsters in the mine.", bone: "Dropped by monsters in the mine.", pearl: "A rare treasure.", coin: "A rare treasure.", relic: "A rare treasure." };
+const TOOL_DESC = { axe: "Chops trees for wood. Trees grow back after about a week. Upgrade it at the shop to chop faster.", hoe: "Tills the soil so you can plant seeds. Upgrade it at the shop to till several tiles at once.", rod: "Fish in ponds, the lake and the ocean. Press Space to cast, and again to hook the fish.", pick: "Breaks rocks and ore nodes. Upgrade it to mine harder ore.", sword: "Swing it at monsters in the mine." };
+const ITEM_DESC = { wood: "Chopped from trees. Used to build and upgrade things.", hay: "Feed for your animals.", milk: "Fresh from your cows.", egg: "Fresh from your chickens.", tonic: "A strong drink that perks you right up.", bouquet: "Give it to someone you like a lot.", pendant: "A proposal gift for the one you love.", sprinkler: "Place it on your farm (press P). It waters nearby soil every night.", qsprinkler: "Place it on your farm (press P). It waters a wider area every night.", slime: "Dropped by monsters in the mine.", batwing: "Dropped by monsters in the mine.", bone: "Dropped by monsters in the mine.", pearl: "A rare treasure.", coin: "A rare treasure.", relic: "A rare treasure." };
 function slotInfo(slot) {
   if (slot.k === "tool") {
-    const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel }[slot.id] || 0;
+    const lvl = { hoe: state.hoeLevel, can: state.canLevel, pick: state.pickLevel, sword: state.swordLevel, axe: state.axeLevel }[slot.id] || 0;
     return { name: slotName(slot) + (lvl ? ` L${lvl + 1}` : ""), desc: slot.id === "can" ? tf("Waters your crops. Holds {0} water. Refill it at any pond.", maxWater()) : tr(TOOL_DESC[slot.id]) };
   }
   const id = slot.id;

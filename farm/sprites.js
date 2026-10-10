@@ -115,6 +115,11 @@ const hoeIcon = () => mk(16, 16, g => {
   for (let i = 0; i < 10; i++) R(g, "#8b5a2b", 3 + i, 13 - i, 2, 2);
   R(g, "#aab", 10, 2, 5, 2); R(g, "#778", 13, 4, 2, 3);
 });
+const axeIcon = () => mk(16, 16, g => {
+  for (let i = 0; i < 11; i++) R(g, "#8b5a2b", 2 + i, 14 - i, 2, 2);
+  R(g, "#b8c0cc", 8, 1, 6, 5); R(g, "#7a8494", 12, 3, 3, 6); R(g, "#e8eef6", 8, 1, 5, 1); R(g, "#7a8494", 9, 5, 3, 1);
+});
+const saplingIcon = () => mk(16, 16, g => { R(g, "#8a5a2a", 7, 9, 2, 5); R(g, "#4aa84a", 5, 6, 3, 3); R(g, "#6ac05a", 8, 4, 3, 4); R(g, "#8ad87a", 6, 6, 1, 1); R(g, "#6a4a2a", 5, 14, 6, 1); });
 const canIcon = () => mk(16, 16, g => {
   R(g, "#2d5aa8", 3, 6, 9, 8); R(g, "#4a7fd0", 4, 7, 7, 6); R(g, "#2d5aa8", 12, 7, 1, 2); R(g, "#2d5aa8", 13, 5, 1, 2); R(g, "#2d5aa8", 14, 3, 1, 2);
   R(g, "#2d5aa8", 1, 7, 2, 1); R(g, "#2d5aa8", 1, 7, 1, 5); R(g, "#2d5aa8", 1, 12, 2, 1);
@@ -292,6 +297,8 @@ function silo() {
 function miscIcon(id) {
   return mk(16, 16, g => {
     if (id === "milk") { R(g, "#e8e8f0", 5, 5, 6, 9); R(g, "#fff", 6, 6, 2, 6); R(g, "#6a8ac8", 5, 3, 6, 3); R(g, "#6a8ac8", 5, 8, 6, 2); }
+    if (id === "wood") { for (const [y, c] of [[3, "#8a5a30"], [8, "#9a6a38"]]) { R(g, c, 2, y, 12, 5); R(g, "#c8935a", 11, y, 3, 5); R(g, "#6a4020", 12, y + 1, 1, 3); R(g, "#6a4020", 2, y, 12, 1); } R(g, "#8a5a30", 5, 12, 7, 3); R(g, "#c8935a", 10, 12, 2, 3); }
+    if (id === "hay") { R(g, "#d8b84a", 3, 4, 10, 10); R(g, "#f0d868", 4, 5, 8, 3); R(g, "#a88a2a", 3, 13, 10, 1); R(g, "#7a5a1a", 3, 8, 10, 2); for (const x of [4, 7, 10]) R(g, "#f0d868", x, 2, 1, 3); }
     if (id === "slime") { disc(g, "#2f8a3a", 8, 9, 5); disc(g, "#5fd36a", 8, 8, 4); R(g, "#cfffd0", 6, 6, 2, 2); }
     if (id === "batwing") { R(g, "#3a2255", 2, 5, 12, 3); R(g, "#4a2f6a", 3, 8, 3, 3); R(g, "#4a2f6a", 8, 8, 3, 3); R(g, "#6a4a8a", 5, 4, 6, 2); }
     if (id === "bone") { R(g, "#e8e4d8", 4, 7, 8, 2); disc(g, "#e8e4d8", 4, 6, 2); disc(g, "#e8e4d8", 4, 10, 2); disc(g, "#e8e4d8", 12, 6, 2); disc(g, "#e8e4d8", 12, 10, 2); }
@@ -388,7 +395,7 @@ export function buildSprites({ crops, forage, fish, npcs, ores, dishes, misc }) 
     node: {}, ladder: ladderDown(), mexit: mineExitSprite(),
     ghfloor: [0, 1, 2, 3].map(ghFloor), ghwall: ghWall(),
     pet: { dog: dogFrames(), cat: catFrames() }, horse: { side: outline(horseSide()), front: outline(horseFront(false)), back: outline(horseFront(true)) },
-    chicken: chickenFrames(), crop: {}, icon: { sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg(), dig: digSpot() },
+    chicken: chickenFrames(), crop: {}, icon: { axe: axeIcon(), sapling: saplingIcon(), sword: swordIcon(), hoe: hoeIcon(), can: canIcon(), rod: rodIcon(), pick: pickIcon(), egg: eggIcon(), tonic: tonicIcon(), fegg: festEgg(), dig: digSpot() },
     mon: { slime: [outline(slime(0)), outline(slime(1))], bat: [outline(bat(0)), outline(bat(1))], skeleton: [outline(skeleton(0)), outline(skeleton(1))] }, cow: cowFrames(),
     monB: { frost: {}, magma: {} },
     player: makePerson({}),

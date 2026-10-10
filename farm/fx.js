@@ -51,6 +51,7 @@ const KINDS = {
   dirt:  { n: 7, col: ["#7a5230", "#a07040", "#5a3a20"], vx: [-26, 26], vy: [-48, -14], g: 150, life: [0.35, 0.55], size: 2 },
   water: { n: 8, col: ["#6fb8ff", "#bfe3ff", "#ffffff"], vx: [-22, 22], vy: [-34, -8], g: 110, life: [0.35, 0.5], size: 1 },
   chip:  { n: 6, col: ["#a8a8b0", "#dcdce4", "#6a6a76"], vx: [-30, 30], vy: [-46, -16], g: 160, life: [0.3, 0.5], size: 2 },
+  wood:  { n: 7, col: ["#8a5a30", "#a8743c", "#6a4020", "#c8935a"], vx: [-24, 24], vy: [-44, -12], g: 150, life: [0.35, 0.55], size: 2 },
   star:  { n: 8, col: ["#ffe45c", "#ffffff", "#ffb830"], vx: [-34, 34], vy: [-40, -6], g: 30, life: [0.45, 0.7], size: 2 },
 };
 export function emit(kind, x, y) {

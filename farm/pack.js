@@ -3,7 +3,7 @@
 import { CROPS, FORAGE, FISH, ORES, DISHES, itemInfo } from "./data.js";
 
 export const COLS = 12;
-export const TOOL_IDS = ["hoe", "can", "rod", "pick", "sword"];
+export const TOOL_IDS = ["hoe", "can", "rod", "pick", "sword", "axe"];
 
 export const defaultSlots = n => { const s = Array(n).fill(null); TOOL_IDS.forEach((id, i) => { s[i] = { k: "tool", id }; }); return s; };
 export const count = (st, s) => (s.k === "item" ? st.inv[s.id] || 0 : s.k === "seed" ? st.seeds[s.id] || 0 : 1);

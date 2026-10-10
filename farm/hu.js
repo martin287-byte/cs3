@@ -261,6 +261,14 @@ const UI = {
   // save slots
   "Load Game": "Játék betöltése", "LOAD GAME": "JÁTÉK BETÖLTÉSE", "NEW GAME — CHOOSE A SLOT": "ÚJ JÁTÉK — VÁLASSZ MENTÉSI HELYET", "Autosave": "Automentés", "E: back": "E: vissza",
   "Slot {0} is in use. Overwrite it?": "A(z) {0}. hely foglalt. Felülírod?", "1. Yes, overwrite": "1. Igen, felülírom", "2. No": "2. Nem", "Game saved (slot {0}).": "Játék mentve ({0}. hely).",
+  // axe and wood
+  "Timber! +{0} wood.": "Dől a fa! +{0} fa.", "Too tired to chop!": "Túl fáradt vagy a favágáshoz!", "Nothing to chop here.": "Itt nincs mit vágni.", "Ouch! Cacti are too prickly to chop.": "Au! A kaktusz túl szúrós a vágáshoz.",
+  "Use the pickaxe on rocks.": "Sziklákhoz használd a csákányt.", "A young tree is growing here.": "Itt egy fiatal fa növekszik.", "Space: chop": "Szóköz: favágás",
+  "Chops trees for wood. Trees grow back after about a week. Upgrade it at the shop to chop faster.": "Fát vág. A fák nagyjából egy hét alatt visszanőnek. Fejleszd a boltban a gyorsabb vágásért.",
+  "Chopped from trees. Used to build and upgrade things.": "Fából vágva. Építéshez és fejlesztéshez kell.", "Feed for your animals.": "Takarmány az állataidnak.",
+  "Axe": "Fejsze", "Wood": "Fa", "Hay": "Széna", "Axe Lv{0} -> Lv{1}": "Fejsze Sz{0} -> Sz{1}", "Axe maxed": "Fejsze kész",
+  "Tap 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.": "Koppints a 7-esre a magokért (SEED: következő magzacskó), majd használd őket a szántott földön.",
+  "Press 7 for seeds (Q jumps to the next seed packet), then use them on the tilled soil.": "Nyomd meg a 7-et a magokért (Q: következő magzacskó), majd használd őket a szántott földön.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons
