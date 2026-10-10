@@ -525,6 +525,7 @@ const UI = {
   "Press Tab to flip pages: seeds, tool upgrades, animals and gifts. Farm buildings and house upgrades are sold by Hazel the carpenter.": "Tab: lapozás — magok, eszközfejlesztések, állatok, ajándékok. Az épületeket és házfejlesztéseket Hazel, az ács árulja.",
   "Hazel builds farm buildings and house upgrades. Press Tab to flip pages: buildings, house, workshop.": "Hazel gazdasági épületeket és házfejlesztéseket épít. Tab: lapozás — épületek, ház, műhely.",
   "CARPENTER": "ÁCS",
+  "A well-stocked fridge.": "Jól megrakott hűtő.", "Papers and books cover the desk.": "Papírok és könyvek borítják az asztalt.",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

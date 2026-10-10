@@ -223,40 +223,73 @@ export function makeHouse(level = 0) {
 }
 
 // Family homes in the enlarged town: building top-left tile, residents, and the look of the interior.
+// Family homes in the enlarged town. Each is a row of rooms (living room, kitchen, bedroom, study) joined by doorways.
+// rooms: [type, width, option]. Sizes, room order and styles differ per home.
 export const HOMES = {
-  rosa: { x: 6, y: 4, who: ["rosa", "oliver"], name: "Rosa & Oliver's home", style: "wood", w: 12, h: 8, door: 5, spots: [[3, 4], [8, 4]],        // cosy bakery home with a kitchen
-    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 9, 2, 2, 2], ["stove", "nstove", 4, 2, 2, 1], ["counter", "counter", 6, 2, 2, 1], ["table", "table", 5, 5, 2, 1], ["plant", "plant", 1, 6], ["plant", "plant", 10, 6]],
-    d: [["rugS", 4, 3, 3, 2]], win: [2, 8] },
-  ben: { x: 26, y: 4, who: ["ben", "iris"], name: "Ben & Iris's home", style: "stone", w: 14, h: 9, door: 6, spots: [[4, 5], [9, 5]],                // big old farmhouse
-    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 11, 2, 2, 2], ["hearth", "nhearth", 6, 2, 2, 1], ["shelf", "shelf", 4, 2], ["mirror", "nmirror", 8, 2], ["shelf", "shelf", 9, 2], ["table", "table", 6, 5, 2, 1], ["barrel", "barrel", 12, 6], ["barrel", "barrel", 12, 7], ["plant", "plant", 1, 7]],
-    d: [["rug", 5, 3, 4, 2]], win: [2, 5, 10] },
-  marlo: { x: 6, y: 18, who: ["marlo", "mina"], name: "Marlo & Mina's home", style: "sea", w: 10, h: 7, door: 4, spots: [[3, 3], [6, 3]],               // small seaside cottage
-    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 7, 2, 2, 2], ["hearth", "nhearth", 4, 2, 2, 1], ["table", "table", 4, 4, 2, 1], ["barrel", "barrel", 1, 5], ["crate", "crate", 8, 5]],
-    d: [["rugS", 3, 3, 3, 2]], win: [3, 6] },
-  nora: { x: 26, y: 18, who: ["nora", "hugo"], name: "Nora & Hugo's home", style: "forge", w: 13, h: 9, door: 5, spots: [[3, 4], [9, 5]],             // workshop-style home
-    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 10, 2, 2, 2], ["shelf", "shelf", 3, 2], ["stove", "nstove", 4, 2, 2, 1], ["counter", "counter", 6, 2, 2, 1], ["crate", "crate", 8, 2], ["table", "table", 5, 6, 2, 1], ["barrel", "barrel", 1, 7], ["barrel", "barrel", 11, 7]],
-    d: [["rug", 4, 3, 4, 2]], win: [3, 7, 11] },
-  theo: { x: 8, y: 34, who: ["theo", "lena"], name: "Theo & Lena's home", style: "plum", w: 14, h: 8, door: 6, spots: [[3, 4], [10, 4]],               // a home full of books
-    f: [["bed", "nbed", 1, 2, 2, 2], ["bed", "nbed", 11, 2, 2, 2], ["shelf", "shelf", 3, 2], ["shelf", "shelf", 4, 2], ["hearth", "nhearth", 6, 2, 2, 1], ["mirror", "nmirror", 8, 2], ["shelf", "shelf", 9, 2], ["table", "table", 6, 5, 2, 1], ["plant", "plant", 1, 6], ["plant", "plant", 12, 6]],
-    d: [["rugS", 5, 3, 3, 2]], win: [2, 7, 11] },
-  quill: { x: 45, y: 4, who: ["quill"], name: "Quill's home", style: "mono", w: 8, h: 7, door: 3, spots: [[3, 3]],                                          // a writer's studio
-    f: [["bed", "nbed", 1, 2, 2, 2], ["hearth", "nhearth", 3, 2, 2, 1], ["shelf", "shelf", 5, 2], ["shelf", "shelf", 6, 2], ["table", "table", 5, 4, 2, 1], ["plant", "plant", 1, 5]],
-    d: [], win: [3] },
-  dune: { x: 55, y: 18, who: ["dune"], name: "Dune's home", style: "sand", w: 9, h: 7, door: 4, spots: [[3, 3]],                                           // nomad's room
-    f: [["bed", "nbed", 1, 2, 2, 2], ["hearth", "nhearth", 4, 2, 2, 1], ["barrel", "barrel", 7, 2], ["crate", "crate", 7, 3], ["table", "table", 5, 4, 2, 1], ["plant", "plant", 7, 5]],
-    d: [["rugS", 3, 3, 3, 2]], win: [3, 6] },
+  rosa:  { x: 6,  y: 4,  who: ["rosa", "oliver"], name: "Rosa & Oliver's home", style: "wood",  h: 8, rooms: [["living", 8, "plain"], ["kitchen", 8], ["bedroom", 7, 2]] },
+  ben:   { x: 26, y: 4,  who: ["ben", "iris"],     name: "Ben & Iris's home",    style: "stone", h: 9, rooms: [["living", 9, "barrels"], ["bedroom", 8, 2], ["kitchen", 6], ["study", 5]] },
+  marlo: { x: 6,  y: 18, who: ["marlo", "mina"],   name: "Marlo & Mina's home",  style: "sea",   h: 7, rooms: [["living", 6, "crates"], ["bedroom", 7, 2], ["kitchen", 5]] },
+  nora:  { x: 26, y: 18, who: ["nora", "hugo"],    name: "Nora & Hugo's home",   style: "forge", h: 9, rooms: [["living", 7, "crates"], ["kitchen", 7], ["bedroom", 7, 2]] },
+  theo:  { x: 8,  y: 34, who: ["theo", "lena"],    name: "Theo & Lena's home",   style: "plum",  h: 8, rooms: [["living", 9, "books"], ["study", 6], ["bedroom", 7, 2], ["kitchen", 5]] },
+  quill: { x: 45, y: 4,  who: ["quill"],           name: "Quill's home",         style: "mono",  h: 7, rooms: [["living", 6, "books"], ["bedroom", 5, 1], ["kitchen", 5]] },
+  dune:  { x: 55, y: 18, who: ["dune"],            name: "Dune's home",          style: "sand",  h: 7, rooms: [["living", 5, "barrels"], ["kitchen", 5], ["bedroom", 5, 1]] },
 };
+// Build the furniture, decals and resident positions of one room whose floor spans x0..x0+w-1.
+function roomPlan(type, x0, w, H, opt, first, last) {
+  const f = [], d = [], win = [x0 + (w >> 1)];
+  let spot = [x0 + 1, 4], door = x0 + (w >> 1) - 1;
+  if (type === "living") {
+    const hx = x0 + (w >> 1) - 1; door = hx;
+    f.push(["hearth", "nhearth", hx, 2, 2, 1], ["table", "table", hx, 4, 2, 1], ["shelf", "shelf", x0, 2], ["shelf", "shelf", x0 + w - 1, 2]);
+    if (first) f.push(["plant", "plant", x0, H - 2]);
+    if (opt === "books") f.push(["shelf", "shelf", x0 + 1, 2], ["shelf", "shelf", x0 + w - 2, 2]);
+    if (opt === "barrels") f.push(["barrel", "barrel", x0 + w - 1, 3], ["barrel", "barrel", x0 + w - 2, 3]); else if (opt === "crates") f.push(["crate", "crate", x0 + w - 1, 3], ["barrel", "barrel", x0 + w - 2, 3]);
+    d.push(["rugS", hx - 1, 3, 3, 2]); spot = [hx > x0 + 1 ? x0 + 1 : x0 + 3, 4];
+  } else if (type === "kitchen") {
+    f.push(["stove", "nstove", x0, 2, 2, 1], ["table", "table", x0, 4, 2, 1], ["fridge", "nfridge", x0 + w - 1, 2]);
+    if (w >= 6) f.push(["counter", "counter", x0 + 2, 2, 2, 1]);
+    if (w >= 7) f.push(["barrel", "barrel", x0 + w - 1, 3]);
+    spot = [x0 + 3, 4];
+  } else if (type === "bedroom") {
+    f.push(["bed", "nbed", x0, 2, 2, 2]);
+    if (opt === 2) { f.push(["bed", "nbed", x0 + w - 2, 2, 2, 2]); if (w >= 7) f.push(["shelf", "shelf", x0 + 3, 2]); }
+    else f.push(["shelf", "shelf", x0 + 2, 2], ["mirror", "nmirror", x0 + 3, 2]);
+    if (last) f.push(["plant", "plant", x0 + w - 1, H - 2]);
+    d.push(["rugS", x0 + 1, 4, 3, 2]);
+    spot = [x0 + 2, 4];
+  } else if (type === "study") {
+    f.push(["shelf", "shelf", x0, 2], ["shelf", "shelf", x0 + 1, 2], ["shelf", "shelf", x0 + w - 1, 2], ["desk", "ndesk", x0 + 2, 2, 2, 1]);
+    if (last) f.push(["plant", "plant", x0 + w - 1, H - 2]);
+    d.push(["rug", x0, 4, 4, 2]); spot = [x0 + w - 2, 4];
+  }
+  return { f, d, win, spot, door };
+}
+function planHome(h) {
+  const H = h.h, plans = []; let x0 = 1;
+  h.rooms.forEach(([type, w, opt], i) => { plans.push({ type, x0, w, ...roomPlan(type, x0, w, H, opt, i === 0, i === h.rooms.length - 1) }); x0 += w + 1; });
+  h.w = x0;                                                                         // x0 now sits on the right wall
+  h.door = plans[0].door; h.plans = plans;
+  const kit = plans.find(p => p.type === "kitchen"), liv = plans[0], bed = plans.find(p => p.type === "bedroom"), many = h.who.length > 1;
+  h.spots = h.who.map((_, i) => i === 0 || !kit ? (i === 0 ? liv.spot : [liv.x0 + liv.w - 2, 4]) : kit.spot);
+  h.nspots = h.who.map((_, i) => i === 0 || bed.w < 7 ? [bed.x0 + 2, 4] : [bed.x0 + bed.w - 3, 4]);
+  return h;
+}
+for (const h of Object.values(HOMES)) planHome(h);
 export function makeHome(key) {
   const h = HOMES[key], w = h.w, H = h.h, m = blank(w, H, h.name);
-  m.indoor = true; m.zoom = 2; m.style = h.style; m.home = key; m.v = 2; m.entry = { x: h.door, y: H - 2 }; m.spawn = m.entry;
+  m.indoor = true; m.zoom = 2; m.style = h.style; m.home = key; m.v = 3; m.entry = { x: h.door, y: H - 2 }; m.spawn = m.entry;
   fill(m, 0, 0, w - 1, H - 1, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, H - 1, 18); fill(m, w - 1, 2, w - 1, H - 1, 18);
-  for (const [sprite, kind, x, y, fw = 1, fh = 1] of h.f) furn(m, sprite, kind, x, y, fw, fh);
-  for (const [sprite, x, y, dw, dh] of h.d) decal(m, sprite, x, y, dw, dh);
+  h.plans.forEach((p, i) => {
+    if (i > 0) { fill(m, p.x0 - 1, 2, p.x0 - 1, H - 1, 18); fill(m, p.x0 - 1, H - 3, p.x0 - 1, H - 2, 17); }          // partition wall with a doorway
+    for (const [sprite, kind, x, y, fw = 1, fh = 1] of p.f) furn(m, sprite, kind, x, y, fw, fh);
+    for (const [sprite, x, y, dw, dh] of p.d) decal(m, sprite, x, y, dw, dh);
+    for (const x of p.win) deco(m, "window", x, 0, 1, 2);
+  });
   decal(m, "mat", h.door, H - 1, 2, 1);
-  for (const x of h.win) deco(m, "window", x, 0, 1, 2);
   m.warps.push({ x: h.door, y: H - 1, w: 2, h: 1, to: "town", tx: h.x + 1, ty: h.y + 2 });
   return m;
 }
+
 // Shops you can walk into. The carpenter sells farm buildings, house upgrades and crafting.
 export const STORES = {
   carpenter: { x: 40, y: 4, sprite: "carpenter", name: "Hazel's Carpentry", w: 11, h: 8, door: 5, open: [9, 17], keeper: "hazel", spot: [5, 4] },

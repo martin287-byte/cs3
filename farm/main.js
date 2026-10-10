@@ -194,7 +194,7 @@ function ensureHouseMaps() {                                                    
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
   if (maps.town && !maps.town.v2) upgradeTown(maps.town);
-  if (maps.town?.w >= 64) { upgradeHomes(maps.town); upgradeStores(maps.town); for (const k of Object.keys(STORES)) maps["store_" + k] ??= makeStore(k); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 2) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
+  if (maps.town?.w >= 64) { upgradeHomes(maps.town); upgradeStores(maps.town); for (const k of Object.keys(STORES)) maps["store_" + k] ??= makeStore(k); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 3) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
   try {
@@ -326,7 +326,7 @@ const homeOf = id => Object.keys(HOMES).find(k => HOMES[k].who.includes(id));
 function atHome(id, h) {                                                            // when a villager is "off", they are in their house (8:00-22:00)
   const k = homeOf(id);
   if (!k || !maps["home_" + k] || h < 8 || h >= 22 || (NEWCOMERS.includes(id) && maps.town.w < 64)) return { map: null };
-  const [x, y] = HOMES[k].spots[HOMES[k].who.indexOf(id)]; return { map: "home_" + k, x, y };
+  const [x, y] = (h >= 21 ? HOMES[k].nspots : HOMES[k].spots)[HOMES[k].who.indexOf(id)]; return { map: "home_" + k, x, y };
 }
 function scheduleFor(id) {
   const h = hourNow();
@@ -349,7 +349,7 @@ function updateNpcs(dt) {
     n.moving = false;
     if (!tgt.map) { n.map = null; continue; }
     const tx = tgt.x * T, ty = tgt.y * T;
-    if (n.map !== tgt.map) { n.map = tgt.map; n.x = tx; n.y = ty; continue; }
+    if (n.map !== tgt.map || maps[tgt.map]?.indoor) { n.map = tgt.map; n.x = tx; n.y = ty; continue; }              // indoors they simply move between rooms
     const dx = tx - n.x, dy = ty - n.y, sp = 30 * dt;
     if (Math.abs(dx) > 1) { n.x += Math.sign(dx) * Math.min(sp, Math.abs(dx)); n.dir = dx > 0 ? 2 : 3; n.moving = true; }
     else if (Math.abs(dy) > 1) { n.y += Math.sign(dy) * Math.min(sp, Math.abs(dy)); n.dir = dy > 0 ? 0 : 1; n.moving = true; }
@@ -855,6 +855,7 @@ function eat(id) {
 const FLAVOR = { table: "A cosy table with fresh flowers.", plant: "Your plant looks happy.", counter: "A sturdy kitchen counter.", shelf: "A shelf full of books.", barrel: "A barrel. Empty for now.", crate: "A crate. Empty for now.",
   nbed: "A neatly made bed. It isn't yours.", nhearth: "A warm fire crackles in the hearth.",
   nstove: "Something smells delicious.", nmirror: "A tall mirror. You look good today.",
+  nfridge: "A well-stocked fridge.", ndesk: "Papers and books cover the desk.",
   fountain: "A stone fountain. The villagers love to meet here.", lamp: "A street lamp. It lights up at dusk.", stall: "A market stall. The stallholder is away today.",
   library: "The library is quiet today. Quill says the best stories are about this valley.", inn: "The inn: the rooms are full of sleepy travellers.", hall: "Town hall. The mayor is away on valley business.", museum: "The museum is being restored. Bring relics from the island one day.", post: "The post office. No letters for you today.", smithy: "The smithy. Your tools are upgraded at Oliver's shop." };
 const HINTS = { bed: "E: sleep", hearth: "E: cook", stove: "E: cook", chest: "E: storage", chest2: "E: storage", mirror: "E: wardrobe" };
