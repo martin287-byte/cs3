@@ -307,6 +307,7 @@ export function makeHome(key) {
 // Shops you can walk into. The carpenter sells farm buildings, house upgrades and crafting.
 export const STORES = {
   carpenter: { x: 40, y: 4, sprite: "carpenter", name: "Hazel's Carpentry", w: 11, h: 8, door: 5, open: [9, 17], keeper: "hazel", spot: [5, 4], style: "wood", front: 12 },
+  general:   { x: 17, y: 5, sprite: "shop", name: "Oliver's General Store", w: 11, h: 8, door: 5, open: [9, 20], keeper: "oliver", spot: [5, 4], style: "wood", existing: true },
   bakery:    { x: 66, y: 4, sprite: "bakery", name: "Rosa's Bakery", w: 11, h: 8, door: 5, open: [9, 17], keeper: "rosa", spot: [5, 4], style: "sand", front: 7, minW: 96 },
 };
 export function makeStore(key) {
@@ -325,13 +326,16 @@ export function makeStore(key) {
 export function upgradeStores(town) {                                             // clear a lot and put the shop front in the big town
   if (town.v5 || town.w < 64) return; town.v5 = true;
   for (const st of Object.values(STORES)) {
-    if (st.minW && town.w < st.minW) continue;
+    if (st.minW && town.w < st.minW || st.existing) continue;
     fill(town, st.x - 1, st.y - 1, st.x + 3, st.front, 0);
     fill(town, st.x, st.y, st.x + 2, st.y + 1, 10, { kind: "house" });
     town.objects.push({ sprite: st.sprite, x: st.x, y: st.y, w: 3, h: 2 });
     for (let dx = 0; dx < 3; dx++) { town.tiles[st.y + 1][st.x + dx].kind = "store"; town.tiles[st.y + 1][st.x + dx].store = Object.keys(STORES).find(k => STORES[k] === st); }
     fill(town, st.x + 1, st.y + 2, st.x + 2, st.front, 8);
   }
+}
+export function upgradeShop(town) {                                              // Oliver's shop can be walked into (every town size)
+  for (let dx = 0; dx < 3; dx++) { const t = town.tiles[6]?.[17 + dx]; if (t && t.t === 6) { t.kind = "store"; t.store = "general"; } }
 }
 export function upgradeHomes(town) {                                              // make the front of each family house a door
   if (town.v4 || town.w < 64) return; town.v4 = true;
@@ -352,7 +356,7 @@ export function makeCellar() {
 export function generateWorld(seed = 20240607) {
   const rnd = rng(seed);
   const world0 = { farm: makeFarm(rnd), town: makeTown(rnd), forest: makeForest(rnd), beach: makeBeach(rnd), desert: makeDesert(rnd), island: makeIsland(rnd), greenhouse: makeGreenhouse(), house: makeHouse(0), cellar: makeCellar() };
-  upgradeHomes(world0.town); upgradeStores(world0.town);
+  upgradeHomes(world0.town); upgradeStores(world0.town); upgradeShop(world0.town);
   for (const k of Object.keys(STORES)) world0["store_" + k] = makeStore(k);
   for (const k of Object.keys(HOMES)) world0["home_" + k] = makeHome(k);
   return world0;

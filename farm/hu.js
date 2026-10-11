@@ -608,6 +608,9 @@ const UI = {
   "{0} is closed. (Open {1}:00–{2}:00)": "{0} zárva van. (Nyitva {1}:00–{2}:00)",
   "{0} is not here right now.": "{0} most nincs itt.",
   "You can walk into the shops in town between 9:00 and 17:00: Hazel the carpenter (buildings, house upgrades) and Rosa's bakery (food).": "A város boltjaiba 9:00 és 17:00 között léphetsz be: Hazel az ács (épületek, házfejlesztések) és Rosa pékség (étel).",
+  "Oliver's General Store": "Oliver vegyesboltja",
+  "E: enter shop": "E: belépés a boltba",
+  "E: enter": "E: belépés",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

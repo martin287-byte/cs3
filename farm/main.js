@@ -4,7 +4,7 @@ import {
   FESTIVALS, SPOUSE_LINES, SKILLS, XP_TABLE, PERKS, TRAVEL, BUNDLES, RESTORE_PRIZE, SPRINKLER_SHOP, HORSE_COST, PET_COST, PETS, itemInfo, edibleEnergy,
 } from "./data.js";
 import { SEASONS, buildSprites, hash } from "./sprites.js";
-import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS, HOMES, makeHome, upgradeHomes, STORES, makeStore, upgradeStores } from "./world.js";
+import { upgradeTown, generateWorld, makeMine, makeHouse, makeCellar, PLOTS, HOMES, makeHome, upgradeHomes, STORES, makeStore, upgradeStores, upgradeShop } from "./world.js";
 import { HOUSE, HOUSE_ENERGY, HOUSE_BUILD_DAYS, CHEST_CAP, CELLAR_CAP } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouch, dispatchKey, stick } from "./touch.js";
@@ -195,6 +195,7 @@ function ensureHouseMaps() {                                                    
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
   if (maps.town && !maps.town.v2) upgradeTown(maps.town);
+  if (maps.town) { upgradeShop(maps.town); maps.store_general ??= makeStore("general"); }
   if (maps.town?.w >= 64) { upgradeHomes(maps.town); upgradeStores(maps.town); for (const k of Object.keys(STORES)) if (!STORES[k].minW || maps.town.w >= STORES[k].minW) maps["store_" + k] ??= makeStore(k); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 3) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
@@ -337,6 +338,7 @@ function scheduleFor(id) {
   if (NEWCOMERS.includes(id) && maps.town.w < 64) return { map: null };                  // they live in the enlarged town (older saves keep the small one)
   const v = VILLAGERS[id], sched = v.sched, inside = () => atHome(id, h);
   if (id === "hazel" && !maps.store_carpenter) return { map: null };
+  if (id === "oliver" && maps.store_general && h >= 9 && h < 20 && !state.fest && state.spouse !== "oliver") return { map: "store_general", x: 5, y: 4 };
   if (id === "rosa" && maps.store_bakery && h >= 9 && h < 17 && !state.fest && state.spouse !== "rosa") return { map: "store_bakery", x: 5, y: 4 };
   if (h < sched[0].h) return inside();
   const fh = state.fest && FESTIVALS.find(x => x.id === state.fest.id)?.host;
@@ -886,6 +888,7 @@ function useDesk() {                                                            
 }
 function openCounter(key = "carpenter") {
   const keeper = npcs[STORES[key].keeper]; if (!keeper || keeper.map !== state.map) return say(tf("{0} is not here right now.", VILLAGERS[STORES[key].keeper].name), 2.5);
+  if (key === "general") { state.ui = { type: "shop", page: 0 }; audio.beep(500, 0.05); tip("shop", "Press Tab to flip pages: seeds, tool upgrades, animals and gifts. Farm buildings and house upgrades are sold by Hazel the carpenter."); return; }
   if (key === "bakery") { state.ui = { type: "shop", page: 7, pages: [7], title: "BAKERY" }; audio.beep(500, 0.05); return; }
   state.ui = { type: "shop", page: 6, pages: CARPENTER_PAGES }; audio.beep(500, 0.05); tip("carp", "Hazel builds farm buildings and house upgrades. Press Tab to flip pages: buildings, house, workshop.");
 }
@@ -1612,7 +1615,7 @@ function drawHud(hr, tx, ty) {
 
   const tile = inBounds(tx, ty) ? tileAt(tx, ty) : null, id = tile && npcNear(tx, ty);
   const hint = !tile ? "" : petNear(tx, ty) && !id ? `E: pet ${state.pet.name}` : id ? `E: ${id === "zed" ? "trade with Zed" : "talk to " + VILLAGERS[id].name}` : tile.crop && tile.crop.age >= CROPS[tile.crop.type].days ? "Space: harvest" : tile.kind === "home" ? "E: enter house" : HINTS[tile.kind] ? HINTS[tile.kind] : tile.kind === "centre" ? "E: community centre" : tile.kind === "built" && tile.plot === "greenhouse" ? "E: enter greenhouse"
-    : tile.kind === "bin" ? "E: sell goods" : tile.kind === "shop" ? "E: shop" : tile.kind === "mine" ? "E: enter mine" : tile.kind === "ladder" ? "E: go down" : tile.kind === "mexit" ? "E: leave mine"
+    : tile.kind === "bin" ? "E: sell goods" : tile.kind === "store" ? "E: enter shop" : tile.kind === "ccounter" ? "E: shop" : tile.kind === "door" ? "E: enter" : tile.kind === "mine" ? "E: enter mine" : tile.kind === "ladder" ? "E: go down" : tile.kind === "mexit" ? "E: leave mine"
     : tile.t === 2 && curTool() === "rod" ? "Space: fish" : tile.t === 13 && curTool() === "pick" ? "Space: mine" : tile.t === 3 && !tile.rock && tile.deco !== "cactus" && curTool() === "axe" ? "Space: chop" : "";
   if (hint) { const w = Math.round(ctx.measureText(hint).width) + 14; woodFrame(W - 44 - w, H - 56, w, 16, "rgba(60,44,12,.95)"); txt(hint, W - 51, H - 45, "#ffe27a", "right"); }
 
