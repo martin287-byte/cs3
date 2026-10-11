@@ -30,6 +30,10 @@ const carpenter = () => onHouse({ wall: "#c8a070", roof: "#8a4a2a", trim: "#f4e4
   R(g, "#3b2814", 40, 29, 13, 12); R(g, "#f0d8a0", 41, 30, 11, 10); R(g, "#8a8e99", 43, 31, 7, 2); for (let i = 0; i < 4; i++) R(g, "#6a6e79", 43 + i * 2, 33, 1, 3);        // a saw on the sign
   R(g, "#a8743c", 1, 50, 8, 2); R(g, "#c8935a", 1, 50, 8, 1); R(g, "#a8743c", 2, 47, 7, 2); R(g, "#c8935a", 2, 47, 7, 1);                                              // a stack of planks
 });
+const bakery = () => onHouse({ wall: "#f0d8b0", roof: "#d85a8a", trim: "#fff4e8", shutter: "#c8483f", label: "BAKERY" }, g => {
+  for (let i = 0; i < 24; i++) R(g, i % 6 < 3 ? "#e24b6a" : "#fff8f0", 16 + i, 29, 1, 6);
+  R(g, "#3b2814", 16, 35, 24, 1); R(g, "#3b2814", 44, 30, 10, 9); R(g, "#f0d890", 45, 31, 8, 7); R(g, "#c8883a", 47, 33, 5, 3); R(g, "#e8b060", 47, 33, 5, 1); R(g, "#a8683a", 48, 34, 1, 1);   // bread sign
+});
 const fountain = () => mk(34, 34, g => {
   R(g, "#4a4a56", 2, 12, 30, 20); R(g, "#8a8a98", 3, 12, 28, 18); R(g, "#b8b8c6", 3, 12, 28, 3); R(g, "#6a6a78", 3, 28, 28, 3);
   R(g, "#4a8ac8", 6, 16, 22, 10); R(g, "#7ac0f0", 6, 16, 22, 3); R(g, "#a8e0ff", 9, 21, 6, 1); R(g, "#a8e0ff", 18, 18, 7, 1);
@@ -46,4 +50,4 @@ const stall = () => mk(34, 30, g => {
   R(g, "#8a5a30", 2, 18, 30, 10); R(g, "#a8743c", 2, 18, 30, 2); R(g, "#6a4020", 2, 27, 30, 1);
   for (const [x, c] of [[6, "#e84a4a"], [11, "#ffd23f"], [16, "#7ac07a"], [21, "#e8884a"], [26, "#a85aa8"]]) { R(g, c, x, 15, 4, 4); R(g, shade(c, 0.3), x, 15, 1, 2); }
 });
-export function buildTownArt(S) { Object.assign(S.bldg, { clinic: clinic(), inn: inn(), library: library(), smithy: smithy(), carpenter: carpenter(), townhall: townhall(), museum: museum(), post: post(), fountain: fountain(), lamp: lamp(), stall: stall() }); }
+export function buildTownArt(S) { Object.assign(S.bldg, { clinic: clinic(), inn: inn(), library: library(), smithy: smithy(), carpenter: carpenter(), bakery: bakery(), townhall: townhall(), museum: museum(), post: post(), fountain: fountain(), lamp: lamp(), stall: stall() }); }

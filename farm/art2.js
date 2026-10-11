@@ -9,6 +9,23 @@ function leaf(g, x, y, w, h, c = LEAF) {                                        
 }
 function sprout(g, x, y, c = LEAF) { R(g, STEM, x, y, 1, 3); leaf(g, x - 2, y - 1, 2, 2, c); leaf(g, x + 1, y - 2, 2, 2, c); }
 
+
+// ---- later crops: [growing stage drawer, ripe drawer] per type -------------------------------------------------
+const rosette = (g, c, n = 5) => { for (const [x, y, w, h] of [[2, 14, 5, 6], [9, 14, 5, 6], [5, 11, 6, 8], [3, 17, 4, 4], [9, 17, 4, 4]].slice(0, n)) leaf(g, x, y, w, h, c); };
+const NEWCROPS = {
+  radish: (g, st, b) => { rosette(g, st === 3 ? "#58b845" : "#6cc850"); if (st === 4) { disc(g, "#a81e3a", 8, b - 2, 3); disc(g, "#e8406a", 8, b - 3, 2.6); R(g, "#fff", 8, b - 1, 1, 3); R(g, "#ff9ab0", 7, b - 4, 1, 1); } },
+  strawberry: (g, st, b) => { rosette(g, "#3f9a3a", 5); if (st === 3) for (const [x, y] of [[4, 17], [10, 16], [7, 15]]) { R(g, "#fff", x, y, 2, 2); R(g, "#f4e04a", x, y); } if (st === 4) for (const [x, y] of [[3, 17], [7, 19], [10, 16], [6, 15]]) { R(g, "#c8101f", x, y, 3, 3); R(g, "#ff5a5a", x, y, 1, 1); R(g, "#f4f0a0", x + 1, y + 1, 1, 1); R(g, "#2a8a2a", x, y - 1, 3, 1); } },
+  cauliflower: (g, st, b) => { disc(g, "#2f7a3a", 8, b - 5, 7); disc(g, "#58b058", 8, b - 5, 6); R(g, "#78c474", 5, b - 9, 2, 5); R(g, "#78c474", 10, b - 9, 2, 5); if (st === 4) { disc(g, "#e8e0c0", 8, b - 5, 4); disc(g, "#fffbe8", 7, b - 6, 3); R(g, "#d8cfa8", 8, b - 3, 3, 1); } },
+  melon: (g, st, b) => { for (const [x, y, w, h] of [[1, 15, 6, 4], [9, 14, 6, 5], [4, 12, 5, 4]]) leaf(g, x, y + 3, w, h, "#3a8a34"); R(g, "#2a782a", 2, 20, 12, 1); if (st === 4) { ellipse(g, "#1f6a2a", 8, 18, 6.5, 4.6); ellipse(g, "#58b85a", 8, 17.5, 6, 4.2); for (const x of [5, 8, 11]) R(g, "#2f8a3a", x, 14, 1, 8); R(g, "#a8e8a0", 5, 15, 2, 1); R(g, "#4a7a2a", 7, 12, 2, 2); } },
+  pepper: (g, st, b) => { R(g, "#3a8a30", 7, 7, 2, 15); for (const [x, y, w] of [[3, 7, 4], [9, 9, 5], [2, 13, 5], [9, 15, 5], [5, 18, 4]]) leaf(g, x, y, w, 3, "#3f9a3a"); if (st === 3) for (const [x, y] of [[4, 11], [10, 13]]) { R(g, "#fff", x, y, 2, 2); } if (st === 4) for (const [x, y, c] of [[4, 10, "#d8281f"], [10, 12, "#e8c020"], [3, 15, "#2fa83a"], [10, 17, "#d8281f"]]) { R(g, c, x, y, 2, 4); R(g, shade(c, 0.3), x, y, 1, 2); R(g, "#2a782a", x, y - 1, 2, 1); } },
+  blueberry: (g, st, b) => { for (const [x, y, w, h] of [[2, 12, 6, 8], [8, 11, 6, 9], [5, 8, 6, 9], [3, 16, 4, 4]]) leaf(g, x, y + 2, w, h, "#2f7a4a"); if (st === 3) for (const [x, y] of [[4, 12], [10, 13]]) R(g, "#fff", x, y, 2, 2); if (st === 4) for (const [x, y] of [[4, 11], [9, 12], [6, 15], [11, 16], [3, 17], [7, 9]]) { disc(g, "#2a3a98", x + 1, y + 1, 1.6); R(g, "#7a8ae8", x, y, 1, 1); } },
+  beet: (g, st, b) => { rosette(g, "#3f9a3a"); for (const x of [5, 8, 11]) R(g, "#c8283a", x, 14, 1, 5); if (st === 4) { disc(g, "#6a0f2a", 8, b - 2, 3.6); disc(g, "#a81e48", 8, b - 3, 3); R(g, "#d8508a", 7, b - 4, 1, 1); R(g, "#6a0f2a", 8, b + 1, 1, 2); } },
+  artichoke: (g, st, b) => { for (const [x, y, w, h] of [[1, 12, 6, 9], [9, 12, 6, 9], [4, 7, 8, 12], [2, 16, 4, 5], [10, 16, 4, 5]]) { leaf(g, x, y + 1, w, h, "#6a9a7a"); R(g, "#a8c8b0", x + 1, y + 2, 1, h - 2); } if (st === 4) { disc(g, "#3a6a3a", 8, b - 8, 4); disc(g, "#6aa468", 8, b - 8, 3.4); for (const [x, y] of [[6, b - 10], [9, b - 9], [7, b - 7]]) R(g, "#8ac488", x, y, 2, 1); R(g, "#a874e0", 8, b - 12, 1, 2); } },
+  yam: (g, st, b) => { for (const [x, y, w, h] of [[1, 15, 6, 4], [9, 14, 6, 5], [5, 12, 5, 4]]) leaf(g, x, y + 3, w, h, "#4a9a3a"); R(g, "#7a3a2a", 3, 18, 1, 3); if (st === 4) for (const [x, y] of [[3, 20], [8, 21], [11, 20]]) { ellipse(g, "#8a3a1a", x + 1, y, 3, 1.8); ellipse(g, "#c8601e", x + 1, y - 0.5, 2.6, 1.5); R(g, "#f0a060", x, y - 1, 1, 1); } },
+  parsnip: (g, st, b) => { rosette(g, st === 3 ? "#78c85a" : "#8ad46a"); if (st === 4) { R(g, "#e8dcb0", 6, b - 3, 5, 3); R(g, "#f4ecd0", 7, b - 3, 3, 3); R(g, "#d8c890", 7, b, 3, 1); R(g, "#c8b878", 8, b + 1, 1, 1); } },
+  snowpea: (g, st, b) => { R(g, "#7a5230", 3, 4, 1, 19); R(g, "#7a5230", 12, 4, 1, 19); R(g, "#a47a4a", 3, 4, 1, 19); for (const [x, y, w] of [[2, 6, 4], [9, 8, 5], [3, 12, 5], [8, 14, 5], [3, 18, 4]]) leaf(g, x, y, w, 3, "#4aac4a"); if (st === 3) for (const [x, y] of [[5, 9], [10, 13]]) { R(g, "#fff", x, y, 2, 2); R(g, "#e8d8f0", x, y); } if (st === 4) for (const [x, y] of [[5, 8], [10, 10], [4, 14], [10, 16], [6, 19]]) { R(g, "#7ae07a", x, y, 2, 5); R(g, "#b8f0b0", x, y, 1, 3); R(g, "#2f8a3a", x, y + 4, 2, 1); } },
+};
+
 function drawStage(type, st) {
   return mk(CW, CH, g => {
     const base = 22;
@@ -22,6 +39,7 @@ function drawStage(type, st) {
       if (type === "pumpkin") { R(g, "#2a782a", 3, base - 1, 10, 1); }
       return;
     }
+    if (NEWCROPS[type]) { NEWCROPS[type](g, st, base); return; }
     const tall = type === "corn", vine = type === "tomato";
     if (type === "turnip") {
       for (const [x, y, w, h] of [[3, 12, 4, 6], [6, 9, 4, 8], [9, 12, 4, 6], [5, 14, 6, 5]]) leaf(g, x, y + 3, w, h, st === 3 ? LEAF : LEAF_L);
@@ -67,6 +85,20 @@ export function cropSprite(type, st) { return outline(drawStage(type, st), "#1f3
 // ---------------------------------------------------------------- produce icons (16x16, used in menus and the toolbar)
 export function produceIcon(type) {
   const spr = mk(16, 16, g => {
+    const NI = {
+      radish: () => { disc(g, "#a81e3a", 8, 10, 4); disc(g, "#e8406a", 8, 9, 3.5); R(g, "#fff", 8, 12, 1, 3); R(g, "#ff9ab0", 6, 7, 2, 1); leaf(g, 6, 1, 2, 5); leaf(g, 8, 2, 2, 4); },
+      strawberry: () => { R(g, "#c8101f", 4, 5, 8, 8); R(g, "#d8201f", 5, 13, 6, 2); R(g, "#ff5a5a", 5, 6, 2, 3); for (const [x, y] of [[6, 8], [9, 9], [7, 11], [10, 6]]) R(g, "#f4f0a0", x, y, 1, 1); R(g, "#2a8a2a", 4, 3, 8, 3); R(g, "#3fba3f", 6, 2, 4, 1); },
+      cauliflower: () => { disc(g, "#2f7a3a", 8, 9, 7); disc(g, "#58b058", 8, 10, 6); disc(g, "#e8e0c0", 8, 7, 5); disc(g, "#fffbe8", 7, 6, 3); R(g, "#d8cfa8", 6, 9, 5, 1); },
+      melon: () => { ellipse(g, "#1f6a2a", 8, 9, 7, 6); ellipse(g, "#58b85a", 8, 8.5, 6.4, 5.5); for (const x of [4, 7, 10]) R(g, "#2f8a3a", x, 4, 1, 10); R(g, "#a8e8a0", 4, 5, 2, 1); R(g, "#4a7a2a", 7, 1, 2, 3); },
+      pepper: () => { R(g, "#d8281f", 5, 4, 6, 9); R(g, "#ff6a5a", 5, 5, 2, 5); R(g, "#a8180f", 6, 12, 4, 2); R(g, "#2a782a", 6, 1, 4, 3); R(g, "#3f9a3a", 7, 0, 2, 2); },
+      blueberry: () => { for (const [x, y] of [[4, 8], [9, 8], [6, 4], [7, 11]]) { disc(g, "#2a3a98", x + 2, y + 2, 2.6); R(g, "#7a8ae8", x + 1, y + 1, 1, 1); R(g, "#12195a", x + 2, y + 2, 1, 1); } },
+      beet: () => { disc(g, "#6a0f2a", 8, 10, 4.4); disc(g, "#a81e48", 8, 9, 3.8); R(g, "#d8508a", 6, 7, 2, 1); R(g, "#6a0f2a", 8, 14, 1, 2); R(g, "#c8283a", 7, 3, 1, 4); R(g, "#c8283a", 9, 4, 1, 3); leaf(g, 5, 1, 3, 4, "#3f9a3a"); leaf(g, 9, 1, 3, 4, "#3f9a3a"); },
+      artichoke: () => { disc(g, "#3a6a3a", 8, 8, 5.5); disc(g, "#6aa468", 8, 8, 4.8); for (const [x, y] of [[5, 5], [8, 4], [10, 7], [6, 9], [9, 10]]) R(g, "#9ad498", x, y, 2, 1); R(g, "#3a6a3a", 7, 13, 2, 3); R(g, "#a874e0", 7, 1, 2, 2); },
+      yam: () => { ellipse(g, "#8a3a1a", 8, 9, 6.5, 3.8); ellipse(g, "#c8601e", 8, 8.5, 6, 3.3); R(g, "#f0a060", 4, 7, 3, 1); R(g, "#6a2a10", 12, 9, 2, 1); R(g, "#6a2a10", 3, 10, 2, 1); },
+      parsnip: () => { R(g, "#e8dcb0", 5, 5, 6, 4); R(g, "#f4ecd0", 6, 5, 3, 7); R(g, "#d8c890", 7, 11, 2, 3); R(g, "#c8b878", 8, 14, 1, 1); leaf(g, 6, 0, 2, 5, "#8ad46a"); leaf(g, 9, 1, 2, 4, "#8ad46a"); },
+      snowpea: () => { for (const [x, y] of [[3, 7], [6, 4], [9, 6]]) { R(g, "#2f8a3a", x, y, 3, 8); R(g, "#7ae07a", x + 1, y + 1, 1, 6); R(g, "#b8f0b0", x + 1, y + 1, 1, 2); } },
+    };
+    if (NI[type]) NI[type]();
     if (type === "turnip") { disc(g, "#cfc2e0", 8, 10, 4); disc(g, "#f4eef8", 8, 11, 3); R(g, "#a566c8", 5, 6, 7, 3); R(g, "#c890e8", 6, 6, 3, 1); leaf(g, 6, 1, 2, 5); leaf(g, 8, 2, 2, 4); }
     if (type === "carrot") { R(g, "#e87a1a", 6, 5, 5, 3); R(g, "#f08a2a", 7, 8, 3, 3); R(g, "#d86a14", 8, 11, 2, 3); R(g, "#ffb060", 7, 5, 1, 4); leaf(g, 6, 0, 2, 5); leaf(g, 9, 1, 2, 4); }
     if (type === "potato") { ellipse(g, "#8a6234", 8, 9, 6, 4.5); ellipse(g, "#b98a52", 8, 8, 5.2, 3.8); R(g, "#d4a870", 5, 6, 3, 1); R(g, "#5a3a18", 6, 9); R(g, "#5a3a18", 10, 8); }

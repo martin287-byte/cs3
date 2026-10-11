@@ -72,10 +72,10 @@ export function upgradeTown(m) {
   stamp("stall", 23, 16, 2, 1, "stall"); stamp("stall", 26, 16, 2, 1, "stall");
 }
 
-function makeTown(rnd) {                                                            // 64x44: the original centre (top-left) plus an east district, a river and a south bank
-  const m = blank(64, 44, "Town");
-  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 43, x1: 23, y1: 43 }, { x0: 63, y0: 12, x1: 63, y1: 15 }]);
-  fill(m, 0, 13, 63, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8); fill(m, 20, 15, 21, 43, 8);
+function makeTown(rnd) {                                                            // 96x64: the original centre (top-left), an east district, a river, a south bank and an orchard
+  const m = blank(96, 64, "Town");
+  border(m, [{ x0: 0, y0: 12, x1: 0, y1: 15 }, { x0: 30, y0: 0, x1: 31, y1: 0 }, { x0: 20, y0: 63, x1: 23, y1: 63 }, { x0: 95, y0: 12, x1: 95, y1: 15 }]);
+  fill(m, 0, 13, 95, 14, 8); fill(m, 18, 7, 19, 13, 8); fill(m, 30, 0, 31, 13, 8); fill(m, 20, 15, 21, 63, 8);
   put(m, 22, 12, 10, { kind: "board" }); m.objects.push({ sprite: "board", x: 22, y: 12, h: 1, w: 1 });          // quest bulletin board
   building(m, "shop", 17, 5, 6, "shop");
   building(m, "h1", 6, 4, 10, "house"); building(m, "h2", 26, 4, 10, "house");
@@ -89,19 +89,33 @@ function makeTown(rnd) {                                                        
   lot("h2", 45, 4, "house", 46); lot("townhall", 55, 4, "hall", 56);
   for (const [sprite, x, kind] of [["post", 45, "post"], ["h3", 55, "house"]]) { fill(m, x - 1, 18, x + 3, 19, 0); building(m, sprite, x, 18, 10, kind); }
   fill(m, 45, 20, 57, 21, 8);
-  // the river and a bridge, then the south bank with the museum and more homes
-  for (let x = 1; x < 63; x++) for (const y of [30, 31]) put(m, x, y, 2, { water: "pond" });
-  fill(m, 20, 30, 21, 31, 8);
-  fill(m, 6, 36, 58, 37, 8);
-  for (const [sprite, x, kind] of [["h1", 8, "house"], ["museum", 28, "museum"], ["h2", 40, "house"], ["h3", 50, "house"]]) { fill(m, x - 1, 34, x + 3, 35, 0); building(m, sprite, x, 34, 10, kind); }
-  pond(m, 14, 41, 3, 2, "pond"); pond(m, 57, 41, 3, 2, "pond");
-  for (const [x, y] of [[45, 12], [53, 12], [60, 12], [45, 15], [53, 15], [60, 15], [19, 29], [22, 29], [19, 32], [22, 32], [30, 38], [46, 38]]) if (m.tiles[y][x].t === 0) { fill(m, x, y, x, y, 10, { kind: "lamp" }); m.objects.push({ sprite: "lamp", x, y, w: 1, h: 1 }); }
-  const keep = (x, y) => (y >= 11 && y <= 15) || (y >= 29 && y <= 32) || (y >= 35 && y <= 38) || (x >= 19 && x <= 22) || (x >= 49 && x <= 52 && y <= 28);
+  // far east: the market square with a second fountain and stalls, more homes and a park pond
+  fill(m, 66, 8, 92, 12, 8); fill(m, 82, 2, 83, 7, 8); fill(m, 82, 15, 83, 43, 8);
+  fill(m, 78, 9, 79, 10, 10, { kind: "fountain" }); m.objects.push({ sprite: "fountain", x: 78, y: 9, w: 2, h: 2 });
+  for (const x of [68, 71, 74, 86, 89]) { fill(m, x, 10, x + 1, 10, 10, { kind: "stall" }); m.objects.push({ sprite: "stall", x, y: 10, w: 2, h: 1 }); }
+  for (const [sprite, x] of [["h1", 86], ["h2", 74]]) { fill(m, x - 1, 4, x + 3, 5, 0); building(m, sprite, x, 4, 10, "house"); fill(m, x + 1, 6, x + 2, 7, 8); }
+  for (const [sprite, x] of [["h3", 66], ["h1", 74], ["h2", 87]]) { fill(m, x - 1, 18, x + 3, 19, 0); building(m, sprite, x, 18, 10, "house"); }
+  fill(m, 65, 20, 92, 21, 8);
+  pond(m, 78, 26, 7, 2.6, "pond");
+  // the river and bridges, then the south bank with the museum and more homes
+  for (let x = 1; x < 95; x++) for (const y of [30, 31]) put(m, x, y, 2, { water: "pond" });
+  fill(m, 20, 30, 21, 31, 8); fill(m, 82, 30, 83, 31, 8);
+  fill(m, 6, 36, 94, 37, 8);
+  for (const [sprite, x, kind] of [["h1", 8, "house"], ["museum", 28, "museum"], ["h2", 40, "house"], ["h3", 50, "house"], ["h1", 64, "house"], ["h2", 74, "house"], ["h3", 88, "house"]]) { fill(m, x - 1, 34, x + 3, 35, 0); building(m, sprite, x, 34, 10, kind); }
+  // the south: orchard rows and ponds, with lanes through them
+  fill(m, 4, 46, 94, 47, 8); fill(m, 4, 56, 94, 57, 8); fill(m, 48, 46, 49, 62, 8);
+  for (let y = 49; y <= 54; y += 3) for (let x = 6; x <= 44; x += 4) if (m.tiles[y][x].t === 0) put(m, x, y, 3);
+  for (let y = 59; y <= 61; y += 2) for (let x = 6; x <= 44; x += 4) if (m.tiles[y][x].t === 0) put(m, x, y, 3);
+  pond(m, 14, 41, 3, 2, "pond"); pond(m, 57, 41, 3, 2, "pond"); pond(m, 70, 52, 8, 3, "pond"); pond(m, 88, 60, 4, 2, "pond");
+  for (const [x, y] of [[45, 12], [53, 12], [60, 12], [45, 15], [53, 15], [60, 15], [19, 29], [22, 29], [19, 32], [22, 32], [30, 38], [46, 38], [67, 12], [75, 12], [83, 12], [91, 12], [67, 15], [75, 15], [91, 15], [81, 29], [84, 29], [81, 32], [84, 32], [70, 38], [90, 38], [19, 45], [22, 45], [47, 58], [50, 58]]) if (m.tiles[y][x].t === 0) { fill(m, x, y, x, y, 10, { kind: "lamp" }); m.objects.push({ sprite: "lamp", x, y, w: 1, h: 1 }); }
+  const keep = (x, y) => (y >= 11 && y <= 15) || (y >= 29 && y <= 32) || (y >= 35 && y <= 38) || (x >= 19 && x <= 22) || (x >= 49 && x <= 52 && y <= 28) || (x >= 81 && x <= 84) || (y >= 45 && y <= 48) || (y >= 55 && y <= 58) || (x >= 47 && x <= 50 && y >= 45)
+    || (x >= 65 && x <= 93 && y >= 7 && y <= 13) || (x >= 65 && x <= 93 && y >= 20 && y <= 22) || (y >= 3 && y <= 8 && ((x >= 44 && x <= 58) || (x >= 72 && x <= 90))) || (y >= 17 && y <= 22 && ((x >= 44 && x <= 58) || (x >= 64 && x <= 92)))
+    || (y >= 33 && y <= 38 && x >= 5);
   scatter(m, rnd, 45, (x, y) => !(y >= 11 && y <= 15) && !(x >= 19 && x <= 22 && y >= 15) && !(x >= 16 && x <= 20 && y <= 14) && !(x >= 29 && x <= 32 && y <= 14)
     && !(x >= 4 && x <= 16 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && !(x >= 24 && x <= 30 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))) && x < 44 && y < 28);
-  scatter(m, rnd, 60, (x, y) => (x >= 44 || y >= 28) && !keep(x, y) && !(x >= 44 && x <= 58 && ((y >= 3 && y <= 7) || (y >= 17 && y <= 21))));
+  scatter(m, rnd, 130, (x, y) => (x >= 44 || y >= 28) && !keep(x, y) && !(y >= 46 && y <= 62 && x >= 4 && x <= 46));
   m.warps.push({ x: 0, y: 12, w: 1, h: 4, to: "farm", tx: 61, ty: 20 }, { x: 30, y: 0, w: 2, h: 1, to: "forest", tx: 30, ty: 28 },
-    { x: 20, y: 43, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 63, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
+    { x: 20, y: 63, w: 4, h: 1, to: "beach", tx: 21, ty: 2 }, { x: 95, y: 12, w: 1, h: 4, to: "desert", tx: 2, ty: 15 });
   return m;
 }
 
@@ -137,7 +151,7 @@ function makeBeach(rnd) {
   for (let y = 15; y <= 16; y++) for (let x = 37; x <= 39; x++) m.tiles[y][x].dest = "island";
   scatterDeco(m, rnd, 26, "palm", (x, y) => y < 17 && !(x >= 19 && x <= 24 && y <= 9) && !(x >= 20 && x <= 24 && y >= 14 && y <= 18) && !(x >= 35 && x <= 41 && y >= 12));
   for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "palm";
-  m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 41 });
+  m.warps.push({ x: 20, y: 0, w: 4, h: 1, to: "town", tx: 21, ty: 61 });
   return m;
 }
 
@@ -149,7 +163,7 @@ function makeDesert(rnd) {
   scatterDeco(m, rnd, 55, "cactus", (x, y) => !(x <= 5 && y >= 12 && y <= 19) && !(((x - 34) / 7) ** 2 + ((y - 20) / 5) ** 2 < 1) && !(x >= 22 && x <= 30 && y >= 9 && y <= 13));
   fill(m, 1, 15, 14, 16, 8);                                                        // trail from town
   for (const row of m.tiles) for (const t of row) if (t.t === 3 && !t.deco) t.deco = "cactus";
-  m.warps.push({ x: 0, y: 14, w: 1, h: 4, to: "town", tx: 61, ty: 13 });
+  m.warps.push({ x: 0, y: 14, w: 1, h: 4, to: "town", tx: 93, ty: 13 });
   return m;
 }
 
@@ -292,14 +306,16 @@ export function makeHome(key) {
 
 // Shops you can walk into. The carpenter sells farm buildings, house upgrades and crafting.
 export const STORES = {
-  carpenter: { x: 40, y: 4, sprite: "carpenter", name: "Hazel's Carpentry", w: 11, h: 8, door: 5, open: [9, 17], keeper: "hazel", spot: [5, 4] },
+  carpenter: { x: 40, y: 4, sprite: "carpenter", name: "Hazel's Carpentry", w: 11, h: 8, door: 5, open: [9, 17], keeper: "hazel", spot: [5, 4], style: "wood", front: 12 },
+  bakery:    { x: 66, y: 4, sprite: "bakery", name: "Rosa's Bakery", w: 11, h: 8, door: 5, open: [9, 17], keeper: "rosa", spot: [5, 4], style: "sand", front: 7, minW: 96 },
 };
 export function makeStore(key) {
   const st = STORES[key], w = st.w, H = st.h, m = blank(w, H, st.name);
-  m.indoor = true; m.zoom = 2; m.style = "wood"; m.store = key; m.v = 1; m.entry = { x: st.door, y: H - 2 }; m.spawn = m.entry;
+  m.indoor = true; m.zoom = 2; m.style = st.style || "wood"; m.store = key; m.v = 1; m.entry = { x: st.door, y: H - 2 }; m.spawn = m.entry;
   fill(m, 0, 0, w - 1, H - 1, 17); fill(m, 0, 0, w - 1, 1, 18); fill(m, 0, 2, 0, H - 1, 18); fill(m, w - 1, 2, w - 1, H - 1, 18);
   furn(m, "shelf", "shelf", 1, 2); furn(m, "shelf", "shelf", 2, 2); furn(m, "shelf", "shelf", 8, 2); furn(m, "shelf", "shelf", 9, 2);
   furn(m, "counter", "ccounter", 3, 4, 2, 1); furn(m, "counter", "ccounter", 6, 4, 2, 1);                          // the keeper stands in the gap at x=5
+  for (const x of [3, 4, 6, 7]) m.tiles[4][x].store = key;
   furn(m, "barrel", "barrel", 1, 5); furn(m, "crate", "crate", 1, 6); furn(m, "crate", "crate", 9, 5); furn(m, "barrel", "barrel", 9, 6); furn(m, "plant", "plant", 9, 3);
   decal(m, "rug", 4, 5, 4, 2); decal(m, "mat", st.door, H - 1, 2, 1);
   deco(m, "window", 3, 0, 1, 2); deco(m, "window", 7, 0, 1, 2);
@@ -309,11 +325,12 @@ export function makeStore(key) {
 export function upgradeStores(town) {                                             // clear a lot and put the shop front in the big town
   if (town.v5 || town.w < 64) return; town.v5 = true;
   for (const st of Object.values(STORES)) {
-    fill(town, st.x - 1, st.y - 1, st.x + 3, 12, 0);
+    if (st.minW && town.w < st.minW) continue;
+    fill(town, st.x - 1, st.y - 1, st.x + 3, st.front, 0);
     fill(town, st.x, st.y, st.x + 2, st.y + 1, 10, { kind: "house" });
     town.objects.push({ sprite: st.sprite, x: st.x, y: st.y, w: 3, h: 2 });
     for (let dx = 0; dx < 3; dx++) { town.tiles[st.y + 1][st.x + dx].kind = "store"; town.tiles[st.y + 1][st.x + dx].store = Object.keys(STORES).find(k => STORES[k] === st); }
-    fill(town, st.x + 1, st.y + 2, st.x + 2, 12, 8);
+    fill(town, st.x + 1, st.y + 2, st.x + 2, st.front, 8);
   }
 }
 export function upgradeHomes(town) {                                              // make the front of each family house a door

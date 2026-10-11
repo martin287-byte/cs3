@@ -31,7 +31,7 @@ const TOOL_NAMES = { axe: "Axe", hoe: "Hoe", can: "Watering Can", rod: "Fishing 
 const CROP_IDS = Object.keys(CROPS);
 const BLOCKING = [2, 3, 4, 5, 6, 10, 11, 13, 16, 18, 19];
 const FORAGE_COUNT = { farm: 8, town: 4, forest: 22, beach: 14, desert: 12, island: 12 };
-const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts", "House", "Workshop", "Buildings"];
+const SHOP_PAGES = ["Seeds", "Upgrades", "Farm", "Gifts", "House", "Workshop", "Buildings", "Bakery"];
 const OLIVER_PAGES = [0, 1, 2, 3], CARPENTER_PAGES = [6, 4, 5];
 
 const S = buildSprites({
@@ -195,7 +195,7 @@ function ensureHouseMaps() {                                                    
   if (!maps.house || maps.house.level !== state.house) maps.house = makeHouse(state.house);
   if (!maps.cellar) maps.cellar = makeCellar();
   if (maps.town && !maps.town.v2) upgradeTown(maps.town);
-  if (maps.town?.w >= 64) { upgradeHomes(maps.town); upgradeStores(maps.town); for (const k of Object.keys(STORES)) maps["store_" + k] ??= makeStore(k); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 3) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
+  if (maps.town?.w >= 64) { upgradeHomes(maps.town); upgradeStores(maps.town); for (const k of Object.keys(STORES)) if (!STORES[k].minW || maps.town.w >= STORES[k].minW) maps["store_" + k] ??= makeStore(k); for (const k of Object.keys(HOMES)) if (maps["home_" + k]?.v !== 3) maps["home_" + k] = makeHome(k); }                           // older saves get the village upgrade too
 }
 function load(n = lastSave()) {
   try {
@@ -337,6 +337,7 @@ function scheduleFor(id) {
   if (NEWCOMERS.includes(id) && maps.town.w < 64) return { map: null };                  // they live in the enlarged town (older saves keep the small one)
   const v = VILLAGERS[id], sched = v.sched, inside = () => atHome(id, h);
   if (id === "hazel" && !maps.store_carpenter) return { map: null };
+  if (id === "rosa" && maps.store_bakery && h >= 9 && h < 17 && !state.fest && state.spouse !== "rosa") return { map: "store_bakery", x: 5, y: 4 };
   if (h < sched[0].h) return inside();
   const fh = state.fest && FESTIVALS.find(x => x.id === state.fest.id)?.host;
   if (state.fest && h >= 10 && h < 18 && fh !== id) return { map: "town", ...v.gather };    // everyone attends festivals (the host stays put)
@@ -883,14 +884,15 @@ function useDesk() {                                                            
   const sk = Object.keys(SKILLS).sort((a, b) => skillLevel(a) - skillLevel(b))[0];
   state.studied = state.day; gainXp(sk, 25); audio.beep(600, 0.12, "triangle"); say(tf("You read a book about {0}. (+25 xp)", tr(SKILLS[sk].name).toLowerCase()), 3.5);
 }
-function openCarpenter() {
-  const hz = npcs.hazel; if (!hz || hz.map !== state.map) return say("Hazel is not here right now.", 2.5);
+function openCounter(key = "carpenter") {
+  const keeper = npcs[STORES[key].keeper]; if (!keeper || keeper.map !== state.map) return say(tf("{0} is not here right now.", VILLAGERS[STORES[key].keeper].name), 2.5);
+  if (key === "bakery") { state.ui = { type: "shop", page: 7, pages: [7], title: "BAKERY" }; audio.beep(500, 0.05); return; }
   state.ui = { type: "shop", page: 6, pages: CARPENTER_PAGES }; audio.beep(500, 0.05); tip("carp", "Hazel builds farm buildings and house upgrades. Press Tab to flip pages: buildings, house, workshop.");
 }
 function enterStore(key) {
   const h = hourNow(), S0 = STORES[key]; state.mounted = false;
-  if (h < S0.open[0] || h >= S0.open[1]) return say(tf("The carpentry is closed. (Open 9:00–17:00)"), 3);
-  ensureHouseMaps(); tip("store", "You can visit Hazel's carpentry between 9:00 and 17:00. Buy farm buildings and house upgrades there.");
+  if (h < S0.open[0] || h >= S0.open[1]) return say(tf("{0} is closed. (Open {1}:00–{2}:00)", tr(S0.name), S0.open[0], S0.open[1]), 3);
+  ensureHouseMaps(); tip("store", "You can walk into the shops in town between 9:00 and 17:00: Hazel the carpenter (buildings, house upgrades) and Rosa's bakery (food).");
   goMap("store_" + key, maps["store_" + key].entry.x, maps["store_" + key].entry.y);
 }
 function enterHome(key) {
@@ -926,7 +928,7 @@ function interact() {
   else if (tile.kind === "clinic") visitClinic();
   else if (tile.kind === "door") enterHome(tile.home);
   else if (tile.kind === "store") enterStore(tile.store);
-  else if (tile.kind === "ccounter") openCarpenter();
+  else if (tile.kind === "ccounter") openCounter(tile.store);
   else if (FLAVOR[tile.kind]) say(FLAVOR[tile.kind], 2.5);
   else if (tile.kind === "board") { tip("board", "Accept up to 3 quests. Press J to see your journal; delivery quests are handed in here."); state.ui = { type: "board" }; audio.beep(480, 0.05); }
   else if (tile.kind === "plot") say(state.build[tile.plot] === "pending" ? `${BUILDINGS[tile.plot].name}: under construction (ready tomorrow).` : `Empty plot — ask Hazel the carpenter to build a ${BUILDINGS[tile.plot].name} (town, 9:00-17:00).`, 3.5);
@@ -980,8 +982,14 @@ const houseShop = () => HOUSE.slice(1).map((h, i) => {
 });
 const workshop = () => Object.entries(MACHINES).map(([t, m]) => ({ label: m.name, cost: 0, mats: m.cost, slot: ["item", "m_" + t], buy: () => addItem("m_" + t) }));
 const buildingsShop = () => ["coop", "barn", "silo", "greenhouse"].map(buildItem);
-const SHOP = page => page === 6 ? buildingsShop() : page === 5 ? workshop() : page === 4 ? houseShop() : page === 0
-  ? CROP_IDS.map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, slot: ["seed", k], buy: () => { addSeeds(k, 5); } }))
+const bakeryShop = () => [
+  { label: "Bread (+35 energy)", cost: 60, slot: ["item", "bread"], buy: () => addItem("bread") },
+  { label: "Pancakes (+50 energy)", cost: 130, slot: ["item", "pancakes"], buy: () => addItem("pancakes") },
+  { label: "Pumpkin Pie (+80 energy)", cost: 300, slot: ["item", "pie"], buy: () => addItem("pie") },
+  { label: "Cornbread (+60 energy)", cost: 200, slot: ["item", "cornbread"], buy: () => addItem("cornbread") },
+];
+const SHOP = page => page === 7 ? bakeryShop() : page === 6 ? buildingsShop() : page === 5 ? workshop() : page === 4 ? houseShop() : page === 0
+  ? [...CROP_IDS].sort((a, b) => CROPS[b].seasons.includes(seasonOf(state.day)) - CROPS[a].seasons.includes(seasonOf(state.day))).map(k => ({ label: `5x ${k} seeds [${seasonTag(k)}]`, cost: CROPS[k].seed * 5, slot: ["seed", k], buy: () => { addSeeds(k, 5); } }))
   : page === 1 ? [
     upgrade("Hoe", HOE_UPGRADES, state.hoeLevel, () => { state.hoeLevel++; }),
     upgrade("Watering can", CAN_UPGRADES, state.canLevel, () => { state.canLevel++; state.water = maxWater(); }),
@@ -1041,8 +1049,11 @@ function uiKey(k) {
   if (ui.type === "chest") return chestKey(ui, k, num, close);
   if (ui.type === "shop") {
     if (close) return void (state.ui = null);
-    if (k === "tab") { const ps = ui.pages || OLIVER_PAGES; if (ps.length > 1) ui.page = ps[(ps.indexOf(ui.page) + 1) % ps.length]; return; }
-    const item = SHOP(ui.page)[num];
+    if (k === "tab") { const ps = ui.pages || OLIVER_PAGES; if (ps.length > 1) { ui.page = ps[(ps.indexOf(ui.page) + 1) % ps.length]; ui.sub = 0; } return; }
+    const n = SHOP(ui.page).length;
+    if (k === "arrowright") return void (ui.sub = Math.min(Math.ceil(n / 9) - 1, (ui.sub || 0) + 1));
+    if (k === "arrowleft") return void (ui.sub = Math.max(0, (ui.sub || 0) - 1));
+    const item = num >= 0 ? SHOP(ui.page)[(ui.sub || 0) * 9 + num] : null;
     if (!item || item.cost === Infinity) return;
     if (item.slot && !holds(...item.slot)) return full();
     if (state.money < item.cost || !hasMats(item.mats)) return say(!hasMats(item.mats) ? `Needs ${matsText(item.mats)}` : "Not enough money!") ?? audio.beep(120, 0.15, "sawtooth");
@@ -1660,14 +1671,16 @@ function drawUi() {
 function drawUiInner(ui) {
   ctx.font = "9px monospace";
   if (ui.type === "shop") {
-    panel(40, 22, 400, 214, ui.only != null ? `WORKBENCH  (craft machines from materials)  E: close` : `${ui.pages ? "CARPENTER" : "SHOP"}: ${SHOP_PAGES[ui.page]} (page ${(ui.pages || OLIVER_PAGES).indexOf(ui.page) + 1}/${(ui.pages || OLIVER_PAGES).length})  $${state.money}  Tab: next  E: close`);
+    panel(40, 22, 400, 214, ui.only != null ? `WORKBENCH  (craft machines from materials)  E: close` : `${ui.title ? "BAKERY" : ui.pages ? "CARPENTER" : "SHOP"}: ${SHOP_PAGES[ui.page]} (page ${(ui.pages || OLIVER_PAGES).indexOf(ui.page) + 1}/${(ui.pages || OLIVER_PAGES).length})  $${state.money}  Tab: next  E: close`);
     if (ui.page === 4) {                                                             // what each house upgrade gives
       ctx.font = "9px monospace"; let dy = 142;
       HOUSE.slice(1).forEach(h => { txt(`${tr(h.name)}: ${tr(h.short)}`.slice(0, 74), 48, dy, state.house >= HOUSE.indexOf(h) ? "#8f8" : "#cfe8ff"); dy += 11; });
       txt(tf("Every upgrade adds +{0} max energy. Oliver needs 2 days to build.", HOUSE_ENERGY), 48, dy + 4, "#ffd23f");
     }
     if (ui.page === 5) { let dy = 112; for (const m of Object.values(MACHINES)) for (const l of wrap(`${tr(m.name)}: ${tr(m.desc)}`, 380)) { txt(l, 48, dy, "#cfe8ff"); dy += 11; } }
-    SHOP(ui.page).forEach((it, i) => {
+    const all = SHOP(ui.page), sub = Math.min(ui.sub || 0, Math.max(0, Math.ceil(all.length / 9) - 1));
+    if (all.length > 9) txt(`< ${sub + 1}/${Math.ceil(all.length / 9)} >  (arrows)`, 432, 205, "#c9a56a", "right");
+    all.slice(sub * 9, sub * 9 + 9).forEach((it, i) => {
       const ok = it.cost !== Infinity && state.money >= it.cost && hasMats(it.mats);
       txt(`${i + 1}. ${it.label}${it.cost === Infinity || !it.cost ? "" : "  $" + it.cost}${it.mats ? " + " + matsText(it.mats) : ""}`, 48, 36 + (i + 1) * 14, it.cost === Infinity ? "#777" : ok ? "#fff" : "#f87171");
     });

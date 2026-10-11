@@ -595,6 +595,19 @@ const UI = {
   "Quill: This is the final chapter. Or the first of a new one.": "Quill: Ez az utolsó fejezet. Vagy egy újnak az első.",
   "You hold the key to the community centre as the whole village cheers.": "A kezedben a közösségi ház kulcsa, miközben az egész falu éljenez.",
   "Esc: skip": "Esc: átugrás",
+  // bakery
+  "Bakery": "Pékség",
+  "BAKERY": "PÉKSÉG",
+  "Rosa's Bakery": "Rosa péksége",
+  "Bread": "Kenyér",
+  "bread": "kenyér",
+  "Bread (+35 energy)": "Kenyér (+35 energia)",
+  "Pancakes (+50 energy)": "Palacsinta (+50 energia)",
+  "Pumpkin Pie (+80 energy)": "Sütőtökös pite (+80 energia)",
+  "Cornbread (+60 energy)": "Kukoricakenyér (+60 energia)",
+  "{0} is closed. (Open {1}:00–{2}:00)": "{0} zárva van. (Nyitva {1}:00–{2}:00)",
+  "{0} is not here right now.": "{0} most nincs itt.",
+  "You can walk into the shops in town between 9:00 and 17:00: Hazel the carpenter (buildings, house upgrades) and Rosa's bakery (food).": "A város boltjaiba 9:00 és 17:00 között léphetsz be: Hazel az ács (épületek, házfejlesztések) és Rosa pékség (étel).",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons
@@ -615,7 +628,7 @@ const NAMES = {
   Stone: "Kő", "Copper Ore": "Rézérc", "Iron Ore": "Vasérc", "Gold Ore": "Aranyérc", Amethyst: "Ametiszt", Aquamarine: "Akvamarin", Ruby: "Rubin",
   "Fried Egg": "Tükörtojás", "Turnip Stew": "Fehérrépa-főzelék", "Veggie Soup": "Zöldségleves", "Pumpkin Pie": "Sütőtökös pite", "Fish Stew": "Halászlé",
   "Forest Salad": "Erdei saláta", Pancakes: "Palacsinta", Sushi: "Szusi", "Cactus Jam": "Kaktuszlekvár", Ratatouille: "Ratatouille", "Coconut Pudding": "Kókuszpuding", Cornbread: "Kukoricakenyér",
-  Egg: "Tojás", Turnip: "Fehérrépa", Potato: "Burgonya", Carrot: "Répa", Tomato: "Paradicsom", Corn: "Kukorica", Pumpkin: "Sütőtök", Eggplant: "Padlizsán", Cabbage: "Káposzta", Kale: "Kelkáposzta",
+  Egg: "Tojás", Turnip: "Fehérrépa", Potato: "Burgonya", Carrot: "Répa", Tomato: "Paradicsom", Corn: "Kukorica", Pumpkin: "Sütőtök", Eggplant: "Padlizsán", Cabbage: "Káposzta", Kale: "Kelkáposzta", Radish: "Retek", Strawberry: "Eper", Cauliflower: "Karfiol", Melon: "Dinnye", Pepper: "Paprika", Blueberry: "Áfonya", Beet: "Cékla", Artichoke: "Articsóka", Yam: "Édesburgonya", Parsnip: "Paszternák", Snowpea: "Hóborsó",
   Farming: "Gazdálkodás", Fishing: "Horgászat", Mining: "Bányászat", Foraging: "Gyűjtögetés", Combat: "Harc",
   Baker: "Pék", Shopkeeper: "Boltos", Angler: "Horgász", "Retired farmer": "Nyugdíjas gazda", "Beach fisher": "Tengerparti halász", "Desert nomad": "Sivatagi nomád", Botanist: "Botanikus", Writer: "Író",
   "Crop Bundle": "Termés csomag", "Forager's Bundle": "Gyűjtögető csomag", "Angler's Bundle": "Horgász csomag", "Miner's Bundle": "Bányász csomag",

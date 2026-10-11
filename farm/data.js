@@ -24,6 +24,7 @@ export const MONSTERS = {
   skeleton: { name: "Skeleton", hp: 8, dmg: 14, speed: 28, drop: "bone",    minFloor: 8, weight: 2 },
 };
 export const MISC = {
+  bread: { name: "Bread", price: 30 },
   milk:    { name: "Milk",            price: 50 },
   wood:    { name: "Wood",            price: 3 },
   hay:     { name: "Hay",             price: 5 },
@@ -57,6 +58,17 @@ export const CROPS = {
   eggplant: { days: 5, price: 45, seed: 15, seasons: [2], regrow: 3 },
   cabbage:  { days: 5, price: 50, seed: 15, seasons: [0, 3] },
   kale:     { days: 4, price: 45, seed: 12, seasons: [3] },
+  radish:     { days: 4, price: 30,  seed: 8,  seasons: [0, 1] },
+  strawberry: { days: 7, price: 45,  seed: 28, seasons: [0], regrow: 3 },
+  cauliflower:{ days: 8, price: 95,  seed: 28, seasons: [0] },
+  melon:      { days: 10, price: 120, seed: 35, seasons: [1] },
+  pepper:     { days: 5, price: 38,  seed: 18, seasons: [1], regrow: 2 },
+  blueberry:  { days: 8, price: 28,  seed: 24, seasons: [1], regrow: 2 },
+  beet:       { days: 6, price: 55,  seed: 14, seasons: [2, 3] },
+  artichoke:  { days: 8, price: 85,  seed: 24, seasons: [2] },
+  yam:        { days: 6, price: 58,  seed: 16, seasons: [2] },
+  parsnip:    { days: 4, price: 35,  seed: 10, seasons: [0, 3] },
+  snowpea:    { days: 6, price: 42,  seed: 15, seasons: [3], regrow: 2 },
 };
 
 export const FORAGE = {
@@ -157,6 +169,7 @@ export function itemInfo(id) {
   return FORAGE[id] || FISH[id] || ORES[id] || DISHES[id] || MISC[id] || (id === "egg" ? EGG : { name: id, price: 0 });
 }
 export function edibleEnergy(id) {
+  if (id === "bread") return 35;
   if (id === "cheese") return 25;
   if (id === "mayo") return 5;
   if (isArtisan(id)) return ARTISAN[id.split(":")[0]].energy;
