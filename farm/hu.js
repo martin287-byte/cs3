@@ -654,6 +654,10 @@ const UI = {
   "Waiting for {0} to go to bed…": "Várakozás, hogy {0} lefeküdjön…",
   "your friend": "a barátod",
   "Esc: cancel": "Esc: mégse",
+  "Could not start:": "Nem sikerült elindítani:",
+  "Enter your server address first (or use the codes option below — no server needed).": "Előbb add meg a szervered címét (vagy használd a lenti kódos módot — ahhoz nem kell szerver).",
+  "This page is served by a Tiny Valley server.": "Ezt az oldalt egy Tiny Valley szerver szolgálja ki.",
+  "This page has no Tiny Valley server of its own. Enter the address of one you run, or use the codes option (no server needed).": "Ennek az oldalnak nincs saját Tiny Valley szervere. Add meg egy általad futtatott szerver címét, vagy használd a kódos módot (szerver nélkül).",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

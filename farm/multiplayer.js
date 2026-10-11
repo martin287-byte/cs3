@@ -39,13 +39,18 @@ export function createMultiplayer(d) {
   const btn = (label, fn, cls = "") => el("button", { textContent: tr(label), className: cls, onclick: fn });
   const copy = async text => { try { await navigator.clipboard.writeText(text); msg = tr("Copied!"); } catch { msg = tr("Select the text and copy it."); } render(); };
 
-  const defaultServer = () => { try { const s = localStorage.getItem("tinyvalley-server"); if (s) return s; } catch {} return /^https?:/.test(location.protocol) ? (location.protocol === "https:" ? "wss://" : "ws://") + location.host : "ws://localhost:8080"; };
-  let serverUrl = defaultServer(), roomCode = "";
+  // The page's own address is only offered as the server if that address answers like a Tiny Valley server (/healthz).
+  const storedServer = () => { try { return localStorage.getItem("tinyvalley-server") || ""; } catch { return ""; } };
+  let serverUrl = storedServer(), roomCode = "", serverHint = "";
+  if (!serverUrl && /^https?:/.test(location.protocol)) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 2500);
+    fetch(location.origin + "/healthz", { signal: ctl.signal }).then(r => r.text()).then(t => { if (/^ok rooms=/.test(t) && !serverUrl) { serverUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host; serverHint = "here"; if (view === "rhost" || view === "rjoin") render(); } }).catch(() => {}).finally(() => clearTimeout(timer));
+  }
   const saveServer = u => { serverUrl = u.trim(); try { localStorage.setItem("tinyvalley-server", serverUrl); } catch {} };
-  async function doRelayHost(url) { saveServer(url); msg = tr("Connecting to the server…"); roomCode = ""; render(); try { roomCode = await net.relayHost(serverUrl); msg = tr("Waiting for your friend to join with this room code…"); } catch (e) { msg = tr("Could not start: ") + tr(e.message); } render(); }
-  async function doRelayJoin(url, codeText) { saveServer(url); msg = tr("Connecting to the server…"); render(); try { await net.relayJoin(serverUrl, codeText.trim()); } catch (e) { msg = tr("Could not start: ") + tr(e.message); render(); } }
+  async function doRelayHost(url) { if (!url.trim()) { msg = tr("Enter your server address first (or use the codes option below — no server needed)."); return render(); } saveServer(url); msg = tr("Connecting to the server…"); roomCode = ""; render(); try { roomCode = await net.relayHost(serverUrl); msg = tr("Waiting for your friend to join with this room code…"); } catch (e) { msg = tr("Could not start:") + " " + tr(e.message); } render(); }
+  async function doRelayJoin(url, codeText) { if (!url.trim()) { msg = tr("Enter your server address first (or use the codes option below — no server needed)."); return render(); } saveServer(url); msg = tr("Connecting to the server…"); render(); try { await net.relayJoin(serverUrl, codeText.trim()); } catch (e) { msg = tr("Could not start:") + " " + tr(e.message); render(); } }
   const coopBox = () => { const cb = el("input", { type: "checkbox", checked: coopWanted, onchange: () => { coopWanted = cb.checked; try { localStorage.setItem("tinyvalley-coop", coopWanted ? "1" : "0"); } catch {} } }); return el("p", {}, el("label", {}, cb, document.createTextNode(" " + tr("Share my farm (co-op): your friend plays on your farm"))), el("br"), el("span", { className: "dim", textContent: tr("Money, farm, animals and the clock are shared; the day ends when both of you are in bed. Your friend's own farm is kept safe.") })); };
-  async function doHost() { view = "host"; msg = tr("Creating your code…"); code = ""; render(); try { code = await net.host(); msg = tr("Send this code to your friend, then paste their reply below."); } catch (e) { msg = tr("Could not start: ") + e.message; } render(); }
+  async function doHost() { view = "host"; msg = tr("Creating your code…"); code = ""; render(); try { code = await net.host(); msg = tr("Send this code to your friend, then paste their reply below."); } catch (e) { msg = tr("Could not start:") + " " + e.message; } render(); }
   async function doJoin(text) { try { msg = tr("Creating the reply…"); render(); reply = await net.join(text); msg = tr("Send this reply code to the host. The game connects when they paste it."); } catch (e) { msg = tr("That code did not work."); } render(); }
   async function doAccept(text) { try { await net.accept(text); msg = tr("Connecting…"); } catch (e) { msg = tr("That reply did not work."); } render(); }
 
@@ -82,13 +87,13 @@ export function createMultiplayer(d) {
       root.append(el("p", { className: "dim", textContent: tr("No server (peer to peer): swap two short codes.") }));
       root.append(el("div", { className: "row" }, btn("Host with codes", doHost), btn("Join with codes", () => { view = "join"; msg = ""; reply = ""; render(); }), btn("Close", () => api.close())));
     } else if (view === "rhost") {
-      const url = el("input", { type: "text", value: serverUrl, placeholder: "ws://your-server:8080" });
-      root.append(el("p", { textContent: tr("Server address:") }), url);
+      const url = el("input", { type: "text", value: serverUrl, placeholder: "wss://your-server.example" });
+      root.append(el("p", { textContent: tr("Server address:") }), url, el("p", { className: "dim", textContent: tr(serverHint ? "This page is served by a Tiny Valley server." : "This page has no Tiny Valley server of its own. Enter the address of one you run, or use the codes option (no server needed).") }));
       if (roomCode) root.append(el("p", { className: "ok", textContent: tr("Room code:") + "  " + roomCode, style: "font-size:22px;letter-spacing:4px" }));
       root.append(el("div", { className: "row" }, btn("Create room", () => doRelayHost(url.value), "main"), btn("Back", () => { net.close(); view = "menu"; render(); })));
       root.append(el("p", { className: /could|not|full/i.test(msg) ? "bad" : "dim", textContent: msg }));
     } else if (view === "rjoin") {
-      const url = el("input", { type: "text", value: serverUrl, placeholder: "ws://your-server:8080" }), codeIn = el("input", { type: "text", placeholder: "ABCD", maxLength: 4, style: "width:70px;text-transform:uppercase" });
+      const url = el("input", { type: "text", value: serverUrl, placeholder: "wss://your-server.example" }), codeIn = el("input", { type: "text", placeholder: "ABCD", maxLength: 4, style: "width:70px;text-transform:uppercase" });
       root.append(el("p", { textContent: tr("Server address:") }), url, el("p", { textContent: tr("Room code:") }), el("div", { className: "row" }, codeIn, btn("Join", () => doRelayJoin(url.value, codeIn.value), "main"), btn("Back", () => { net.close(); view = "menu"; render(); })));
       root.append(el("p", { className: /could|not|full/i.test(msg) ? "bad" : "dim", textContent: msg }));
       root.append(el("p", { className: "dim", textContent: tr("Both players need this game open. Works over the internet in most cases; very strict networks may block it.") }));
