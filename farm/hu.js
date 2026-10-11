@@ -611,6 +611,17 @@ const UI = {
   "Oliver's General Store": "Oliver vegyesboltja",
   "E: enter shop": "E: belépés a boltba",
   "E: enter": "E: belépés",
+  // multiplayer
+  "Multiplayer — 2 players, peer to peer": "Többjátékos — 2 játékos, közvetlen kapcsolat", "Host a game": "Játék indítása", "Join a game": "Csatlakozás", "Close": "Bezár", "Back": "Vissza", "Copy": "Másolás", "Connect": "Csatlakoz", "Create reply": "Válasz készítése", "Send": "Küldés", "Send gift": "Ajándék küldése", "Disconnect": "Kapcsolat bontása",
+  "Play together: walk around the village side by side, chat and trade items. No server needed — you swap two short codes.": "Játsszatok együtt: sétáljatok egymás mellett a faluban, csevegjetek és cseréljetek tárgyakat. Szerver nem kell — két rövid kódot cseréltek.",
+  "Both players need this game open. Works over the internet in most cases; very strict networks may block it.": "Mindkét játékosnak nyitva kell lennie a játéknak. Az interneten át legtöbbször működik; nagyon szigorú hálózatok blokkolhatják.",
+  "1. Copy your code and send it to your friend.": "1. Másold ki a kódodat, és küldd el a barátodnak.", "2. Paste your friend's reply code:": "2. Illeszd be a barátod válaszkódját:", "2. Paste your friend's reply code here": "2. Illeszd be ide a barátod válaszkódját",
+  "1. Paste the host's code:": "1. Illeszd be a házigazda kódját:", "Paste the host's code here": "Illeszd be ide a házigazda kódját", "2. Send this reply to the host:": "2. Küldd el ezt a választ a házigazdának:",
+  "Creating your code…": "Kód készítése…", "Send this code to your friend, then paste their reply below.": "Küldd el ezt a kódot a barátodnak, majd illeszd be lent a válaszát.", "Could not start: ": "Nem sikerült elindítani: ",
+  "Creating the reply…": "Válasz készítése…", "Send this reply code to the host. The game connects when they paste it.": "Küldd el ezt a válaszkódot a házigazdának. Amint beilleszti, létrejön a kapcsolat.",
+  "That code did not work.": "Ez a kód nem működött.", "That reply did not work.": "Ez a válasz nem működött.", "Connecting…": "Csatlakozás…", "Copied!": "Kimásolva!", "Select the text and copy it.": "Jelöld ki a szöveget, és másold ki.",
+  "Connected to": "Kapcsolódva:", "Say something…": "Írj valamit…", "Send an item to your friend:": "Küldj egy tárgyat a barátodnak:", "You each keep your own farm and save. Press K to open this panel, Enter to chat.": "Mindketten a saját farmotokat és mentéseteket tartjátok meg. K: panel megnyitása, Enter: csevegés.",
+  "You don't have that many.": "Nincs ennyid.", "You sent": "Küldtél:", "Gift sent!": "Ajándék elküldve!", "joined the game.": "csatlakozott a játékhoz.", "sent you": "küldött neked:", "Your friend left the game.": "A barátod kilépett a játékból.", "Connected!": "Kapcsolódva!", "7. Multiplayer": "7. Többjátékos",
   // static page labels
   "INV": "TÁSKA", "QUEST": "KÜLD.", "SEED": "MAG", "MENU": "MENÜ", "MAP": "TÉRKÉP", "RIDE": "LÓ", "PLACE": "LOCSOLÓ", "MUSIC": "ZENE", "BACK": "VISSZA",
   // seasons

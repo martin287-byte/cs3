@@ -15,6 +15,7 @@ import { makeIntro } from "./intro.js";
 import { AXE_UPGRADES, MACHINES, machineRecipe } from "./data.js";
 import { BIRTHDAYS, BIRTHDAY_MULT, HEART_EVENTS, FAMILY, FAMILY_LINES, FINALE } from "./events.js";
 import { createCutscenes } from "./cutscene.js";
+import { createMultiplayer } from "./multiplayer.js";
 import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlots, count as slotCount } from "./pack.js";
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
@@ -233,7 +234,9 @@ function startGame(cont, skipIntro, slot) {
 // ---------------------------------------------------------------- input
 const keys = new Set();
 addEventListener("keydown", e => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || "")) return;                   // typing in the multiplayer panel
   const k = e.key.toLowerCase();
+  if (mp.isOpen && k === "escape") { mp.close(); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "tab"].includes(k)) e.preventDefault();
   if (!keys.has(k)) {
     if (scene === "builder" && builder.editing && !setUi) builder.key(k);                 // typing a name: letters must not trigger shortcuts
@@ -256,6 +259,8 @@ addEventListener("keydown", e => {
     else if (k === "j") state.ui = { type: "journal" };
     else if (k === "p") placeSprinkler();
     else if (k === "n") state.ui = { type: "map" };
+    else if (k === "k") mp.toggle();
+    else if (k === "enter" && mp.connected) mp.focusChat();
     else if (k === "h") toggleMount();
     else if (k === "escape") state.ui = { type: "pause" };
   }
@@ -1123,6 +1128,7 @@ function uiKey(k) {
     else if (k === "4") { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; }
     else if (k === "5") { state.ui = null; openSettings(); }
     else if (k === "6") { state.ui = null; scene = "title"; titleSel = 0; audio.startMusic("title"); }
+    else if (k === "7") { state.ui = null; mp.open(); }
   } else if (ui.type === "talk") talkKey(k, num);
 }
 
@@ -1283,6 +1289,7 @@ const cuts = createCutscenes({
   ctx, W, H, T, S, state: () => state, npcs, VILLAGERS, tr, wrap, woodFrame, audio,
   cam: () => camNow, getCam: () => camOverride, setCam: c => { camOverride = c; }, setMoving: v => { playerWalking = v; moving = v; },
 });
+const mp = createMultiplayer({ state: () => state, tr, say: (t, s) => say(t, s), addItem: (id, n) => addItem(id, n), itemInfo, makeSprites: look => makePerson(toSpriteLook(look)), moving: () => moving, mapName: k => maps[k]?.name || k });
 function startEventScene(id, lv) {                                                  // heart events and stories play as cutscenes
   const ev = HEART_EVENTS[id][lv], f = state.friend[id];
   state.ui = null;
@@ -1298,6 +1305,7 @@ function update(dt) {
   if (scene === "intro" && !setUi) intro.update(dt);
   if (scene === "builder" && !setUi) builder.update(dt);
   if (scene !== "game" || setUi) return;
+  mp.update(dt);
   if (cuts.active) { cuts.update(dt); walkT += dt; return; }
   state.msgT -= dt; state.fade = Math.max(0, state.fade - dt);
   if (state.map.startsWith("store_") && hourNow() >= STORES[state.map.slice(6)].open[1]) { const S0 = STORES[state.map.slice(6)]; goMap("town", S0.x + 1, S0.y + 2); say("It's closing time — you say goodbye and head out.", 3.5); }
@@ -1485,12 +1493,24 @@ function drawWorld() {
     const side = dir >= 2, img = side ? S.horse.side : dir === 0 ? S.horse.front : S.horse.back;
     things.push({ img, x: state.px - (side ? 8 : 1), y: state.py - (side ? 3 : 6), sort: state.py + 14, flip: dir === 3, sh: [state.px + 6, state.py + 14, 10, 3] });
   }
-  things.push({ img: S.player[dir][pf], x: state.px - 2, y: state.py + 14 - 24 - (state.mounted ? 7 : 0), sort: state.py + 14.5, sh: state.mounted ? null : [state.px + 6, state.py + 14, 5, 2] });
+  things.push({ img: S.player[dir][pf], x: state.px - 2, y: state.py + 14 - 24 - (state.mounted ? 7 : 0), sort: state.py + 14.5, sh: state.mounted ? null : [state.px + 6, state.py + 14, 5, 2], emote: mp.selfEmote?.e });
+  { const r = mp.remote;                                                              // the friend in multiplayer
+    if (r?.sprites && r.map === state.map) {
+      const rd = r.fy > 0 ? 0 : r.fy < 0 ? 1 : r.fx > 0 ? 2 : 3;
+      things.push({ img: r.sprites[rd][r.mv ? [1, 0, 2, 0][Math.floor(r.walk) % 4] : 0], x: r.dx - 2, y: r.dy + 14 - 24, sort: r.dy + 14.5, sh: [r.dx + 6, r.dy + 14, 5, 2], tag: r.name, bubble: r.say?.text, emote: r.emote?.e });
+    } }
   things.sort((a, b) => a.sort - b.sort);
   for (const t of things) if (t.sh) shadow(t.sh[0], t.sh[1], t.sh[2], t.sh[3]);
   for (const t of things) {
     if (t.hurt) ctx.globalAlpha = 0.55;
     if (t.sway) drawSwaying(ctx, t.img, t.x, t.y, clock, t.sway); else blit(t);
+    if (t.tag || t.bubble || t.emote) {
+      ctx.font = "8px monospace"; ctx.textAlign = "center";
+      if (t.tag) { ctx.fillStyle = "#000"; ctx.fillText(t.tag, t.x + 11, t.y - 1); ctx.fillStyle = "#9fe8ff"; ctx.fillText(t.tag, t.x + 10, t.y - 2); }
+      const label = t.bubble || t.emote;
+      if (label) { const w = Math.min(120, ctx.measureText(label).width + 8), bx = Math.round(t.x + 10 - w / 2), by = t.y - 20; ctx.fillStyle = "#2a1a12"; ctx.fillRect(bx - 1, by - 1, w + 2, 12); ctx.fillStyle = "#fff8e8"; ctx.fillRect(bx, by, w, 10); ctx.fillRect(t.x + 9, by + 10, 2, 2); ctx.fillStyle = "#2a1a12"; ctx.fillText(label.slice(0, 22), t.x + 10, by + 8); }
+      ctx.textAlign = "left"; ctx.font = "9px monospace";
+    }
     if (t.flame) { ctx.drawImage(S.flame[Math.floor(clock * 6) % 3], Math.round(t.flame[0]), Math.round(t.flame[1])); windowGlow(ctx, t.flame[0] + 6, t.flame[1] + 4, 46, 0.9, clock); }
     ctx.globalAlpha = 1;
     if (t.smoke && !state.rain) for (let i = 0; i < 4; i++) {                       // chimney smoke
@@ -1564,7 +1584,7 @@ function drawWorld() {
   if (indoor) { ctx.fillStyle = "rgba(255,190,110,.07)"; ctx.fillRect(0, 0, W, H); }
   if (!inMine) vignette(ctx, W, H, Math.max(0, Math.min(1, (hourNow() - 18) / 3)));
   if (state.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${state.fade / 0.4})`; ctx.fillRect(0, 0, W, H); }
-  if (!cuts.active) drawHud(hourNow(), x, y);
+  if (!cuts.active) { drawHud(hourNow(), x, y); mp.drawLog(ctx, W, H); }
 }
 
 function woodFrame(x, y, w, h, fill = "rgba(34,22,12,.93)") {
@@ -1743,7 +1763,7 @@ function drawUiInner(ui) {
   } else if (ui.type === "inv") drawInventory(ui);
   else if (ui.type === "pause") {
     panel(110, 62, 260, 140, "PAUSED");
-    ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Settings", "6. Quit to title"].forEach((s, i) => txt(s, 130, 90 + i * 16));
+    ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Settings", "6. Quit to title", "7. Multiplayer"].forEach((s, i) => txt(s, 130, 90 + i * 16));
   } else if (ui.type === "chest") {
     const chest = ui.which === "cellar" ? state.cellarChest : state.chest, cap = ui.which === "cellar" ? CELLAR_CAP : CHEST_CAP(state.house), used = Object.keys(chest).filter(x => chest[x] > 0).length;
     const list = ui.mode === "store" ? invItems() : Object.entries(chest).filter(([, n]) => n > 0).sort((a, b) => itemInfo(a[0]).name.localeCompare(itemInfo(b[0]).name)), pages = Math.max(1, Math.ceil(list.length / 9));
@@ -1810,6 +1830,7 @@ function drawMap() {
     if (seen) ctx.drawImage(mapThumb(id), x, y, w, h); else { ctx.fillStyle = "#8a8a94"; ctx.fillRect(x, y, w, h); }
     ctx.strokeStyle = cur ? `rgba(255,255,255,${0.7 + 0.3 * Math.sin(clock * 6)})` : "#4a3220"; ctx.lineWidth = cur ? 2 : 1; ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1); ctx.lineWidth = 1;
     txt(seen ? m.name : "???", cx, y - 3, "#3a2410", "center");
+    if (seen && mp.remote?.map === id) { ctx.fillStyle = "#4ad8ff"; ctx.fillRect(x + Math.round(mp.remote.x / T * k) - 2, y + Math.round(mp.remote.y / T * k) - 2, 4, 4); }
     if (seen) for (const [nid, n] of Object.entries(npcs)) if (n.map === id) { ctx.fillStyle = "#ff7a9c"; ctx.fillRect(x + Math.round(n.x / T * k) - 1, y + Math.round(n.y / T * k) - 1, 3, 3); }
     if (cur) { const px = x + Math.round(state.px / T * k), py = y + Math.round(state.py / T * k); ctx.fillStyle = "#14121f"; ctx.fillRect(px - 3, py - 3, 7, 7); ctx.fillStyle = Math.sin(clock * 8) > 0 ? "#ffd23f" : "#fff"; ctx.fillRect(px - 2, py - 2, 5, 5); }
   }
@@ -2207,7 +2228,7 @@ const builder = makeBuilder({ ctx, W, H, S, txt, woodFrame, beep: audio.beep, la
 // ---------------------------------------------------------------- boot
 if (location.search.includes("debug")) window.__farm = {
   S, get state() { return state; }, get maps() { return maps; }, get npcs() { return npcs; }, get fishing() { return fishing; },
-  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, makeAnimals, restoreCentre, get cuts() { return cuts; },  travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
+  sleep, useTool, startGame: (cont, skip = true) => startGame(cont, skip), builder: () => builder, selectSlot, get slots() { return state.slots; }, dropItem, addItem, sortSlots: () => sortSlots(state), enterHouse, ensureHouseMaps, chestKey, get scene() { return scene; }, intro: () => intro, goMap, enterMine, interact, cook, eat, startFestival, festProgress, swing, get monsters() { return monsters; }, get animals() { return animals; }, makeAnimals, restoreCentre, get cuts() { return cuts; }, get mp() { return mp; },  travelTo, hasPerk, openPerk, startDance, danceJudge, giveSpecial, openSettings, settingsKey, get setUi() { return setUi; }, untranslated, placePet, depositItem, toggleMount, placeSprinkler, genQuest, refreshBoard, questEvent, gainXp, skillLevel, turnIn, completeQuest,
 };
 particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 60 + Math.random() * 60 }));
 let last = performance.now();
