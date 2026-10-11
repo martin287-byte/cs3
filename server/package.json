@@ -1,0 +1,10 @@
+{
+  "name": "tiny-valley-server",
+  "version": "1.0.0",
+  "description": "Serves Tiny Valley and relays two-player co-op rooms over WebSocket.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

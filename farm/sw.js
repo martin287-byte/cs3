@@ -1,6 +1,6 @@
 // Network-first service worker: always tries the network, falls back to the cache when offline.
-const CACHE = "tinyvalley-v27";
-const FILES = ["./", "index.html", "main.js", "data.js", "world.js", "audio.js", "sprites.js", "px.js", "art.js", "art2.js", "touch.js", "pack.js", "art3.js", "art4.js", "art5.js", "art6.js", "cutscene.js", "net.js", "multiplayer.js", "events.js", "builder.js", "view.js", "fx.js", "intro.js", "i18n.js", "hu.js", "settings.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "tinyvalley-v28";
+const FILES = ["./", "index.html", "main.js", "data.js", "world.js", "audio.js", "sprites.js", "px.js", "art.js", "art2.js", "touch.js", "pack.js", "art3.js", "art4.js", "art5.js", "art6.js", "cutscene.js", "net.js", "coop.js", "multiplayer.js", "events.js", "builder.js", "view.js", "fx.js", "intro.js", "i18n.js", "hu.js", "settings.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));

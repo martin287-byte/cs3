@@ -1,6 +1,7 @@
 // Two-player peer-to-peer mode: you see each other walk around, chat, send emotes and gift items.
 // Each player keeps their own farm and save; there is no server (see net.js for the connection codes).
 import { createNet } from "./net.js";
+import { createCoop } from "./coop.js";
 
 const CSS = `
 #mp { position: fixed; z-index: 60; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94vw, 440px); max-height: 92vh; overflow: auto; box-sizing: border-box;
@@ -24,7 +25,8 @@ function cleanLook(l = {}) {
 }
 
 export function createMultiplayer(d) {
-  const net = createNet(); let selfEmote = null, remote = null, view = "menu", sendT = 0, msg = "", code = "", reply = "";
+  const net = createNet(); const coop = createCoop({ net, state: d.state, maps: d.maps, T: d.T, tr: d.tr, say: d.say, makeAnimals: d.makeAnimals, sleepNow: d.sleepNow, guestWake: d.guestWake });
+  let coopWanted = (() => { try { return localStorage.getItem("tinyvalley-coop") !== "0"; } catch { return true; } })(), selfEmote = null, remote = null, view = "menu", sendT = 0, msg = "", code = "", reply = "";
   const chatLog = [];                                                                      // { text, t } shown on the canvas
   const tr = d.tr;
   const logLine = (text, color = "#fff") => { chatLog.push({ text: clean(text, 90), color, t: 9 }); if (chatLog.length > 6) chatLog.shift(); };
@@ -37,6 +39,12 @@ export function createMultiplayer(d) {
   const btn = (label, fn, cls = "") => el("button", { textContent: tr(label), className: cls, onclick: fn });
   const copy = async text => { try { await navigator.clipboard.writeText(text); msg = tr("Copied!"); } catch { msg = tr("Select the text and copy it."); } render(); };
 
+  const defaultServer = () => { try { const s = localStorage.getItem("tinyvalley-server"); if (s) return s; } catch {} return /^https?:/.test(location.protocol) ? (location.protocol === "https:" ? "wss://" : "ws://") + location.host : "ws://localhost:8080"; };
+  let serverUrl = defaultServer(), roomCode = "";
+  const saveServer = u => { serverUrl = u.trim(); try { localStorage.setItem("tinyvalley-server", serverUrl); } catch {} };
+  async function doRelayHost(url) { saveServer(url); msg = tr("Connecting to the server…"); roomCode = ""; render(); try { roomCode = await net.relayHost(serverUrl); msg = tr("Waiting for your friend to join with this room code…"); } catch (e) { msg = tr("Could not start: ") + tr(e.message); } render(); }
+  async function doRelayJoin(url, codeText) { saveServer(url); msg = tr("Connecting to the server…"); render(); try { await net.relayJoin(serverUrl, codeText.trim()); } catch (e) { msg = tr("Could not start: ") + tr(e.message); render(); } }
+  const coopBox = () => { const cb = el("input", { type: "checkbox", checked: coopWanted, onchange: () => { coopWanted = cb.checked; try { localStorage.setItem("tinyvalley-coop", coopWanted ? "1" : "0"); } catch {} } }); return el("p", {}, el("label", {}, cb, document.createTextNode(" " + tr("Share my farm (co-op): your friend plays on your farm"))), el("br"), el("span", { className: "dim", textContent: tr("Money, farm, animals and the clock are shared; the day ends when both of you are in bed. Your friend's own farm is kept safe.") })); };
   async function doHost() { view = "host"; msg = tr("Creating your code…"); code = ""; render(); try { code = await net.host(); msg = tr("Send this code to your friend, then paste their reply below."); } catch (e) { msg = tr("Could not start: ") + e.message; } render(); }
   async function doJoin(text) { try { msg = tr("Creating the reply…"); render(); reply = await net.join(text); msg = tr("Send this reply code to the host. The game connects when they paste it."); } catch (e) { msg = tr("That code did not work."); } render(); }
   async function doAccept(text) { try { await net.accept(text); msg = tr("Connecting…"); } catch (e) { msg = tr("That reply did not work."); } render(); }
@@ -53,10 +61,11 @@ export function createMultiplayer(d) {
   }
 
   function render() {
-    root.replaceChildren(); root.append(el("h2", { textContent: tr("Multiplayer — 2 players, peer to peer") }));
+    root.replaceChildren(); root.append(el("h2", { textContent: tr("Multiplayer — 2 players") }));
     const status = net.status;
     if (status === "open" && remote) {
       root.append(el("p", { className: "ok", textContent: `${tr("Connected to")} ${remote.name} — ${remote.map ? tr(d.mapName(remote.map)) : ""}` }));
+      if (coop.active) root.append(el("p", { className: "ok", textContent: tr(coop.role === "host" ? "Co-op: your friend is playing on your farm." : "Co-op: you are playing on your friend's farm.") }));
       const chat = el("input", { type: "text", placeholder: tr("Say something…"), maxLength: 80 });
       const go = () => { const t = clean(chat.value, 80).trim(); if (t) { net.send({ t: "chat", text: t }); logLine(`${d.state().name || tr("You")}: ${t}`, "#cfe8ff"); chat.value = ""; } };
       chat.onkeydown = e => { if (e.key === "Enter") go(); };
@@ -64,11 +73,24 @@ export function createMultiplayer(d) {
       root.append(el("div", { className: "row" }, ...["👋", "♥", "!", "?", "♪"].map(e => el("button", { textContent: e, onclick: () => { net.send({ t: "emote", e }); selfEmote = { e, t: 2.5 }; } }))));
       root.append(el("p", { className: "dim", textContent: tr("Send an item to your friend:") }), giftRow());
       root.append(el("div", { className: "row" }, btn("Disconnect", () => { api.disconnect(); }, "warn"), btn("Close", () => api.close())));
-      root.append(el("p", { className: "dim", textContent: tr("You each keep your own farm and save. Press K to open this panel, Enter to chat.") }));
+      root.append(el("p", { className: "dim", textContent: tr(coop.active ? "Your own farm and save are kept safe while you play together. Press K to open this panel, Enter to chat." : "You each keep your own farm and save. Press K to open this panel, Enter to chat.") }));
       window.__mpFocusChat = () => chat.focus();
     } else if (view === "menu") {
-      root.append(el("p", { textContent: tr("Play together: walk around the village side by side, chat and trade items. No server needed — you swap two short codes.") }));
-      root.append(el("div", { className: "row" }, btn("Host a game", doHost, "main"), btn("Join a game", () => { view = "join"; msg = ""; reply = ""; render(); }, "main"), btn("Close", () => api.close())));
+      root.append(el("p", { textContent: tr("Play together on one farm, or just walk around the village side by side, chat and trade items.") }), coopBox());
+      root.append(el("p", { className: "dim", textContent: tr("Online room (needs a Tiny Valley server — see the server folder):") }));
+      root.append(el("div", { className: "row" }, btn("Create online room", () => { view = "rhost"; msg = ""; roomCode = ""; render(); }, "main"), btn("Join online room", () => { view = "rjoin"; msg = ""; render(); }, "main")));
+      root.append(el("p", { className: "dim", textContent: tr("No server (peer to peer): swap two short codes.") }));
+      root.append(el("div", { className: "row" }, btn("Host with codes", doHost), btn("Join with codes", () => { view = "join"; msg = ""; reply = ""; render(); }), btn("Close", () => api.close())));
+    } else if (view === "rhost") {
+      const url = el("input", { type: "text", value: serverUrl, placeholder: "ws://your-server:8080" });
+      root.append(el("p", { textContent: tr("Server address:") }), url);
+      if (roomCode) root.append(el("p", { className: "ok", textContent: tr("Room code:") + "  " + roomCode, style: "font-size:22px;letter-spacing:4px" }));
+      root.append(el("div", { className: "row" }, btn("Create room", () => doRelayHost(url.value), "main"), btn("Back", () => { net.close(); view = "menu"; render(); })));
+      root.append(el("p", { className: /could|not|full/i.test(msg) ? "bad" : "dim", textContent: msg }));
+    } else if (view === "rjoin") {
+      const url = el("input", { type: "text", value: serverUrl, placeholder: "ws://your-server:8080" }), codeIn = el("input", { type: "text", placeholder: "ABCD", maxLength: 4, style: "width:70px;text-transform:uppercase" });
+      root.append(el("p", { textContent: tr("Server address:") }), url, el("p", { textContent: tr("Room code:") }), el("div", { className: "row" }, codeIn, btn("Join", () => doRelayJoin(url.value, codeIn.value), "main"), btn("Back", () => { net.close(); view = "menu"; render(); })));
+      root.append(el("p", { className: /could|not|full/i.test(msg) ? "bad" : "dim", textContent: msg }));
       root.append(el("p", { className: "dim", textContent: tr("Both players need this game open. Works over the internet in most cases; very strict networks may block it.") }));
     } else if (view === "host") {
       root.append(el("p", { textContent: tr("1. Copy your code and send it to your friend.") }), el("textarea", { readOnly: true, value: code, onclick: e => e.target.select() }), btn("Copy", () => copy(code)));
@@ -83,15 +105,18 @@ export function createMultiplayer(d) {
     }
   }
 
-  net.onopen = () => { net.send({ t: "hi", name: d.state().name || "Farmer", look: d.state().look }); view = "live"; msg = ""; render(); d.say("Connected!", 2.5); };
-  net.onclose = () => { if (remote) d.say(tr("Your friend left the game."), 3.5); remote = null; view = "menu"; render(); };
+  net.onopen = () => { net.send({ t: "hi", name: d.state().name || "Farmer", look: d.state().look, coop: net.role === "host" && coopWanted }); view = "live"; msg = ""; render(); d.say("Connected!", 2.5); };
+  net.onclose = () => { if (remote) d.say(tr("Your friend left the game."), 3.5); coop.stop(); remote = null; view = "menu"; render(); };
   net.onmessage = m => {
     if (!m || typeof m !== "object") return;
     if (m.t === "hi") {
       const look = cleanLook(m.look); let sprites = null; try { sprites = d.makeSprites(look); } catch {}
       remote = { dx: 0, dy: 0, dm: null, name: clean(m.name, 14) || "Friend", look, sprites, map: null, mapName: "", x: 0, y: 0, fx: 0, fy: 1, mv: false, say: null, emote: null, walk: 0 };
-      logLine(`${remote.name} ${tr("joined the game.")}`, "#8f8"); render();
+      logLine(`${remote.name} ${tr("joined the game.")}`, "#8f8");
+      if (net.role === "guest" && m.coop) coop.start("guest"); else if (net.role === "host" && coopWanted) coop.start("host");
+      render();
     } else if (!remote) return;
+    else if (coop.message(m)) return;
     else if (m.t === "p") {
       remote.map = clean(m.m, 20); remote.x = num(m.x, -64, 4000); remote.y = num(m.y, -64, 4000); remote.fx = Math.sign(num(m.fx, -1, 1)); remote.fy = Math.sign(num(m.fy, -1, 1)); remote.mv = !!m.mv;
       if (remote.mapName !== remote.map) { remote.mapName = remote.map; if (view === "live") render(); }
@@ -109,8 +134,10 @@ export function createMultiplayer(d) {
     close() { root.style.display = "none"; }, get isOpen() { return root.style.display === "block"; },
     toggle() { root.style.display === "block" ? api.close() : api.open(); },
     focusChat() { api.open(); setTimeout(() => window.__mpFocusChat?.(), 30); },
-    disconnect() { net.close(); remote = null; view = "menu"; render(); },
+    disconnect() { coop.stop(); net.close(); remote = null; view = "menu"; render(); },
+    get coop() { return coop; }, sleepGate: f => coop.gate(f), saveView: () => coop.saveView(),
     update(dt) {                                                                           // send our position ~10x a second, age bubbles
+      coop.update(dt);
       for (const l of chatLog) l.t -= dt; while (chatLog.length && chatLog[0].t <= 0) chatLog.shift();
       if (remote) { for (const k of ["say", "emote"]) if (remote[k] && (remote[k].t -= dt) <= 0) remote[k] = null; if (remote.mv) remote.walk += dt * 8; }
       if (selfEmote && (selfEmote.t -= dt) <= 0) selfEmote = null;

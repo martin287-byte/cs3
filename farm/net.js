@@ -39,10 +39,37 @@ export function createNet() {
     pc = new RTCPeerConnection({ iceServers: ICE });
     pc.onconnectionstatechange = () => { if (["failed", "disconnected", "closed"].includes(pc.connectionState) && net.status === "open") { setStatus("closed"); net.onclose?.(); } };
   }
-  net.host = async () => { make(); net.role = "host"; setStatus("hosting"); wire(pc.createDataChannel("tv", { ordered: true })); await pc.setLocalDescription(await pc.createOffer()); await gathered(); return encodeCode(pc.localDescription.toJSON()); };
+  net.host = async () => { make(); net.transport = "p2p"; net.role = "host"; setStatus("hosting"); wire(pc.createDataChannel("tv", { ordered: true })); await pc.setLocalDescription(await pc.createOffer()); await gathered(); return encodeCode(pc.localDescription.toJSON()); };
   net.accept = async code => { if (!pc || net.role !== "host") throw new Error("not hosting"); await pc.setRemoteDescription(await decodeCode(code)); setStatus("connecting"); };
   net.join = async code => { const offer = await decodeCode(code); make(); net.role = "guest"; setStatus("joining"); pc.ondatachannel = e => wire(e.channel); await pc.setRemoteDescription(offer); await pc.setLocalDescription(await pc.createAnswer()); await gathered(); return encodeCode(pc.localDescription.toJSON()); };
-  net.send = obj => { if (ch && ch.readyState === "open") ch.send(JSON.stringify(obj)); };
-  net.close = () => { const had = pc; setStatus("idle"); try { ch?.close(); } catch {} try { had?.close(); } catch {} pc = ch = null; };
+  // ---- relay transport: both players connect to a Tiny Valley server and meet in a 4-letter room ----
+  let ws = null;
+  function relay(url, first) {
+    net.close(); setStatus("connecting"); net.transport = "relay"; net.error = "";
+    return new Promise((resolve, reject) => {
+      let sock; try { sock = new WebSocket(url); } catch (e) { setStatus("idle"); return reject(new Error("bad server address")); }
+      ws = sock; let settled = false;
+      const fail = msg => { if (!settled) { settled = true; setStatus("idle"); reject(new Error(msg)); } };
+      sock.onopen = () => sock.send(JSON.stringify(first));
+      sock.onerror = () => { fail("could not reach the server"); };
+      sock.onclose = () => { if (!settled) fail("connection closed"); else if (net.status === "open") { setStatus("closed"); net.onclose?.(); } };
+      sock.onmessage = e => {
+        let m; try { m = JSON.parse(e.data); } catch { return; }
+        if (m.t === "srv:hosted") { settled = true; setStatus("hosting"); net.room = m.code; resolve(m.code); }
+        else if (m.t === "srv:joined") { settled = true; setStatus("open"); net.onopen?.(); resolve(); }
+        else if (m.t === "srv:peer") { setStatus("open"); net.onopen?.(); }
+        else if (m.t === "srv:error") { net.error = m.msg; fail(m.msg); try { sock.close(); } catch {} }
+        else if (m.t === "srv:peerleft") { if (net.status === "open") { setStatus("closed"); net.onclose?.(); } }
+        else if (!String(m.t).startsWith("srv:")) net.onmessage?.(m);
+      };
+    });
+  }
+  net.relayHost = url => { net.role = "host"; return relay(url, { t: "srv:host" }); };
+  net.relayJoin = (url, code) => { net.role = "guest"; return relay(url, { t: "srv:join", code }); };
+  net.send = obj => {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+    else if (ch && ch.readyState === "open") ch.send(JSON.stringify(obj));
+  };
+  net.close = () => { const had = pc, sock = ws; setStatus("idle"); net.transport = null; net.room = ""; try { ch?.close(); } catch {} try { had?.close(); } catch {} try { if (sock) { sock.onclose = null; sock.close(); } } catch {} pc = ch = ws = null; };
   return net;
 }

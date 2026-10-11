@@ -180,7 +180,7 @@ function spawnForage() {
 
 function writeSave(n) {
   try {
-    localStorage.setItem(SLOT_KEYS[n], JSON.stringify({ maps, state }));
+    const view = mp.saveView(); localStorage.setItem(SLOT_KEYS[n], JSON.stringify(view || { maps, state }));
     const meta = readMeta(); meta[n] = { name: state.name || "", day: state.day, money: state.money, t: Date.now() };
     localStorage.setItem(META_KEY, JSON.stringify(meta)); return true;
   } catch { return false; }
@@ -548,7 +548,7 @@ function updateMonsters(dt) {
 }
 function hurtPlayer(n) {
   state.hp -= n; invuln = hasPerk("acrobat") ? 1.6 : 1; audio.beep(120, 0.2, "sawtooth"); say(`Ouch! -${n} HP`, 1.2);
-  if (state.hp <= 0) { const lost = Math.min(Math.floor(state.money * 0.1), 500); state.money -= lost; sleep(); say(`You were knocked out in the mine! Lost $${lost}.`, 5); }
+  if (state.hp <= 0) { const lost = Math.min(Math.floor(state.money * 0.1), 500); state.money -= lost; forceSleep(`You were knocked out in the mine! Lost $${lost}.`, 5); }
 }
 
 // ---------------------------------------------------------------- fishing
@@ -1129,7 +1129,8 @@ function uiKey(k) {
     else if (k === "5") { state.ui = null; openSettings(); }
     else if (k === "6") { state.ui = null; scene = "title"; titleSel = 0; audio.startMusic("title"); }
     else if (k === "7") { state.ui = null; mp.open(); }
-  } else if (ui.type === "talk") talkKey(k, num);
+  } else if (ui.type === "waitsleep") { if (k === "escape" || k === "e") mp.coop.cancelWait(); }
+  else if (ui.type === "talk") talkKey(k, num);
 }
 
 function talkKey(k, num) {
@@ -1203,7 +1204,8 @@ function addFriend(id, pts) {
   }
 }
 
-function sleep() {
+function sleep(forced = false) { mp.sleepGate(forced); }
+function sleepNow() {
   const old = seasonOf(state.day);
   let extra = "";
   if (state.spouse) {                                                                // spouse waters some crops
@@ -1289,7 +1291,20 @@ const cuts = createCutscenes({
   ctx, W, H, T, S, state: () => state, npcs, VILLAGERS, tr, wrap, woodFrame, audio,
   cam: () => camNow, getCam: () => camOverride, setCam: c => { camOverride = c; }, setMoving: v => { playerWalking = v; moving = v; },
 });
-const mp = createMultiplayer({ state: () => state, tr, say: (t, s) => say(t, s), addItem: (id, n) => addItem(id, n), itemInfo, makeSprites: look => makePerson(toSpriteLook(look)), moving: () => moving, mapName: k => maps[k]?.name || k });
+const mp = createMultiplayer({ state: () => state, maps: () => maps, T, tr, say: (t, s) => say(t, s), addItem: (id, n) => addItem(id, n), itemInfo, makeSprites: look => makePerson(toSpriteLook(look)), moving: () => moving, mapName: k => maps[k]?.name || k,
+  makeAnimals: () => makeAnimals(), sleepNow: () => sleepNow(), guestWake: () => guestWake() });
+function forceSleep(msg, secs) {                                                         // passing out / being knocked out ends the day for everyone in co-op
+  if (state.ui?.type === "waitsleep") return;
+  sleep(true); if (!mp.coop.active || mp.coop.role === "host") say(msg, secs);
+}
+function guestWake() {                                                              // the personal half of a new day, when the host ran the overnight update
+  state.energy = maxEnergy(); state.hp = maxHp(); invuln = 0; monsters = []; fishing = null; state.mounted = false; state.ui = null;
+  for (const id in state.friend) { state.friend[id].talked = false; state.friend[id].gifted = false; }
+  const expired = state.quests.filter(q => q.deadline < state.day); if (expired.length) state.quests = state.quests.filter(q => q.deadline >= state.day);
+  refreshBoard(); spawnForage(); ensureHouseMaps(); state.map = "house"; state.px = maps.house.spawn.x * T; state.py = maps.house.spawn.y * T; state.fx = 0; state.fy = 1; placePet();
+  audio.startMusic(mood()); save(); writeSave(0);
+  say(`${tf("Day {0}", state.day)}${state.rain ? ` — ${tf(seasonOf(state.day) === 3 ? "snowing" : "raining")}` : ""}.`, 4);
+}
 function startEventScene(id, lv) {                                                  // heart events and stories play as cutscenes
   const ev = HEART_EVENTS[id][lv], f = state.friend[id];
   state.ui = null;
@@ -1376,7 +1391,7 @@ function update(dt) {
   for (const w of cur().warps) if (fx >= w.x && fx < w.x + w.w && fy >= w.y && fy < w.y + w.h) { goMap(w.to, w.tx, w.ty); break; }
 
   state.minutes += dt * (10 / 3);                    // ~6 real minutes per 20h day
-  if (state.minutes >= 26 * 60) { sleep(); say("You passed out... and woke up at home."); }
+  if (state.minutes >= 26 * 60) forceSleep("You passed out... and woke up at home.", 3);
 }
 
 // ---------------------------------------------------------------- drawing
@@ -1761,7 +1776,10 @@ function drawUiInner(ui) {
     });
     txt("Eat food from the inventory (I, then a number). Befriend villagers to learn more recipes.", 48, 222, "#9aa");
   } else if (ui.type === "inv") drawInventory(ui);
-  else if (ui.type === "pause") {
+  else if (ui.type === "waitsleep") {
+    panel(110, 88, 260, 70, "GOOD NIGHT");
+    txt(tf("Waiting for {0} to go to bed…", mp.remote?.name || tr("your friend")), 240, 120, "#ffd23f", "center"); txt("Esc: cancel", 240, 140, "#9aa", "center");
+  } else if (ui.type === "pause") {
     panel(110, 62, 260, 140, "PAUSED");
     ["1. Resume", "2. Save game", `3. Music: ${audio.isMuted() ? "off" : "on"}`, `4. Tutorial hints: ${state.tut.on ? "on" : "off"}`, "5. Settings", "6. Quit to title", "7. Multiplayer"].forEach((s, i) => txt(s, 130, 90 + i * 16));
   } else if (ui.type === "chest") {
