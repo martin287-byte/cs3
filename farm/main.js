@@ -2220,6 +2220,11 @@ initTouch(); initView();
 // Static page labels follow the language setting.
 const domText = [...document.querySelectorAll("#controls button[data-key], #rotate")].filter(el => el.id !== "more" && el.id !== "gear");
 for (const el of domText) if (/[A-Za-z]{2,}/.test(el.textContent)) el.dataset.en = el.textContent;
+// Desktop: go fullscreen on the first click or key press (browsers only allow it after a gesture). F11 / Esc leave it as usual.
+if (!document.body.classList.contains("touch")) {
+  const goFs = () => { const el = document.documentElement; if (!document.fullscreenElement) Promise.resolve((el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)).catch(() => {}); };
+  addEventListener("pointerdown", goFs, { once: true }); addEventListener("keydown", goFs, { once: true });
+}
 const helpEl = document.getElementById("help"); if (helpEl) helpEl.dataset.en = helpEl.innerHTML;
 function applyDom() {
   document.documentElement.lang = lang();
