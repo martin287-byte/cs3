@@ -25,7 +25,14 @@ import { settings, setSetting, onSetting, CTRL_SIZES } from "./settings.js";
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
-const W = canvas.width, H = canvas.height;
+const W = 480, H = 270;                                                            // logical size; the backing store is a whole-number multiple of it so text and sprites stay sharp
+let sharp = 1;
+function fitBackbuffer() {
+  const touch = document.body.classList.contains("touch"), shown = (canvas.clientWidth || 960) * (window.devicePixelRatio || 1);
+  const k = Math.max(1, Math.min(touch ? 3 : 4, Math.round(shown / W)));
+  if (k !== sharp || canvas.width !== W * k) { sharp = k; canvas.width = W * k; canvas.height = H * k; }
+}
+addEventListener("resize", fitBackbuffer); if (typeof ResizeObserver !== "undefined") new ResizeObserver(fitBackbuffer).observe(canvas);
 const SLOT_KEYS = { 1: "tinyvalley-save-v10", 2: "tinyvalley-save-slot2", 3: "tinyvalley-save-slot3", 0: "tinyvalley-save-auto" };   // slot 1 keeps the original key
 const META_KEY = "tinyvalley-save-meta";
 const TOOL_NAMES = { axe: "Axe", hoe: "Hoe", can: "Watering Can", rod: "Fishing Rod", pick: "Pickaxe", sword: "Sword" };
@@ -2257,6 +2264,7 @@ particles = Array.from({ length: 70 }, () => ({ x: Math.random() * W, y: Math.ra
 let last = performance.now();
 (function frame(now) {
   update(Math.max(0, Math.min(0.05, (now - last) / 1000))); last = now;
+  fitBackbuffer(); ctx.setTransform(sharp, 0, 0, sharp, 0, 0); ctx.imageSmoothingEnabled = false;
   ctx.font = "9px monospace";
   if (scene === "title") drawTitle(); else if (scene === "intro") intro.draw(); else if (scene === "builder") builder.draw(); else { drawWorld(); cuts.draw(); if (!cuts.active) drawGear(); }
   if (slotUi) drawSlotUi();
