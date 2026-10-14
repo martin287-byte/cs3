@@ -20,11 +20,15 @@ import { COLS, defaultSlots, ensureSlot, canHold, syncSlots, sortSlots, usedSlot
 import { makeBuilder, toSpriteLook } from "./builder.js";
 import { makePerson, PLAYER_LOOK } from "./art.js";
 import { setSun, sunShift, sunStretch, grassDeco, waterSparkle, drawSwaying, emit, ripple, clearFx, updateFx, drawFx, vignette, sunGlow, windowGlow, litWindows } from "./fx.js";
-import { settings, setSetting, onSetting, CTRL_SIZES } from "./settings.js";
+import { settings, setSetting, onSetting, CTRL_SIZES, TEXT_SIZES } from "./settings.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
+{                                                                                   // every "Npx monospace" the game sets is scaled by the text-size setting (the canvas is high-resolution, so small text stays sharp)
+  const proto = Object.getPrototypeOf(ctx), desc = Object.getOwnPropertyDescriptor(proto, "font");
+  Object.defineProperty(ctx, "font", { get() { return desc.get.call(this); }, set(v) { desc.set.call(this, typeof v === "string" ? v.replace(/(\d+(?:\.\d+)?)px/, (m, n) => (+n >= 20 ? m : `${(+n * settings().text).toFixed(2)}px`)) : v); } });
+}
 const W = 480, H = 270;                                                            // logical size; the backing store is a whole-number multiple of it so text and sprites stay sharp
 let sharp = 1;
 function fitBackbuffer() {
@@ -2152,6 +2156,7 @@ function settingsRows() {
   if (scene === "game" && state) rows.push({ id: "tut", label: `Tutorial hints: ${state.tut.on ? "on" : "off"}`, go: () => { state.tut.on = !state.tut.on; if (state.tut.on && state.tut.step >= TUT_DONE.length) state.tut.step = 0; } });
   rows.push({ id: "screen", label: `Phone screen: ${{ normal: "Upright", cw: "Rotated right", ccw: "Rotated left" }[c.screen] ?? "Upright"}`, go: () => setSetting("screen", { normal: "cw", cw: "ccw", ccw: "normal" }[c.screen] ?? "cw") });
   rows.push({ id: "ctrl", label: `Touch controls: ${SIZE_NAMES[CTRL_SIZES.indexOf(c.ctrl)] ?? "Medium"}`, go: () => setSetting("ctrl", CTRL_SIZES[(Math.max(0, CTRL_SIZES.indexOf(c.ctrl)) + 1) % CTRL_SIZES.length]) });
+  rows.push({ id: "text", label: `Text size: ${SIZE_NAMES[TEXT_SIZES.indexOf(c.text)] ?? "Medium"}`, go: () => setSetting("text", TEXT_SIZES[(Math.max(0, TEXT_SIZES.indexOf(c.text)) + 1) % TEXT_SIZES.length]) });
   rows.push({ id: "haptics", label: `Vibration: ${c.haptics ? "on" : "off"}`, go: () => setSetting("haptics", !c.haptics) });
   return rows;
 }

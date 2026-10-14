@@ -190,7 +190,7 @@ const UI = {
   "W/S select · Enter start · M toggles music · O settings": "W/S: választ · Enter: indít · M: zene · O: beállítások",
   // settings
   "SETTINGS": "BEÁLLÍTÁSOK", "Language: {0}": "Nyelv: {0}", "Music: {0}": "Zene: {0}", "Sound effects: {0}": "Hangeffektek: {0}",
-  "Tutorial hints: {0}": "Oktatási tippek: {0}", "Touch controls: {0}": "Érintőgombok: {0}", "Vibration: {0}": "Rezgés: {0}", "E / O: close": "E / O: bezár",
+  "Tutorial hints: {0}": "Oktatási tippek: {0}", "Touch controls: {0}": "Érintőgombok: {0}", "Text size: {0}": "Szövegméret: {0}", "Vibration: {0}": "Rezgés: {0}", "E / O: close": "E / O: bezár",
   "on": "be", "off": "ki", "no": "nincs", "none": "nincs", "yes": "van", "Small": "Kicsi", "Medium": "Közepes", "Large": "Nagy",
   // maps
   "Town": "Város", "Beach": "Part", "Desert": "Sivatag", "Island": "Sziget", "Mine {0}F": "Bánya {0}. szint",
